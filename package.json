@@ -4,7 +4,7 @@
   "private": true,
   "description": "WYSIWYG HTML outliner with expand/collapse, editing, and promote/demote",
   "scripts": {
-    "test": "node --test tests/outliner.test.js",
+    "test": "node --test tests/*.test.js",
     "start": "python3 -m http.server 8765"
   },
   "devDependencies": {
