@@ -1,0 +1,282 @@
+:root {
+  --ink: #1c1a16;
+  --muted: #5c574e;
+  --paper: #f7f4ee;
+  --paper-2: #efeae0;
+  --line: #d2cbbd;
+  --accent: #2f5d50;
+  --accent-soft: #dce8e3;
+  --handle: #8a8378;
+  --focus: #3b7a6a;
+  --shadow: 0 10px 30px rgba(40, 35, 25, 0.08);
+  --font-ui: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-body: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background:
+    radial-gradient(ellipse at top left, #fffdf8 0%, transparent 55%),
+    linear-gradient(180deg, var(--paper) 0%, var(--paper-2) 100%);
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  min-height: 100vh;
+}
+
+.chrome {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1.75rem 1.25rem 0.75rem;
+}
+
+.chrome h1 {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  margin: 0.35rem 0 1rem;
+  color: var(--muted);
+  max-width: 36rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
+.toolbar button {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+.toolbar button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.toolbar button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.hints {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+  background: #fff;
+}
+
+main {
+  max-width: 52rem;
+  margin: 0 auto 3rem;
+  padding: 0.5rem 1.25rem 2rem;
+}
+
+/* Classic HTML outline numbering: A. 1. a. i. */
+ol.outline,
+ol.outline ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+ol.outline {
+  counter-reset: level1;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.85rem 0.75rem 0.85rem 0.5rem;
+  box-shadow: var(--shadow);
+}
+
+ol.outline > li {
+  counter-increment: level1;
+}
+
+ol.outline > li > .row .text::before {
+  content: counter(level1, upper-alpha) ".";
+}
+
+ol.outline > li > ol {
+  counter-reset: level2;
+}
+
+ol.outline > li > ol > li {
+  counter-increment: level2;
+}
+
+ol.outline > li > ol > li > .row .text::before {
+  content: counter(level2) ".";
+}
+
+ol.outline > li > ol > li > ol {
+  counter-reset: level3;
+}
+
+ol.outline > li > ol > li > ol > li {
+  counter-increment: level3;
+}
+
+ol.outline > li > ol > li > ol > li > .row .text::before {
+  content: counter(level3, lower-alpha) ".";
+}
+
+ol.outline > li > ol > li > ol > li > ol {
+  counter-reset: level4;
+}
+
+ol.outline > li > ol > li > ol > li > ol > li {
+  counter-increment: level4;
+}
+
+ol.outline > li > ol > li > ol > li > ol > li > .row .text::before {
+  content: counter(level4, lower-roman) ".";
+}
+
+ol.outline > li > ol > li > ol > li > ol > li > ol {
+  counter-reset: level5;
+}
+
+ol.outline > li > ol > li > ol > li > ol > li > ol > li {
+  counter-increment: level5;
+}
+
+ol.outline > li > ol > li > ol > li > ol > li > ol > li > .row .text::before {
+  content: counter(level5) ".";
+}
+
+ol.outline li {
+  margin: 0;
+}
+
+ol.outline ol {
+  margin-left: 1.15rem;
+  padding-left: 0.35rem;
+  border-left: 1px solid rgba(210, 203, 189, 0.7);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+  gap: 0.35rem;
+  align-items: start;
+  padding: 0.18rem 0.25rem;
+  border-radius: 6px;
+}
+
+.row:hover {
+  background: rgba(47, 93, 80, 0.05);
+}
+
+.row:focus-within {
+  background: rgba(47, 93, 80, 0.08);
+}
+
+.toggle {
+  appearance: none;
+  width: 1.1rem;
+  height: 1.25rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--handle);
+  cursor: pointer;
+  font-size: 0.7rem;
+  line-height: 1.25rem;
+  text-align: center;
+}
+
+.toggle::before {
+  content: "•";
+  opacity: 0.45;
+}
+
+[data-item][data-has-children="true"] > .row > .toggle::before {
+  content: "▾";
+  opacity: 1;
+}
+
+[data-item][data-has-children="true"][data-state="collapsed"] > .row > .toggle::before {
+  content: "▸";
+}
+
+[data-item][data-has-children="false"] > .row > .toggle {
+  cursor: default;
+}
+
+[data-item][data-has-children="true"] > .row > .toggle:hover {
+  color: var(--accent);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
+.text {
+  min-height: 1.25rem;
+  outline: none;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.text::before {
+  display: inline-block;
+  min-width: 1.5rem;
+  margin-right: 0.35rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.92em;
+}
+
+.text:focus {
+  border-radius: 3px;
+}
+
+@media (max-width: 640px) {
+  .chrome,
+  main {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+
+  ol.outline ol {
+    margin-left: 0.7rem;
+  }
+}
