@@ -108,22 +108,33 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
   async function saveWithName(title) {
     const name = String(title || '').trim() || 'Untitled';
     await withBusy('Saving to cloud…', async () => {
+      const previousTitle = String(outline.getTitle?.() || '').trim();
+      let id = outline.getOutlineId?.();
+      // New name while an outline is open → Save As (create), so Open can list each name.
+      const saveAsNew = Boolean(id) && name !== previousTitle;
+
       outline.setTitle?.(name);
       const opml = outline.toOpml();
-      let id = outline.getOutlineId?.();
-      let revision = outline.getRevision?.();
-      let leaseToken = outline.getLeaseToken?.();
 
-      if (!id) {
+      if (!id || saveAsNew) {
+        if (saveAsNew) {
+          outline.setOutlineId?.(null);
+          outline.setRevision?.(null);
+          outline.setLeaseToken?.(null);
+        }
         const created = await cloud.createOutline({ title: name, opml });
         id = created.id;
-        revision = created.revision ?? 1;
+        const revision = created.revision ?? 1;
         outline.setOutlineId?.(id);
         outline.setRevision?.(revision);
+        outline.setLeaseToken?.(null);
         if (outline.syncUrl) outline.syncUrl(id);
         setStatus(`Saved “${name}”`);
         return;
       }
+
+      let revision = outline.getRevision?.();
+      let leaseToken = outline.getLeaseToken?.();
 
       if (revision == null && cloud.getOutline) {
         const got = await cloud.getOutline(id);

@@ -201,4 +201,47 @@ describe('cloud UI', () => {
     await new Promise((r) => setTimeout(r, 0));
     assert.equal(revision, 4);
   });
+
+  it('creates a new cloud outline when saving under a different name (Save As)', async () => {
+    outlineId = 'existing-1';
+    outline.getTitle = () => 'Old name';
+    outline.getRevision = () => 2;
+    outline.getLeaseToken = () => 'lease';
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('btn-cloud-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    document.getElementById('cloud-save-name').value = 'Brand new name';
+    document.getElementById('cloud-save-form').dispatchEvent(
+      new dom.window.Event('submit', { bubbles: true, cancelable: true }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(createdCalls.length, 1);
+    assert.equal(createdCalls[0].title, 'Brand new name');
+    assert.equal(savedCalls.length, 0);
+    assert.equal(outlineId, 'new-1');
+  });
+
+  it('updates the current cloud outline when saving under the same name', async () => {
+    outlineId = 'existing-1';
+    outline.getTitle = () => 'Same name';
+    outline.getRevision = () => 2;
+    outline.getLeaseToken = () => 'lease';
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('btn-cloud-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    document.getElementById('cloud-save-name').value = 'Same name';
+    document.getElementById('cloud-save-form').dispatchEvent(
+      new dom.window.Event('submit', { bubbles: true, cancelable: true }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(createdCalls.length, 0);
+    assert.equal(savedCalls.length, 1);
+    assert.equal(savedCalls[0].id, 'existing-1');
+  });
 });
