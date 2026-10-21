@@ -12,6 +12,10 @@ A browser-based WYSIWYG outliner built on nested HTML lists. Edit text in place,
 - OPML 2.0 save and open (including expansion state)
 - Optional **Sign in with Google** + **Save / Open from cloud** (GCP App Engine API)
 
+**This repository** ([tameware/outliner](https://github.com/tameware/outliner)) is the canonical open-source project. It has **no** tie to any particular cloud account: the committed `config.js` is `null`, and GitHub Pages is a local-only demo.
+
+**Production** (sign-in + save to GCP) lives in the separate [tameware](https://github.com/tameware) site repo (`src/tameware`), which vendors this app under `/outliner/` and keeps deployment config out of this project.
+
 Demo: [tameware.github.io/outliner](https://tameware.github.io/outliner/)
 
 ## Try it
@@ -59,21 +63,18 @@ Uses Node’s built-in test runner and [jsdom](https://github.com/jsdom/jsdom).
 
 ## Cloud save (optional)
 
-Local OPML **Save file** / **Open file** always work. Cloud controls appear only when config sets an `apiBase`.
+Local OPML **Save file** / **Open file** always work. This OSS tree does not include a hosted backend.
 
-**Do not put secrets in committed `config.js`.** Use a gitignored local file instead:
+Cloud controls appear only when config sets an `apiBase`. For a personal fork or a site that hosts the API:
 
 ```bash
 cp config.example.js config.local.js
 # edit config.local.js
 ```
 
-`config.local.js` is listed in `.gitignore`, so a normal `git add -A` will not upload it. Prefer this over a private branch (easy to merge by mistake) or a second clone (easy to edit the wrong tree).
+`config.local.js` is gitignored. Do not commit real project credentials into this public repo.
 
-Then:
-
-1. Enable **Google** sign-in in a [Firebase](https://firebase.google.com/) project; add your Pages / App Engine domains under Authorized domains.
-2. Implement the API on App Engine (or compatible host). The client expects:
+The client expects:
 
 | Method | Path | Notes |
 | --- | --- | --- |
@@ -84,11 +85,11 @@ Then:
 | `POST` | `/api/outlines/:id/lock` | Returns `{ token, leaseUntil }` |
 | `DELETE` | `/api/outlines/:id/lock` | Header `X-Lease-Token` |
 
-All requests send `Authorization: Bearer <Firebase ID token>`. Allow CORS from your Pages origin if the UI is not same-site.
+All requests send `Authorization: Bearer <Firebase ID token>`.
 
 Deep links use `?id=<outlineId>` and load after sign-in.
 
-Until you add `config.local.js` (or change committed `config.js`), the cloud bar stays hidden. GitHub Pages keeps using the committed `null` config.
+With the default committed config, the cloud bar stays hidden (including on GitHub Pages).
 
 ## Embedding
 
