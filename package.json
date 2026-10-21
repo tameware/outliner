@@ -1,14 +1,14 @@
 {
-  "name": "outliner",
+  "name": "html-outliner",
   "version": "1.0.0",
-  "private": true,
-  "description": "WYSIWYG HTML outliner with expand/collapse, editing, and promote/demote",
+  "description": "WYSIWYG HTML outliner with expand/collapse, editing, promote/demote, and OPML save/restore",
+  "license": "MIT",
+  "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "start": "python3 -m http.server 8765"
   },
   "devDependencies": {
     "jsdom": "^26.1.0"
-  },
-  "type": "module"
+  }
 }
