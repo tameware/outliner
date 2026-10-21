@@ -1,3 +1,6 @@
 node_modules/
 .ref/
 .DS_Store
+
+# Local cloud credentials (copy from config.example.js)
+config.local.js

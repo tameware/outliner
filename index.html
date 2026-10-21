@@ -17,10 +17,25 @@
       <button type="button" id="btn-demote" title="Demote (Tab)">Demote</button>
       <button type="button" id="btn-expand-all">Expand all</button>
       <button type="button" id="btn-collapse-all">Collapse all</button>
-      <button type="button" id="btn-save" title="Save as OPML">Save</button>
-      <button type="button" id="btn-open" title="Open OPML">Open</button>
+      <button type="button" id="btn-save" title="Save as OPML file">Save file</button>
+      <button type="button" id="btn-open" title="Open OPML file">Open file</button>
       <input type="file" id="file-open" accept=".opml,application/xml,text/xml,text/x-opml" hidden />
     </div>
+    <div class="cloud-bar" data-cloud-bar hidden>
+      <button type="button" id="btn-sign-in">Sign in with Google</button>
+      <button type="button" id="btn-sign-out" hidden>Sign out</button>
+      <span id="cloud-user" class="cloud-user" hidden></span>
+      <button type="button" id="btn-cloud-save" disabled title="Save outline to cloud">Save to cloud</button>
+      <button type="button" id="btn-cloud-open" disabled title="Open outline from cloud">Open from cloud</button>
+      <p id="cloud-status" class="cloud-status" role="status"></p>
+    </div>
+    <dialog id="cloud-open-dialog" class="cloud-dialog">
+      <form method="dialog" class="cloud-dialog-form">
+        <h2>Open from cloud</h2>
+        <ul id="cloud-outline-list" class="cloud-outline-list"></ul>
+        <button type="button" id="btn-cloud-open-cancel" value="cancel">Cancel</button>
+      </form>
+    </dialog>
     <p class="hints">
       <kbd>Enter</kbd> new line ·
       <kbd>Tab</kbd> demote ·
@@ -125,14 +140,35 @@
       downloadOpml,
       readOpmlFile,
       loadOutline,
+      toOpml,
+      parseOpml,
     } from './outliner.js';
+    import {
+      isCloudConfigured,
+      createCloudClient,
+      loadCloudConfig,
+      outlineIdFromLocation,
+      locationWithOutlineId,
+    } from './cloud.js';
+    import { mountCloudUi } from './cloud-ui.js';
+    import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
 
     const api = boot();
     window.__outlinerApi = api;
     const root = api.root;
 
+    let currentOutlineId = outlineIdFromLocation(window.location);
+    let currentRevision = null;
+    let leaseToken = null;
+
+    function syncUrl(id) {
+      currentOutlineId = id;
+      const next = locationWithOutlineId(window.location, id);
+      window.history.replaceState(null, '', next);
+    }
+
     // Keep outline focus when using the toolbar.
-    document.querySelectorAll('.toolbar button').forEach((btn) => {
+    document.querySelectorAll('.toolbar button, .cloud-bar button').forEach((btn) => {
       btn.addEventListener('mousedown', (event) => event.preventDefault());
     });
 
@@ -191,6 +227,94 @@
 
     const first = root.querySelector('[data-item]');
     if (first) focusItem(first);
+
+    async function initCloud() {
+      const cloudConfig = await loadCloudConfig();
+      const configured = isCloudConfigured(cloudConfig);
+      let auth = createNullAuth();
+      let cloud = null;
+
+      if (configured && cloudConfig.firebase) {
+        const [{ initializeApp }, authMod] = await Promise.all([
+          import('https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js'),
+          import('https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js'),
+        ]);
+        auth = await createFirebaseAuth(cloudConfig.firebase, {
+          app: { initializeApp },
+          auth: authMod,
+        });
+        cloud = createCloudClient({
+          apiBase: cloudConfig.apiBase,
+          getIdToken: () => auth.getIdToken(),
+        });
+      } else if (configured) {
+        // apiBase without firebase — still show bar but sign-in will fail clearly
+        cloud = createCloudClient({
+          apiBase: cloudConfig.apiBase,
+          getIdToken: () => auth.getIdToken(),
+        });
+      }
+
+      mountCloudUi({
+        configured,
+        auth,
+        cloud: cloud || {
+          async listOutlines() { return []; },
+          async getOutline() { return ''; },
+          async createOutline() { return { id: 'local' }; },
+          async saveOutline() { return {}; },
+          async acquireLock() { return { token: '' }; },
+          async releaseLock() {},
+        },
+        outline: {
+          root,
+          toOpml: () => toOpml(root, { title: document.title || 'Outline' }),
+          parseOpml,
+          loadOutline: (tree) => {
+            loadOutline(root, tree);
+            if (tree.title) document.title = tree.title;
+            const item = root.querySelector('[data-item]');
+            if (item) focusItem(item);
+          },
+          getTitle: () => document.title || 'Outline',
+          setTitle: (title) => {
+            if (title) document.title = title;
+          },
+          getOutlineId: () => currentOutlineId,
+          setOutlineId: (id) => {
+            currentOutlineId = id;
+          },
+          getRevision: () => currentRevision,
+          setRevision: (rev) => {
+            currentRevision = rev;
+          },
+          getLeaseToken: () => leaseToken,
+          setLeaseToken: (token) => {
+            leaseToken = token;
+          },
+          syncUrl,
+        },
+      });
+
+      if (configured && cloud && currentOutlineId) {
+        // Deep link: load when signed in
+        auth.onAuthStateChanged(async (user) => {
+          if (!user || !currentOutlineId) return;
+          try {
+            const opml = await cloud.getOutline(currentOutlineId);
+            const tree = parseOpml(opml);
+            loadOutline(root, tree);
+            if (tree.title) document.title = tree.title;
+            const item = root.querySelector('[data-item]');
+            if (item) focusItem(item);
+          } catch (error) {
+            console.warn('Could not load outline from URL', error);
+          }
+        });
+      }
+    }
+
+    void initCloud();
   </script>
 </body>
 </html>
