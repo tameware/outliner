@@ -174,10 +174,14 @@
         auth.onAuthStateChanged(async (user) => {
           if (!user || !currentOutlineId) return;
           try {
-            const opml = await cloud.getOutline(currentOutlineId);
+            const got = await cloud.getOutline(currentOutlineId);
+            const opml = typeof got === 'string' ? got : got.opml;
             const tree = parseOpml(opml);
             loadOutline(root, tree);
             if (tree.title) document.title = tree.title;
+            currentRevision =
+              typeof got === 'string' ? null : (got.revision ?? null);
+            leaseToken = null;
             const item = root.querySelector('[data-item]');
             if (item) focusItem(item);
           } catch (error) {

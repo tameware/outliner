@@ -108,15 +108,20 @@ describe('cloud API client', () => {
     assert.equal(init.headers['If-Match'], '1');
   });
 
-  it('loads outline OPML as text', async () => {
+  it('loads outline OPML with revision from response headers', async () => {
     fetchMock.mock.mockImplementation(async () => {
       return new Response('<?xml version="1.0"?><opml version="2.0"></opml>', {
         status: 200,
-        headers: { 'Content-Type': 'application/xml' },
+        headers: {
+          'Content-Type': 'application/xml',
+          'X-Outline-Revision': '3',
+          ETag: '"3"',
+        },
       });
     });
-    const opml = await client().getOutline('abc');
-    assert.match(opml, /<opml/);
+    const got = await client().getOutline('abc');
+    assert.match(got.opml, /<opml/);
+    assert.equal(got.revision, 3);
     const [url] = fetchMock.mock.calls[0].arguments;
     assert.equal(url, 'https://api.example.com/api/outlines/abc');
   });

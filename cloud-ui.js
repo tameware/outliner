@@ -125,6 +125,15 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
         return;
       }
 
+      if (revision == null && cloud.getOutline) {
+        const got = await cloud.getOutline(id);
+        revision = typeof got === 'string' ? null : got.revision;
+        outline.setRevision?.(revision);
+      }
+      if (revision == null) {
+        throw new Error('Missing outline revision; reopen from cloud and try again');
+      }
+
       if (!leaseToken && cloud.acquireLock) {
         const lease = await cloud.acquireLock(id);
         leaseToken = lease.token;
@@ -175,11 +184,14 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
 
   async function openOutline(id, listedTitle) {
     await withBusy('Opening…', async () => {
-      const opml = await cloud.getOutline(id);
+      const got = await cloud.getOutline(id);
+      const opml = typeof got === 'string' ? got : got.opml;
+      const revision = typeof got === 'string' ? null : got.revision;
       const tree = outline.parseOpml(opml);
       outline.loadOutline(tree);
       outline.setOutlineId?.(id);
-      outline.setRevision?.(tree.revision ?? null);
+      outline.setRevision?.(revision ?? tree.revision ?? null);
+      outline.setLeaseToken?.(null);
       const title = listedTitle || tree.title;
       outline.setTitle?.(title);
       if (outline.syncUrl) outline.syncUrl(id);

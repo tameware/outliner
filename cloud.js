@@ -129,14 +129,45 @@ export function createCloudClient({ apiBase, getIdToken, fetch: fetchFn = global
     return response.text();
   }
 
+  function revisionFromHeaders(response) {
+    const raw =
+      response.headers.get('X-Outline-Revision') ||
+      response.headers.get('ETag') ||
+      '';
+    const n = Number.parseInt(String(raw).replaceAll('"', '').trim(), 10);
+    return Number.isFinite(n) ? n : null;
+  }
+
   return {
     async listOutlines() {
       const data = await request('/api/outlines');
       return data?.outlines ?? data ?? [];
     },
 
+    /**
+     * @returns {Promise<{ opml: string, revision: number | null }>}
+     */
     async getOutline(id) {
-      return request(`/api/outlines/${encodeURIComponent(id)}`);
+      const headers = await authHeaders();
+      const response = await fetchFn(`${base}/api/outlines/${encodeURIComponent(id)}`, {
+        headers,
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        let body = null;
+        try {
+          body = text ? JSON.parse(text) : null;
+        } catch {
+          body = text;
+        }
+        const detail =
+          (body && typeof body === 'object' && (body.error || body.message)) ||
+          text ||
+          response.statusText;
+        throw new CloudApiError(String(detail || `HTTP ${response.status}`), response.status, body);
+      }
+      const opml = await response.text();
+      return { opml, revision: revisionFromHeaders(response) };
     },
 
     async createOutline({ title, opml }) {

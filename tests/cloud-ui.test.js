@@ -83,8 +83,10 @@ describe('cloud UI', () => {
         { id: 'o1', title: 'Bridge notes' },
         { id: 'o2', title: 'Shopping' },
       ],
-      getOutline: async (id) =>
-        `<?xml version="1.0"?><opml version="2.0"><head><title>${id}</title></head><body></body></opml>`,
+      getOutline: async (id) => ({
+        opml: `<?xml version="1.0"?><opml version="2.0"><head><title>${id}</title></head><body></body></opml>`,
+        revision: 4,
+      }),
       createOutline: async (args) => {
         createdCalls.push(args);
         return { id: 'new-1', revision: 1 };
@@ -182,5 +184,21 @@ describe('cloud UI', () => {
       (b) => b.textContent,
     );
     assert.deepEqual(labels, ['Bridge notes', 'Shopping']);
+  });
+
+  it('stores server revision when opening so a later save can send If-Match', async () => {
+    let revision = null;
+    outline.setRevision = (rev) => {
+      revision = rev;
+    };
+    outline.getRevision = () => revision;
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('btn-cloud-open').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-outline-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(revision, 4);
   });
 });
