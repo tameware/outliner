@@ -150,12 +150,13 @@ export function createCloudClient({ apiBase, getIdToken, fetch: fetchFn = global
       });
     },
 
-    async saveOutline(id, { opml, revision, leaseToken }) {
+    async saveOutline(id, { opml, revision, leaseToken, title }) {
       const headers = {
         'Content-Type': 'application/xml',
       };
       if (revision != null) headers['If-Match'] = String(revision);
       if (leaseToken) headers['X-Lease-Token'] = leaseToken;
+      if (title) headers['X-Outline-Title'] = title;
       return request(`/api/outlines/${encodeURIComponent(id)}`, {
         method: 'PUT',
         headers,

@@ -11,6 +11,13 @@ function setupDom() {
       <span id="cloud-user" hidden></span>
       <button type="button" id="btn-cloud-save" disabled>Save to cloud</button>
       <button type="button" id="btn-cloud-open" disabled>Open from cloud</button>
+      <dialog id="cloud-save-dialog">
+        <form method="dialog" id="cloud-save-form">
+          <label>Name <input id="cloud-save-name" name="name" required /></label>
+          <button type="submit" id="btn-cloud-save-confirm">Save</button>
+          <button type="button" id="btn-cloud-save-cancel" value="cancel">Cancel</button>
+        </form>
+      </dialog>
       <dialog id="cloud-open-dialog">
         <ul id="cloud-outline-list"></ul>
         <button type="button" id="btn-cloud-open-cancel">Cancel</button>
@@ -18,11 +25,21 @@ function setupDom() {
       <p id="cloud-status" role="status"></p>
     </div>
     <ol data-outline-root></ol>
-  </body></html>`, { url: 'http://localhost/outliner/' });
+  </body></html>`, { url: 'http://localhost/outliner/', pretendToBeVisual: true });
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.HTMLDialogElement = dom.window.HTMLDialogElement;
+  // jsdom dialog stubs
+  for (const id of ['cloud-save-dialog', 'cloud-open-dialog']) {
+    const el = document.getElementById(id);
+    el.showModal = () => {
+      el.setAttribute('open', '');
+    };
+    el.close = () => {
+      el.removeAttribute('open');
+    };
+  }
   return dom;
 }
 
@@ -32,10 +49,16 @@ describe('cloud UI', () => {
   let cloud;
   let outline;
   let signedInUser;
+  let createdCalls;
+  let savedCalls;
+  let outlineId;
 
   beforeEach(() => {
     dom = setupDom();
-    signedInUser = null;
+    signedInUser = { uid: 'u1', displayName: 'Ada', email: 'ada@example.com' };
+    createdCalls = [];
+    savedCalls = [];
+    outlineId = null;
     const listeners = [];
     auth = {
       onAuthStateChanged(cb) {
@@ -56,28 +79,46 @@ describe('cloud UI', () => {
       },
     };
     cloud = {
-      listOutlines: async () => [{ id: 'o1', title: 'One' }],
-      getOutline: async () => '<?xml version="1.0"?><opml version="2.0"><head><title>One</title></head><body></body></opml>',
-      createOutline: async () => ({ id: 'new-1', revision: 1 }),
-      saveOutline: async () => ({ id: 'o1', revision: 2 }),
+      listOutlines: async () => [
+        { id: 'o1', title: 'Bridge notes' },
+        { id: 'o2', title: 'Shopping' },
+      ],
+      getOutline: async (id) =>
+        `<?xml version="1.0"?><opml version="2.0"><head><title>${id}</title></head><body></body></opml>`,
+      createOutline: async (args) => {
+        createdCalls.push(args);
+        return { id: 'new-1', revision: 1 };
+      },
+      saveOutline: async (id, args) => {
+        savedCalls.push({ id, ...args });
+        return { id, revision: 2 };
+      },
       acquireLock: async () => ({ token: 'lease', leaseUntil: '2099-01-01' }),
       releaseLock: async () => {},
     };
     outline = {
       root: document.querySelector('[data-outline-root]'),
       toOpml: () => '<opml></opml>',
-      parseOpml: () => ({ title: 'One', items: [] }),
+      parseOpml: () => ({ title: 'Bridge notes', items: [] }),
       loadOutline: () => {},
-      getTitle: () => 'Untitled',
-      setTitle: () => {},
-      getOutlineId: () => null,
-      setOutlineId: () => {},
-      getRevision: () => null,
+      getTitle: () => 'Untitled outline',
+      setTitle: (t) => {
+        outline._title = t;
+      },
+      getOutlineId: () => outlineId,
+      setOutlineId: (id) => {
+        outlineId = id;
+      },
+      getRevision: () => (outlineId ? 1 : null),
       setRevision: () => {},
+      getLeaseToken: () => null,
+      setLeaseToken: () => {},
+      syncUrl: () => {},
     };
   });
 
   it('shows the cloud bar when configured and enables save after sign-in', async () => {
+    signedInUser = null;
     const ui = mountCloudUi({
       auth,
       cloud,
@@ -104,5 +145,42 @@ describe('cloud UI', () => {
       configured: false,
     });
     assert.equal(document.querySelector('[data-cloud-bar]').hidden, true);
+  });
+
+  it('asks for a name before saving a new outline to the cloud', async () => {
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('btn-cloud-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const dialog = document.getElementById('cloud-save-dialog');
+    assert.ok(dialog.hasAttribute('open'), 'save dialog should open');
+    const input = document.getElementById('cloud-save-name');
+    assert.equal(input.value, 'Untitled outline');
+    input.value = 'My bridge card';
+    document.getElementById('cloud-save-form').dispatchEvent(
+      new dom.window.Event('submit', { bubbles: true, cancelable: true }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(createdCalls.length, 1);
+    assert.equal(createdCalls[0].title, 'My bridge card');
+    assert.equal(outlineId, 'new-1');
+    assert.equal(outline._title, 'My bridge card');
+    assert.equal(dialog.hasAttribute('open'), false);
+  });
+
+  it('lists saved outlines by name when opening from cloud', async () => {
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('btn-cloud-open').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const dialog = document.getElementById('cloud-open-dialog');
+    assert.ok(dialog.hasAttribute('open'));
+    const labels = [...document.querySelectorAll('#cloud-outline-list button')].map(
+      (b) => b.textContent,
+    );
+    assert.deepEqual(labels, ['Bridge notes', 'Shopping']);
   });
 });

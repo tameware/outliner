@@ -16,7 +16,11 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
   const userEl = document.getElementById('cloud-user');
   const btnSave = document.getElementById('btn-cloud-save');
   const btnOpen = document.getElementById('btn-cloud-open');
-  const dialog = document.getElementById('cloud-open-dialog');
+  const saveDialog = document.getElementById('cloud-save-dialog');
+  const saveForm = document.getElementById('cloud-save-form');
+  const saveNameInput = document.getElementById('cloud-save-name');
+  const btnSaveCancel = document.getElementById('btn-cloud-save-cancel');
+  const openDialog = document.getElementById('cloud-open-dialog');
   const listEl = document.getElementById('cloud-outline-list');
   const btnCancel = document.getElementById('btn-cloud-open-cancel');
   const statusEl = document.getElementById('cloud-status');
@@ -82,22 +86,42 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
     await withBusy('Signing out…', () => auth.signOut());
   }
 
-  async function onSave() {
+  function closeDialog(el) {
+    if (el?.close) el.close();
+    else if (el) el.removeAttribute('open');
+  }
+
+  function openDialogEl(el) {
+    if (el?.showModal) el.showModal();
+    else if (el) el.setAttribute('open', '');
+  }
+
+  function onSave() {
+    if (saveNameInput) {
+      saveNameInput.value = outline.getTitle?.() || 'Untitled';
+    }
+    openDialogEl(saveDialog);
+    saveNameInput?.focus?.();
+    saveNameInput?.select?.();
+  }
+
+  async function saveWithName(title) {
+    const name = String(title || '').trim() || 'Untitled';
     await withBusy('Saving to cloud…', async () => {
+      outline.setTitle?.(name);
       const opml = outline.toOpml();
-      const title = outline.getTitle?.() || 'Outline';
       let id = outline.getOutlineId?.();
       let revision = outline.getRevision?.();
       let leaseToken = outline.getLeaseToken?.();
 
       if (!id) {
-        const created = await cloud.createOutline({ title, opml });
+        const created = await cloud.createOutline({ title: name, opml });
         id = created.id;
         revision = created.revision ?? 1;
         outline.setOutlineId?.(id);
         outline.setRevision?.(revision);
         if (outline.syncUrl) outline.syncUrl(id);
-        setStatus(`Saved as ${id}`);
+        setStatus(`Saved “${name}”`);
         return;
       }
 
@@ -107,9 +131,14 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
         outline.setLeaseToken?.(leaseToken);
       }
 
-      const saved = await cloud.saveOutline(id, { opml, revision, leaseToken });
+      const saved = await cloud.saveOutline(id, {
+        opml,
+        revision,
+        leaseToken,
+        title: name,
+      });
       outline.setRevision?.(saved?.revision ?? revision);
-      setStatus('Saved to cloud');
+      setStatus(`Saved “${name}”`);
     });
   }
 
@@ -118,46 +147,53 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
       const outlines = await cloud.listOutlines();
       if (!listEl) return;
       listEl.replaceChildren();
-      if (!outlines.length) {
+      const sorted = [...outlines].sort((a, b) =>
+        String(a.title || a.id).localeCompare(String(b.title || b.id), undefined, {
+          sensitivity: 'base',
+        }),
+      );
+      if (!sorted.length) {
         const empty = document.createElement('li');
         empty.textContent = 'No outlines yet. Save to cloud to create one.';
         listEl.appendChild(empty);
       } else {
-        for (const item of outlines) {
+        for (const item of sorted) {
           const li = document.createElement('li');
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.textContent = item.title || item.id;
           btn.addEventListener('click', () => {
-            void openOutline(item.id);
+            void openOutline(item.id, item.title);
           });
           li.appendChild(btn);
           listEl.appendChild(li);
         }
       }
-      if (dialog?.showModal) dialog.showModal();
-      else if (dialog) dialog.setAttribute('open', '');
+      openDialogEl(openDialog);
     });
   }
 
-  async function openOutline(id) {
+  async function openOutline(id, listedTitle) {
     await withBusy('Opening…', async () => {
       const opml = await cloud.getOutline(id);
       const tree = outline.parseOpml(opml);
       outline.loadOutline(tree);
       outline.setOutlineId?.(id);
       outline.setRevision?.(tree.revision ?? null);
-      outline.setTitle?.(tree.title);
+      const title = listedTitle || tree.title;
+      outline.setTitle?.(title);
       if (outline.syncUrl) outline.syncUrl(id);
-      if (dialog?.close) dialog.close();
-      else if (dialog) dialog.removeAttribute('open');
-      setStatus(`Opened ${id}`);
+      closeDialog(openDialog);
+      setStatus(title ? `Opened “${title}”` : `Opened ${id}`);
     });
   }
 
-  function onCancel() {
-    if (dialog?.close) dialog.close();
-    else if (dialog) dialog.removeAttribute('open');
+  function onCancelOpen() {
+    closeDialog(openDialog);
+  }
+
+  function onCancelSave() {
+    closeDialog(saveDialog);
   }
 
   btnSignIn?.addEventListener('click', () => {
@@ -167,12 +203,23 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
     void onSignOut();
   });
   btnSave?.addEventListener('click', () => {
-    void onSave();
+    onSave();
   });
   btnOpen?.addEventListener('click', () => {
     void onOpen();
   });
-  btnCancel?.addEventListener('click', onCancel);
+  btnCancel?.addEventListener('click', onCancelOpen);
+  btnSaveCancel?.addEventListener('click', onCancelSave);
+  saveForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const name = saveNameInput?.value?.trim();
+    if (!name) {
+      saveNameInput?.focus?.();
+      return;
+    }
+    closeDialog(saveDialog);
+    void saveWithName(name);
+  });
 
   syncAuthUi();
 

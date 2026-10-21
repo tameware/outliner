@@ -29,6 +29,25 @@
       <button type="button" id="btn-cloud-open" disabled title="Open outline from cloud">Open from cloud</button>
       <p id="cloud-status" class="cloud-status" role="status"></p>
     </div>
+    <dialog id="cloud-save-dialog" class="cloud-dialog">
+      <form method="dialog" class="cloud-dialog-form" id="cloud-save-form">
+        <h2>Save to cloud</h2>
+        <label class="cloud-save-label" for="cloud-save-name">Name</label>
+        <input
+          id="cloud-save-name"
+          name="name"
+          type="text"
+          required
+          maxlength="200"
+          autocomplete="off"
+          class="cloud-save-input"
+        />
+        <div class="cloud-dialog-actions">
+          <button type="submit" id="btn-cloud-save-confirm">Save</button>
+          <button type="button" id="btn-cloud-save-cancel" value="cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
     <dialog id="cloud-open-dialog" class="cloud-dialog">
       <form method="dialog" class="cloud-dialog-form">
         <h2>Open from cloud</h2>
