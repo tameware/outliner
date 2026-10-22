@@ -516,6 +516,18 @@ export function loadOutline(root, tree) {
   return root;
 }
 
+/**
+ * Replace the outline with a single empty line.
+ * @returns {string} OPML snapshot of the previous content (for undo).
+ */
+export function clearOutline(root, options = {}) {
+  const snapshot = toOpml(root, options);
+  loadOutline(root, { items: [] });
+  const first = root.querySelector('[data-item]');
+  if (first) focusItem(first);
+  return snapshot;
+}
+
 /** Whether the outline is in read-only (share view) mode. */
 export function isReadOnly(root) {
   return root?.dataset?.readonly === 'true';

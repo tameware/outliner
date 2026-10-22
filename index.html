@@ -17,6 +17,7 @@
       <button type="button" id="btn-demote" title="Demote (Tab)">Demote</button>
       <button type="button" id="btn-expand-all">Expand all</button>
       <button type="button" id="btn-collapse-all">Collapse all</button>
+      <button type="button" id="btn-clear" title="Remove all lines (can undo once)">Clear outline</button>
       <button type="button" id="btn-save" title="Save as OPML file">Save file</button>
       <button type="button" id="btn-open" title="Open OPML file">Open file</button>
       <input type="file" id="file-open" accept=".opml,application/xml,text/xml,text/x-opml" hidden />
@@ -167,6 +168,12 @@
                 </div>
               </li>
             </ol>
+          </li>
+          <li data-item>
+            <div class="row">
+              <button type="button" class="toggle" aria-label="Toggle"></button>
+              <div class="text" contenteditable="true">Clear outline removes all lines; the button becomes Undo clear so you can restore once.</div>
+            </div>
           </li>
           <li data-item>
             <div class="row">

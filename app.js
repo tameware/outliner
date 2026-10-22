@@ -12,6 +12,7 @@ import {
   toOpml,
   parseOpml,
   setReadOnly,
+  clearOutline,
 } from './outliner.js';
 import {
   isCloudConfigured,
@@ -24,6 +25,7 @@ import {
 import { mountCloudUi } from './cloud-ui.js';
 import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
 import { applyReadOnlyToolbar } from './readonly-toolbar.js';
+import { createClearOutlineControl } from './clear-outline-ui.js';
 
 const api = boot();
 window.__outlinerApi = api;
@@ -85,6 +87,23 @@ document.getElementById('btn-collapse-all').addEventListener('click', () => {
   });
 });
 
+const clearControl = createClearOutlineControl({
+  getRoot: () => root,
+  button: document.getElementById('btn-clear'),
+  toOpml,
+  parseOpml,
+  loadOutline,
+  clearOutline,
+  getTitle: () => document.title || 'Outline',
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (root.dataset.readonly === 'true') return;
+  clearControl.clearOrUndo();
+  const first = root.querySelector('[data-item]');
+  if (first) focusItem(first);
+});
+
 const fileInput = document.getElementById('file-open');
 
 document.getElementById('btn-save').addEventListener('click', () => {
@@ -106,6 +125,7 @@ fileInput.addEventListener('change', async () => {
   try {
     const tree = await readOpmlFile(file);
     loadOutline(root, tree);
+    clearControl.discardUndo();
     if (tree.title) document.title = tree.title;
     const first = root.querySelector('[data-item]');
     if (first) focusItem(first);
@@ -183,6 +203,7 @@ async function initCloud() {
       parseOpml,
       loadOutline: (tree) => {
         loadOutline(root, tree);
+        clearControl.discardUndo();
         if (tree.title) document.title = tree.title;
         const item = root.querySelector('[data-item]');
         if (item) focusItem(item);
