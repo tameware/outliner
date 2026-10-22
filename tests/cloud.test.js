@@ -6,6 +6,8 @@ import {
   CloudApiError,
   outlineIdFromLocation,
   locationWithOutlineId,
+  viewTokenFromLocation,
+  locationWithViewToken,
 } from '../cloud.js';
 
 describe('cloud config', () => {
@@ -32,6 +34,19 @@ describe('outline id in URL', () => {
       'xyz',
     );
     assert.equal(href, '/outliner/?id=xyz');
+  });
+});
+
+describe('view token in URL', () => {
+  it('reads and builds a read-only view query param', () => {
+    assert.equal(
+      viewTokenFromLocation({ search: '?view=share-tok', hash: '' }),
+      'share-tok',
+    );
+    assert.equal(
+      locationWithViewToken({ pathname: '/outliner/', search: '?id=x', hash: '' }, 'abc'),
+      '/outliner/?view=abc',
+    );
   });
 });
 
@@ -157,6 +172,38 @@ describe('cloud API client', () => {
       assert.match(err.message, /locked|409/);
       return true;
     });
+  });
+
+  it('creates a share link for an outline', async () => {
+    fetchMock.mock.mockImplementation(async () => {
+      return new Response(
+        JSON.stringify({ token: 'share-1', urlPath: '/outliner/?view=share-1' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    });
+    const result = await client().createShareLink('abc');
+    assert.equal(result.token, 'share-1');
+    assert.equal(result.urlPath, '/outliner/?view=share-1');
+    const [url, init] = fetchMock.mock.calls[0].arguments;
+    assert.equal(url, 'https://api.example.com/api/outlines/abc/share');
+    assert.equal(init.method, 'POST');
+  });
+
+  it('loads a shared outline without auth', async () => {
+    fetchMock.mock.mockImplementation(async (url, init) => {
+      assert.equal(url, 'https://api.example.com/api/outlines/shared/share-1');
+      assert.equal(init?.headers?.Authorization, undefined);
+      return new Response('<opml></opml>', {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/xml',
+          'X-Outline-Title': 'Shared',
+        },
+      });
+    });
+    const got = await client().getSharedOutline('share-1');
+    assert.match(got.opml, /<opml/);
+    assert.equal(got.title, 'Shared');
   });
 
   it('strips trailing slash on apiBase', async () => {

@@ -1,194 +1,233 @@
-    import {
-      boot,
-      addItemAfter,
-      removeItem,
-      promoteItem,
-      demoteItem,
-      toggleItem,
-      focusItem,
-      downloadOpml,
-      readOpmlFile,
-      loadOutline,
-      toOpml,
-      parseOpml,
-    } from './outliner.js';
-    import {
-      isCloudConfigured,
-      createCloudClient,
-      loadCloudConfig,
-      outlineIdFromLocation,
-      locationWithOutlineId,
-    } from './cloud.js';
-    import { mountCloudUi } from './cloud-ui.js';
-    import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
+import {
+  boot,
+  addItemAfter,
+  removeItem,
+  promoteItem,
+  demoteItem,
+  toggleItem,
+  focusItem,
+  downloadOpml,
+  readOpmlFile,
+  loadOutline,
+  toOpml,
+  parseOpml,
+  setReadOnly,
+} from './outliner.js';
+import {
+  isCloudConfigured,
+  createCloudClient,
+  loadCloudConfig,
+  outlineIdFromLocation,
+  locationWithOutlineId,
+  viewTokenFromLocation,
+} from './cloud.js';
+import { mountCloudUi } from './cloud-ui.js';
+import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
 
-    const api = boot();
-    window.__outlinerApi = api;
-    const root = api.root;
+const api = boot();
+window.__outlinerApi = api;
+const root = api.root;
 
-    let currentOutlineId = outlineIdFromLocation(window.location);
-    let currentRevision = null;
-    let leaseToken = null;
+let currentOutlineId = outlineIdFromLocation(window.location);
+let currentRevision = null;
+let leaseToken = null;
+const viewToken = viewTokenFromLocation(window.location);
 
-    function syncUrl(id) {
-      currentOutlineId = id;
-      const next = locationWithOutlineId(window.location, id);
-      window.history.replaceState(null, '', next);
-    }
+function syncUrl(id) {
+  currentOutlineId = id;
+  const next = locationWithOutlineId(window.location, id);
+  window.history.replaceState(null, '', next);
+}
 
-    // Keep outline focus when using the toolbar.
-    document.querySelectorAll('.toolbar button, .cloud-bar button').forEach((btn) => {
-      btn.addEventListener('mousedown', (event) => event.preventDefault());
-    });
+function setToolbarEnabled(enabled) {
+  document.querySelectorAll('.toolbar button').forEach((btn) => {
+    btn.disabled = !enabled;
+  });
+  const fileInput = document.getElementById('file-open');
+  if (fileInput) fileInput.disabled = !enabled;
+}
 
-    document.getElementById('btn-add').addEventListener('click', () => {
-      const item = api.getActiveItem();
-      if (item) addItemAfter(item);
-    });
-    document.getElementById('btn-remove').addEventListener('click', () => {
-      const item = api.getActiveItem();
-      if (item) removeItem(item);
-    });
-    document.getElementById('btn-promote').addEventListener('click', () => {
-      const item = api.getActiveItem();
-      if (item) promoteItem(item);
-    });
-    document.getElementById('btn-demote').addEventListener('click', () => {
-      const item = api.getActiveItem();
-      if (item) demoteItem(item);
-    });
-    document.getElementById('btn-expand-all').addEventListener('click', () => {
-      root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {
-        if (item.dataset.state === 'collapsed') toggleItem(item);
-      });
-    });
-    document.getElementById('btn-collapse-all').addEventListener('click', () => {
-      root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {
-        if (item.dataset.state !== 'collapsed') toggleItem(item);
-      });
-    });
+// Keep outline focus when using the toolbar.
+document.querySelectorAll('.toolbar button, .cloud-bar button').forEach((btn) => {
+  btn.addEventListener('mousedown', (event) => event.preventDefault());
+});
 
-    const fileInput = document.getElementById('file-open');
+document.getElementById('btn-add').addEventListener('click', () => {
+  if (root.dataset.readonly === 'true') return;
+  const item = api.getActiveItem();
+  if (item) addItemAfter(item);
+});
+document.getElementById('btn-remove').addEventListener('click', () => {
+  if (root.dataset.readonly === 'true') return;
+  const item = api.getActiveItem();
+  if (item) removeItem(item);
+});
+document.getElementById('btn-promote').addEventListener('click', () => {
+  if (root.dataset.readonly === 'true') return;
+  const item = api.getActiveItem();
+  if (item) promoteItem(item);
+});
+document.getElementById('btn-demote').addEventListener('click', () => {
+  if (root.dataset.readonly === 'true') return;
+  const item = api.getActiveItem();
+  if (item) demoteItem(item);
+});
+document.getElementById('btn-expand-all').addEventListener('click', () => {
+  root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {
+    if (item.dataset.state === 'collapsed') toggleItem(item);
+  });
+});
+document.getElementById('btn-collapse-all').addEventListener('click', () => {
+  root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {
+    if (item.dataset.state !== 'collapsed') toggleItem(item);
+  });
+});
 
-    document.getElementById('btn-save').addEventListener('click', () => {
-      const title = document.title || 'Outline';
-      downloadOpml(root, { title, filename: 'outline.opml' });
-    });
+const fileInput = document.getElementById('file-open');
 
-    document.getElementById('btn-open').addEventListener('click', () => {
-      fileInput.click();
-    });
+document.getElementById('btn-save').addEventListener('click', () => {
+  if (root.dataset.readonly === 'true') return;
+  const title = document.title || 'Outline';
+  downloadOpml(root, { title, filename: 'outline.opml' });
+});
 
-    fileInput.addEventListener('change', async () => {
-      const file = fileInput.files?.[0];
-      fileInput.value = '';
-      if (!file) return;
-      try {
-        const tree = await readOpmlFile(file);
-        loadOutline(root, tree);
-        if (tree.title) document.title = tree.title;
-        const first = root.querySelector('[data-item]');
-        if (first) focusItem(first);
-      } catch (error) {
-        window.alert('Could not open OPML file: ' + (error?.message || error));
-      }
-    });
+document.getElementById('btn-open').addEventListener('click', () => {
+  if (root.dataset.readonly === 'true') return;
+  fileInput.click();
+});
 
+fileInput.addEventListener('change', async () => {
+  if (root.dataset.readonly === 'true') return;
+  const file = fileInput.files?.[0];
+  fileInput.value = '';
+  if (!file) return;
+  try {
+    const tree = await readOpmlFile(file);
+    loadOutline(root, tree);
+    if (tree.title) document.title = tree.title;
     const first = root.querySelector('[data-item]');
     if (first) focusItem(first);
+  } catch (error) {
+    window.alert('Could not open OPML file: ' + (error?.message || error));
+  }
+});
 
-    async function initCloud() {
-      const cloudConfig = await loadCloudConfig();
-      const configured = isCloudConfigured(cloudConfig);
-      let auth = createNullAuth();
-      let cloud = null;
+const first = root.querySelector('[data-item]');
+if (first) focusItem(first);
 
-      if (configured && cloudConfig.firebase) {
-        try {
-          const [{ initializeApp }, authMod] = await Promise.all([
-            import('https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js'),
-            import('https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js'),
-          ]);
-          auth = await createFirebaseAuth(cloudConfig.firebase, {
-            app: { initializeApp },
-            auth: authMod,
-          });
-          cloud = createCloudClient({
-            apiBase: cloudConfig.apiBase,
-            getIdToken: () => auth.getIdToken(),
-          });
-        } catch (error) {
-          console.error('Firebase Auth failed to initialize', error);
-        }
-      } else if (configured) {
-        // apiBase without firebase — still show bar but sign-in will fail clearly
-        cloud = createCloudClient({
-          apiBase: cloudConfig.apiBase,
-          getIdToken: () => auth.getIdToken(),
-        });
-      }
+async function initCloud() {
+  const cloudConfig = await loadCloudConfig();
+  const configured = isCloudConfigured(cloudConfig);
+  let auth = createNullAuth();
+  let cloud = null;
 
-      mountCloudUi({
-        configured,
-        auth,
-        cloud: cloud || {
-          async listOutlines() { return []; },
-          async getOutline() { return ''; },
-          async createOutline() { return { id: 'local' }; },
-          async saveOutline() { return {}; },
-          async acquireLock() { return { token: '' }; },
-          async releaseLock() {},
-        },
-        outline: {
-          root,
-          toOpml: () => toOpml(root, { title: document.title || 'Outline' }),
-          parseOpml,
-          loadOutline: (tree) => {
-            loadOutline(root, tree);
-            if (tree.title) document.title = tree.title;
-            const item = root.querySelector('[data-item]');
-            if (item) focusItem(item);
-          },
-          getTitle: () => document.title || 'Outline',
-          setTitle: (title) => {
-            if (title) document.title = title;
-          },
-          getOutlineId: () => currentOutlineId,
-          setOutlineId: (id) => {
-            currentOutlineId = id;
-          },
-          getRevision: () => currentRevision,
-          setRevision: (rev) => {
-            currentRevision = rev;
-          },
-          getLeaseToken: () => leaseToken,
-          setLeaseToken: (token) => {
-            leaseToken = token;
-          },
-          syncUrl,
-        },
+  if (configured) {
+    cloud = createCloudClient({
+      apiBase: cloudConfig.apiBase,
+      getIdToken: () => auth.getIdToken(),
+    });
+  }
+
+  if (configured && cloudConfig.firebase && !viewToken) {
+    try {
+      const [{ initializeApp }, authMod] = await Promise.all([
+        import('https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js'),
+        import('https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js'),
+      ]);
+      auth = await createFirebaseAuth(cloudConfig.firebase, {
+        app: { initializeApp },
+        auth: authMod,
       });
-
-      if (configured && cloud && currentOutlineId) {
-        // Deep link: load when signed in
-        auth.onAuthStateChanged(async (user) => {
-          if (!user || !currentOutlineId) return;
-          try {
-            const got = await cloud.getOutline(currentOutlineId);
-            const opml = typeof got === 'string' ? got : got.opml;
-            const tree = parseOpml(opml);
-            loadOutline(root, tree);
-            if (tree.title) document.title = tree.title;
-            currentRevision =
-              typeof got === 'string' ? null : (got.revision ?? null);
-            leaseToken = null;
-            const item = root.querySelector('[data-item]');
-            if (item) focusItem(item);
-          } catch (error) {
-            console.warn('Could not load outline from URL', error);
-          }
-        });
-      }
+      cloud = createCloudClient({
+        apiBase: cloudConfig.apiBase,
+        getIdToken: () => auth.getIdToken(),
+      });
+    } catch (error) {
+      console.error('Firebase Auth failed to initialize', error);
     }
+  }
 
-    void initCloud();
+  if (configured && cloud && viewToken) {
+    try {
+      const got = await cloud.getSharedOutline(viewToken);
+      const tree = parseOpml(got.opml);
+      loadOutline(root, tree);
+      setReadOnly(root, true);
+      setToolbarEnabled(false);
+      // Expand/collapse remain useful in read-only mode.
+      document.getElementById('btn-expand-all').disabled = false;
+      document.getElementById('btn-collapse-all').disabled = false;
+      if (got.title) document.title = got.title;
+    } catch (error) {
+      console.warn('Could not load shared outline', error);
+      window.alert('Could not open read-only link: ' + (error?.message || error));
+    }
+  }
+
+  mountCloudUi({
+    configured,
+    readOnlyView: Boolean(viewToken),
+    auth,
+    cloud: cloud || {
+      async listOutlines() { return []; },
+      async getOutline() { return { opml: '', revision: null }; },
+      async createOutline() { return { id: 'local' }; },
+      async saveOutline() { return {}; },
+      async acquireLock() { return { token: '' }; },
+      async releaseLock() {},
+      async createShareLink() { return { token: '', urlPath: '' }; },
+      async getSharedOutline() { return { opml: '', title: null }; },
+    },
+    outline: {
+      root,
+      toOpml: () => toOpml(root, { title: document.title || 'Outline' }),
+      parseOpml,
+      loadOutline: (tree) => {
+        loadOutline(root, tree);
+        if (tree.title) document.title = tree.title;
+        const item = root.querySelector('[data-item]');
+        if (item) focusItem(item);
+      },
+      getTitle: () => document.title || 'Outline',
+      setTitle: (title) => {
+        if (title) document.title = title;
+      },
+      getOutlineId: () => currentOutlineId,
+      setOutlineId: (id) => {
+        currentOutlineId = id;
+      },
+      getRevision: () => currentRevision,
+      setRevision: (rev) => {
+        currentRevision = rev;
+      },
+      getLeaseToken: () => leaseToken,
+      setLeaseToken: (token) => {
+        leaseToken = token;
+      },
+      syncUrl,
+    },
+  });
+
+  if (configured && cloud && currentOutlineId && !viewToken) {
+    // Deep link: load when signed in
+    auth.onAuthStateChanged(async (user) => {
+      if (!user || !currentOutlineId) return;
+      try {
+        const got = await cloud.getOutline(currentOutlineId);
+        const opml = typeof got === 'string' ? got : got.opml;
+        const tree = parseOpml(opml);
+        loadOutline(root, tree);
+        if (tree.title) document.title = tree.title;
+        currentRevision =
+          typeof got === 'string' ? null : (got.revision ?? null);
+        leaseToken = null;
+        const item = root.querySelector('[data-item]');
+        if (item) focusItem(item);
+      } catch (error) {
+        console.warn('Could not load outline from URL', error);
+      }
+    });
+  }
+}
+
+void initCloud();

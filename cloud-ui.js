@@ -5,17 +5,19 @@
 /**
  * @param {object} options
  * @param {boolean} options.configured
+ * @param {boolean} [options.readOnlyView]
  * @param {{ onAuthStateChanged: Function, signInWithGoogle: Function, signOut: Function }} options.auth
  * @param {ReturnType<import('./cloud.js').createCloudClient>} options.cloud
  * @param {object} options.outline
  */
-export function mountCloudUi({ configured, auth, cloud, outline }) {
+export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = false }) {
   const bar = document.querySelector('[data-cloud-bar]');
   const btnSignIn = document.getElementById('btn-sign-in');
   const btnSignOut = document.getElementById('btn-sign-out');
   const userEl = document.getElementById('cloud-user');
   const btnSave = document.getElementById('btn-cloud-save');
   const btnOpen = document.getElementById('btn-cloud-open');
+  const btnShare = document.getElementById('btn-cloud-share');
   const saveDialog = document.getElementById('cloud-save-dialog');
   const saveForm = document.getElementById('cloud-save-form');
   const saveNameInput = document.getElementById('cloud-save-name');
@@ -23,6 +25,10 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
   const openDialog = document.getElementById('cloud-open-dialog');
   const listEl = document.getElementById('cloud-outline-list');
   const btnCancel = document.getElementById('btn-cloud-open-cancel');
+  const shareDialog = document.getElementById('cloud-share-dialog');
+  const shareUrlInput = document.getElementById('cloud-share-url');
+  const btnShareCopy = document.getElementById('btn-cloud-share-copy');
+  const btnShareClose = document.getElementById('btn-cloud-share-close');
   const statusEl = document.getElementById('cloud-status');
 
   if (!bar) {
@@ -44,16 +50,27 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
 
   function syncAuthUi() {
     const signedIn = Boolean(user);
-    if (btnSignIn) btnSignIn.hidden = signedIn;
-    if (btnSignOut) btnSignOut.hidden = !signedIn;
+    if (btnSignIn) btnSignIn.hidden = signedIn || readOnlyView;
+    if (btnSignOut) btnSignOut.hidden = !signedIn || readOnlyView;
     if (userEl) {
-      userEl.hidden = !signedIn;
+      userEl.hidden = !signedIn || readOnlyView;
       userEl.textContent = signedIn
         ? user.displayName || user.email || user.uid || 'Signed in'
         : '';
     }
-    if (btnSave) btnSave.disabled = !signedIn || busy;
-    if (btnOpen) btnOpen.disabled = !signedIn || busy;
+    const canMutate = signedIn && !busy && !readOnlyView;
+    if (btnSave) {
+      btnSave.hidden = readOnlyView;
+      btnSave.disabled = !canMutate;
+    }
+    if (btnOpen) {
+      btnOpen.hidden = readOnlyView;
+      btnOpen.disabled = !canMutate;
+    }
+    if (btnShare) {
+      btnShare.hidden = readOnlyView;
+      btnShare.disabled = !canMutate;
+    }
   }
 
   async function withBusy(label, fn) {
@@ -211,6 +228,47 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
     });
   }
 
+  function absoluteShareUrl(urlPath) {
+    try {
+      return new URL(urlPath, window.location.origin).href;
+    } catch {
+      return urlPath;
+    }
+  }
+
+  async function onShare() {
+    const id = outline.getOutlineId?.();
+    if (!id) {
+      window.alert('Save this outline to the cloud before creating a read-only link.');
+      return;
+    }
+    await withBusy('Creating link…', async () => {
+      const result = await cloud.createShareLink(id);
+      const href = absoluteShareUrl(result.urlPath);
+      if (shareUrlInput) shareUrlInput.value = href;
+      try {
+        await navigator.clipboard?.writeText?.(href);
+        setStatus('Read-only link copied');
+      } catch {
+        setStatus('Read-only link ready');
+      }
+      openDialogEl(shareDialog);
+      shareUrlInput?.focus?.();
+      shareUrlInput?.select?.();
+    });
+  }
+
+  async function onShareCopy() {
+    const href = shareUrlInput?.value;
+    if (!href) return;
+    try {
+      await navigator.clipboard.writeText(href);
+      setStatus('Read-only link copied');
+    } catch {
+      shareUrlInput?.select?.();
+    }
+  }
+
   function onCancelOpen() {
     closeDialog(openDialog);
   }
@@ -231,8 +289,15 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
   btnOpen?.addEventListener('click', () => {
     void onOpen();
   });
+  btnShare?.addEventListener('click', () => {
+    void onShare();
+  });
   btnCancel?.addEventListener('click', onCancelOpen);
   btnSaveCancel?.addEventListener('click', onCancelSave);
+  btnShareCopy?.addEventListener('click', () => {
+    void onShareCopy();
+  });
+  btnShareClose?.addEventListener('click', () => closeDialog(shareDialog));
   saveForm?.addEventListener('submit', (event) => {
     event.preventDefault();
     const name = saveNameInput?.value?.trim();
@@ -243,6 +308,10 @@ export function mountCloudUi({ configured, auth, cloud, outline }) {
     closeDialog(saveDialog);
     void saveWithName(name);
   });
+
+  if (readOnlyView) {
+    setStatus('Read-only view');
+  }
 
   syncAuthUi();
 

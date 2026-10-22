@@ -253,6 +253,13 @@ function isCaretAtStart(el) {
 function handleKeydown(event) {
   const item = itemFromEventTarget(event.target);
   if (!item || !event.target.classList?.contains('text')) return;
+  const outlineRoot = item.closest('[data-outline-root]');
+  if (isReadOnly(outlineRoot)) {
+    if (event.key === 'Enter' || event.key === 'Tab' || event.key === 'Backspace') {
+      event.preventDefault();
+    }
+    return;
+  }
 
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
@@ -501,10 +508,31 @@ export function loadOutline(root, tree) {
   root.replaceChildren();
   if (items.length === 0) {
     root.appendChild(createItem(''));
-    return root;
+  } else {
+    items.forEach((node) => root.appendChild(renderItem(node)));
   }
-  items.forEach((node) => root.appendChild(renderItem(node)));
   syncTree(root);
+  if (isReadOnly(root)) setReadOnly(root, true);
+  return root;
+}
+
+/** Whether the outline is in read-only (share view) mode. */
+export function isReadOnly(root) {
+  return root?.dataset?.readonly === 'true';
+}
+
+/**
+ * Toggle read-only viewing: disable contenteditable on all item text.
+ * @param {HTMLElement} root
+ * @param {boolean} readOnly
+ */
+export function setReadOnly(root, readOnly) {
+  if (!root) return root;
+  if (readOnly) root.dataset.readonly = 'true';
+  else delete root.dataset.readonly;
+  root.querySelectorAll('.text').forEach((el) => {
+    el.contentEditable = readOnly ? 'false' : 'true';
+  });
   return root;
 }
 

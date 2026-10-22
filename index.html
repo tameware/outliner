@@ -27,6 +27,7 @@
       <span id="cloud-user" class="cloud-user" hidden></span>
       <button type="button" id="btn-cloud-save" disabled title="Save outline to cloud">Save to cloud</button>
       <button type="button" id="btn-cloud-open" disabled title="Open outline from cloud">Open from cloud</button>
+      <button type="button" id="btn-cloud-share" disabled title="Copy a read-only link to this outline">Copy read-only link</button>
       <p id="cloud-status" class="cloud-status" role="status"></p>
     </div>
     <dialog id="cloud-save-dialog" class="cloud-dialog">
@@ -53,6 +54,17 @@
         <h2>Open from cloud</h2>
         <ul id="cloud-outline-list" class="cloud-outline-list"></ul>
         <button type="button" id="btn-cloud-open-cancel" value="cancel">Cancel</button>
+      </form>
+    </dialog>
+    <dialog id="cloud-share-dialog" class="cloud-dialog">
+      <form method="dialog" class="cloud-dialog-form">
+        <h2>Read-only link</h2>
+        <p class="cloud-share-hint">Anyone with this link can view the outline but not edit it.</p>
+        <input id="cloud-share-url" class="cloud-save-input" type="text" readonly />
+        <div class="cloud-dialog-actions">
+          <button type="button" id="btn-cloud-share-copy">Copy</button>
+          <button type="button" id="btn-cloud-share-close" value="cancel">Close</button>
+        </div>
       </form>
     </dialog>
     <p class="hints">

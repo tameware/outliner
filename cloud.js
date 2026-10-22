@@ -8,6 +8,8 @@
  *   PUT    /api/outlines/:id      body: OPML, If-Match: revision
  *   POST   /api/outlines/:id/lock
  *   DELETE /api/outlines/:id/lock header X-Lease-Token
+ *   POST   /api/outlines/:id/share
+ *   GET    /api/outlines/shared/:token   (no auth; read-only)
  */
 
 /**
@@ -80,6 +82,30 @@ export function locationWithOutlineId(locationLike, id) {
   const params = new URLSearchParams(locationLike.search || '');
   if (id) params.set('id', id);
   else params.delete('id');
+  params.delete('view');
+  const qs = params.toString();
+  const path = locationLike.pathname || '/';
+  const hash = locationLike.hash || '';
+  return qs ? `${path}?${qs}${hash}` : `${path}${hash}`;
+}
+
+/**
+ * @param {{ search?: string, hash?: string }} locationLike
+ * @returns {string | null}
+ */
+export function viewTokenFromLocation(locationLike) {
+  const params = new URLSearchParams(locationLike.search || '');
+  const token = params.get('view');
+  return token && token.trim() ? token.trim() : null;
+}
+
+/**
+ * @param {{ pathname?: string, search?: string, hash?: string }} locationLike
+ * @param {string | null} token
+ */
+export function locationWithViewToken(locationLike, token) {
+  const params = new URLSearchParams();
+  if (token) params.set('view', token);
   const qs = params.toString();
   const path = locationLike.pathname || '/';
   const hash = locationLike.hash || '';
@@ -206,6 +232,42 @@ export function createCloudClient({ apiBase, getIdToken, fetch: fetchFn = global
         method: 'DELETE',
         headers: leaseToken ? { 'X-Lease-Token': leaseToken } : {},
       });
+    },
+
+    async createShareLink(id) {
+      return request(`/api/outlines/${encodeURIComponent(id)}/share`, {
+        method: 'POST',
+      });
+    },
+
+    /**
+     * Public read-only fetch (no Bearer token).
+     * @returns {Promise<{ opml: string, title: string | null, revision: number | null }>}
+     */
+    async getSharedOutline(shareToken) {
+      const response = await fetchFn(
+        `${base}/api/outlines/shared/${encodeURIComponent(shareToken)}`,
+      );
+      if (!response.ok) {
+        const text = await response.text();
+        let body = null;
+        try {
+          body = text ? JSON.parse(text) : null;
+        } catch {
+          body = text;
+        }
+        const detail =
+          (body && typeof body === 'object' && (body.error || body.message)) ||
+          text ||
+          response.statusText;
+        throw new CloudApiError(String(detail || `HTTP ${response.status}`), response.status, body);
+      }
+      const opml = await response.text();
+      return {
+        opml,
+        title: response.headers.get('X-Outline-Title'),
+        revision: revisionFromHeaders(response),
+      };
     },
   };
 }

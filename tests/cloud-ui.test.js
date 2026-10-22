@@ -11,6 +11,7 @@ function setupDom() {
       <span id="cloud-user" hidden></span>
       <button type="button" id="btn-cloud-save" disabled>Save to cloud</button>
       <button type="button" id="btn-cloud-open" disabled>Open from cloud</button>
+      <button type="button" id="btn-cloud-share" disabled>Copy read-only link</button>
       <dialog id="cloud-save-dialog">
         <form method="dialog" id="cloud-save-form">
           <label>Name <input id="cloud-save-name" name="name" required /></label>
@@ -22,6 +23,11 @@ function setupDom() {
         <ul id="cloud-outline-list"></ul>
         <button type="button" id="btn-cloud-open-cancel">Cancel</button>
       </dialog>
+      <dialog id="cloud-share-dialog">
+        <input id="cloud-share-url" readonly />
+        <button type="button" id="btn-cloud-share-copy">Copy</button>
+        <button type="button" id="btn-cloud-share-close">Close</button>
+      </dialog>
       <p id="cloud-status" role="status"></p>
     </div>
     <ol data-outline-root></ol>
@@ -31,7 +37,7 @@ function setupDom() {
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.HTMLDialogElement = dom.window.HTMLDialogElement;
   // jsdom dialog stubs
-  for (const id of ['cloud-save-dialog', 'cloud-open-dialog']) {
+  for (const id of ['cloud-save-dialog', 'cloud-open-dialog', 'cloud-share-dialog']) {
     const el = document.getElementById(id);
     el.showModal = () => {
       el.setAttribute('open', '');
@@ -97,6 +103,10 @@ describe('cloud UI', () => {
       },
       acquireLock: async () => ({ token: 'lease', leaseUntil: '2099-01-01' }),
       releaseLock: async () => {},
+      createShareLink: async (id) => ({
+        token: 'share-tok',
+        urlPath: `/outliner/?view=share-tok&from=${id}`,
+      }),
     };
     outline = {
       root: document.querySelector('[data-outline-root]'),
@@ -243,5 +253,37 @@ describe('cloud UI', () => {
     assert.equal(createdCalls.length, 0);
     assert.equal(savedCalls.length, 1);
     assert.equal(savedCalls[0].id, 'existing-1');
+  });
+
+  it('creates a read-only share link for the current saved outline', async () => {
+    outlineId = 'existing-1';
+    const written = [];
+    const clipboard = {
+      writeText: async (text) => {
+        written.push(text);
+      },
+    };
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: clipboard,
+    });
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: window.navigator,
+    });
+    cloud.createShareLink = async () => ({
+      token: 'share-tok',
+      urlPath: '/outliner/?view=share-tok',
+    });
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('btn-cloud-share').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const dialog = document.getElementById('cloud-share-dialog');
+    assert.ok(dialog.hasAttribute('open'));
+    assert.match(document.getElementById('cloud-share-url').value, /view=share-tok/);
+    assert.equal(written.length, 1);
+    assert.match(written[0], /view=share-tok/);
   });
 });

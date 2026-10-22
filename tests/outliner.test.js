@@ -13,6 +13,9 @@ import {
   demoteItem,
   promoteItem,
   serializeOutline,
+  setReadOnly,
+  isReadOnly,
+  loadOutline,
 } from '../outliner.js';
 
 function setupDom(html) {
@@ -231,5 +234,27 @@ describe('WYSIWYG HTML outliner', () => {
     document.body.appendChild(outside);
     outside.focus();
     assert.equal(api.getActiveItem(), items[4]);
+  });
+
+  it('setReadOnly disables contenteditable on all item text', () => {
+    const root = document.querySelector('[data-outline-root]');
+    setReadOnly(root, true);
+    assert.equal(isReadOnly(root), true);
+    root.querySelectorAll('.text').forEach((el) => {
+      assert.equal(el.contentEditable, 'false');
+    });
+    setReadOnly(root, false);
+    assert.equal(isReadOnly(root), false);
+    root.querySelectorAll('.text').forEach((el) => {
+      assert.equal(el.contentEditable, 'true');
+    });
+  });
+
+  it('loadOutline preserves read-only mode', () => {
+    const root = document.querySelector('[data-outline-root]');
+    setReadOnly(root, true);
+    loadOutline(root, { items: [{ text: 'Only', children: [] }] });
+    assert.equal(isReadOnly(root), true);
+    assert.equal(root.querySelector('.text').contentEditable, 'false');
   });
 });

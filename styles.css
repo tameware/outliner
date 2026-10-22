@@ -155,11 +155,21 @@ body {
   font-size: 1.2rem;
 }
 
+.cloud-share-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .cloud-save-label {
   display: block;
   margin: 0 0 0.35rem;
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+[data-outline-root][data-readonly='true'] .text {
+  cursor: default;
 }
 
 .cloud-save-input {
