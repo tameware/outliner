@@ -1,61 +1,128 @@
 /**
- * Toolbar control: Clear outline ↔ Undo clear (one-shot undo of the last clear).
- *
+ * Clear outline plus undo/redo history for structural restores (OPML snapshots).
+ * Undo via Cmd/Ctrl+Z or Edit → Undo (beforeinput historyUndo); redo via Shift+Cmd/Ctrl+Z.
+ */
+
+/**
  * @param {object} options
  * @param {() => HTMLElement} options.getRoot
- * @param {HTMLButtonElement} options.button
  * @param {typeof import('./outliner.js').toOpml} options.toOpml
  * @param {typeof import('./outliner.js').parseOpml} options.parseOpml
  * @param {typeof import('./outliner.js').loadOutline} options.loadOutline
  * @param {typeof import('./outliner.js').clearOutline} [options.clearOutline]
  * @param {() => string} [options.getTitle]
+ * @param {HTMLButtonElement} [options.button] kept labelled "Clear outline" (never toggled)
  */
-export function createClearOutlineControl({
+export function createOutlineHistory({
   getRoot,
-  button,
   toOpml,
   parseOpml,
   loadOutline,
   clearOutline,
   getTitle = () => 'Outline',
+  button = null,
 }) {
-  let undoOpml = null;
+  /** @type {string[]} */
+  const undoStack = [];
+  /** @type {string[]} */
+  const redoStack = [];
 
-  function syncLabel() {
-    if (!button) return;
-    button.textContent = undoOpml ? 'Undo clear' : 'Clear outline';
-    button.title = undoOpml
-      ? 'Restore the outline from before clear'
-      : 'Remove all lines (can undo once)';
+  if (button) {
+    button.textContent = 'Clear outline';
+    button.title = 'Remove all lines (undo with ⌘Z / Ctrl+Z)';
   }
 
-  function clearOrUndo() {
+  function snapshot() {
+    const root = getRoot();
+    return toOpml(root, { title: getTitle() });
+  }
+
+  function restore(opml) {
+    loadOutline(getRoot(), parseOpml(opml));
+  }
+
+  function clear() {
     const root = getRoot();
     if (!root) return;
-    if (undoOpml) {
-      const tree = parseOpml(undoOpml);
-      loadOutline(root, tree);
-      undoOpml = null;
-    } else if (clearOutline) {
-      undoOpml = clearOutline(root, { title: getTitle() });
-    } else {
-      undoOpml = toOpml(root, { title: getTitle() });
-      loadOutline(root, { items: [] });
+    const before = clearOutline
+      ? clearOutline(root, { title: getTitle() })
+      : (() => {
+          const opml = snapshot();
+          loadOutline(root, { items: [] });
+          return opml;
+        })();
+    undoStack.push(before);
+    redoStack.length = 0;
+  }
+
+  function undo() {
+    if (!undoStack.length) return false;
+    redoStack.push(snapshot());
+    restore(undoStack.pop());
+    return true;
+  }
+
+  function redo() {
+    if (!redoStack.length) return false;
+    undoStack.push(snapshot());
+    restore(redoStack.pop());
+    return true;
+  }
+
+  function discard() {
+    undoStack.length = 0;
+    redoStack.length = 0;
+  }
+
+  /**
+   * @param {EventTarget} target
+   */
+  function bindShortcuts(target) {
+    if (!target?.addEventListener) return () => {};
+
+    function onKeyDown(event) {
+      const mod = event.metaKey || event.ctrlKey;
+      if (!mod || event.key.toLowerCase() !== 'z') return;
+      if (event.altKey) return;
+      if (event.shiftKey) {
+        if (redo()) event.preventDefault();
+      } else if (undo()) {
+        event.preventDefault();
+      }
     }
-    syncLabel();
-  }
 
-  /** Drop pending undo (e.g. after opening a file). */
-  function discardUndo() {
-    undoOpml = null;
-    syncLabel();
-  }
+    function onBeforeInput(event) {
+      if (event.inputType === 'historyUndo') {
+        if (undo()) event.preventDefault();
+      } else if (event.inputType === 'historyRedo') {
+        if (redo()) event.preventDefault();
+      }
+    }
 
-  syncLabel();
+    // Capture so we run before contenteditable's native undo when we have a snapshot.
+    target.addEventListener('keydown', onKeyDown, true);
+    target.addEventListener('beforeinput', onBeforeInput, true);
+    return () => {
+      target.removeEventListener('keydown', onKeyDown, true);
+      target.removeEventListener('beforeinput', onBeforeInput, true);
+    };
+  }
 
   return {
-    clearOrUndo,
-    discardUndo,
-    canUndo: () => Boolean(undoOpml),
+    clear,
+    undo,
+    redo,
+    discard,
+    discardUndo: discard,
+    canUndo: () => undoStack.length > 0,
+    canRedo: () => redoStack.length > 0,
+    bindShortcuts,
+    // Back-compat alias used by older call sites
+    clearOrUndo: clear,
   };
+}
+
+/** @deprecated use createOutlineHistory */
+export function createClearOutlineControl(options) {
+  return createOutlineHistory(options);
 }

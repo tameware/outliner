@@ -25,7 +25,7 @@ import {
 import { mountCloudUi } from './cloud-ui.js';
 import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
 import { applyReadOnlyToolbar } from './readonly-toolbar.js';
-import { createClearOutlineControl } from './clear-outline-ui.js';
+import { createOutlineHistory } from './clear-outline-ui.js';
 
 const api = boot();
 window.__outlinerApi = api;
@@ -87,7 +87,7 @@ document.getElementById('btn-collapse-all').addEventListener('click', () => {
   });
 });
 
-const clearControl = createClearOutlineControl({
+const outlineHistory = createOutlineHistory({
   getRoot: () => root,
   button: document.getElementById('btn-clear'),
   toOpml,
@@ -96,10 +96,11 @@ const clearControl = createClearOutlineControl({
   clearOutline,
   getTitle: () => document.title || 'Outline',
 });
+outlineHistory.bindShortcuts(root);
 
 document.getElementById('btn-clear').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
-  clearControl.clearOrUndo();
+  outlineHistory.clear();
   const first = root.querySelector('[data-item]');
   if (first) focusItem(first);
 });
@@ -125,7 +126,7 @@ fileInput.addEventListener('change', async () => {
   try {
     const tree = await readOpmlFile(file);
     loadOutline(root, tree);
-    clearControl.discardUndo();
+    outlineHistory.discard();
     if (tree.title) document.title = tree.title;
     const first = root.querySelector('[data-item]');
     if (first) focusItem(first);
@@ -203,7 +204,7 @@ async function initCloud() {
       parseOpml,
       loadOutline: (tree) => {
         loadOutline(root, tree);
-        clearControl.discardUndo();
+        outlineHistory.discard();
         if (tree.title) document.title = tree.title;
         const item = root.querySelector('[data-item]');
         if (item) focusItem(item);

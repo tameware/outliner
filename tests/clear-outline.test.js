@@ -9,8 +9,7 @@ import {
   parseOpml,
   toOpml,
 } from '../outliner.js';
-import { createClearOutlineControl } from '../clear-outline-ui.js';
-// clearOutline is both under test and injected into the control
+import { createOutlineHistory } from '../clear-outline-ui.js';
 
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><body>
@@ -40,37 +39,81 @@ function setupDom() {
 }
 
 describe('clear outline', () => {
+  let root;
+  let history;
+
   beforeEach(() => {
     setupDom();
-    mountOutliner(document.querySelector('[data-outline-root]'));
+    root = document.querySelector('[data-outline-root]');
+    mountOutliner(root);
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
   });
 
   it('clearOutline replaces content with one empty line and returns an OPML snapshot', () => {
-    const root = document.querySelector('[data-outline-root]');
     const snapshot = clearOutline(root);
     assert.match(snapshot, /Alpha/);
     assert.match(snapshot, /Beta/);
     assert.deepEqual(getItemTexts(root), ['']);
   });
 
-  it('Clear outline is undoable via the toolbar control', () => {
-    const root = document.querySelector('[data-outline-root]');
+  it('keeps the Clear outline button label unchanged after clear', () => {
     const button = document.getElementById('btn-clear');
-    const control = createClearOutlineControl({
-      getRoot: () => root,
-      button,
-      toOpml,
-      parseOpml,
-      loadOutline,
-      clearOutline,
-    });
-
-    control.clearOrUndo();
-    assert.equal(button.textContent, 'Undo clear');
-    assert.deepEqual(getItemTexts(root), ['']);
-
-    control.clearOrUndo();
+    history.clear();
     assert.equal(button.textContent, 'Clear outline');
+    assert.deepEqual(getItemTexts(root), ['']);
+  });
+
+  it('undoes clear via undo() (Edit menu / Cmd-Z path)', () => {
+    history.clear();
+    assert.deepEqual(getItemTexts(root), ['']);
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), ['Alpha', 'Beta']);
+  });
+
+  it('handles Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z shortcuts', () => {
+    history.bindShortcuts(root);
+    history.clear();
+
+    root.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'z',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.deepEqual(getItemTexts(root), ['Alpha', 'Beta']);
+
+    root.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'z',
+        metaKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.deepEqual(getItemTexts(root), ['']);
+  });
+
+  it('handles beforeinput historyUndo from the Edit menu', () => {
+    history.bindShortcuts(root);
+    history.clear();
+
+    const event = new window.InputEvent('beforeinput', {
+      bubbles: true,
+      cancelable: true,
+      inputType: 'historyUndo',
+    });
+    root.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
     assert.deepEqual(getItemTexts(root), ['Alpha', 'Beta']);
   });
 });
