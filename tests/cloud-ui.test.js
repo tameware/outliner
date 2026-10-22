@@ -238,7 +238,12 @@ describe('cloud UI', () => {
     outlineId = 'existing-1';
     outline.getTitle = () => 'Same name';
     outline.getRevision = () => 2;
-    outline.getLeaseToken = () => 'lease';
+    outline.getLeaseToken = () => 'stale-lease';
+    const lockCalls = [];
+    cloud.acquireLock = async (id) => {
+      lockCalls.push(id);
+      return { token: 'fresh-lease', leaseUntil: '2099-01-01' };
+    };
     mountCloudUi({ auth, cloud, outline, configured: true });
 
     document.getElementById('btn-cloud-save').click();
@@ -253,6 +258,8 @@ describe('cloud UI', () => {
     assert.equal(createdCalls.length, 0);
     assert.equal(savedCalls.length, 1);
     assert.equal(savedCalls[0].id, 'existing-1');
+    assert.deepEqual(lockCalls, ['existing-1']);
+    assert.equal(savedCalls[0].leaseToken, 'fresh-lease');
   });
 
   it('creates a read-only share link for the current saved outline', async () => {

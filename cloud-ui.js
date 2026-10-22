@@ -151,7 +151,6 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
       }
 
       let revision = outline.getRevision?.();
-      let leaseToken = outline.getLeaseToken?.();
 
       if (revision == null && cloud.getOutline) {
         const got = await cloud.getOutline(id);
@@ -162,7 +161,9 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
         throw new Error('Missing outline revision; reopen from cloud and try again');
       }
 
-      if (!leaseToken && cloud.acquireLock) {
+      // Always renew the lease; tokens expire (~60s) and stale ones cause "valid lease required".
+      let leaseToken = null;
+      if (cloud.acquireLock) {
         const lease = await cloud.acquireLock(id);
         leaseToken = lease.token;
         outline.setLeaseToken?.(leaseToken);
