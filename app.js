@@ -4,6 +4,8 @@ import {
   removeItem,
   promoteItem,
   demoteItem,
+  promoteChildren,
+  demoteFollowingSiblings,
   toggleItem,
   focusItem,
   downloadOpml,
@@ -69,12 +71,12 @@ document.getElementById('btn-remove').addEventListener('click', () => {
 document.getElementById('btn-promote').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   const item = api.getActiveItem();
-  if (item) promoteItem(item);
+  if (item) promoteChildren(item);
 });
 document.getElementById('btn-demote').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   const item = api.getActiveItem();
-  if (item) demoteItem(item);
+  if (item) demoteFollowingSiblings(item);
 });
 document.getElementById('btn-expand-all').addEventListener('click', () => {
   root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {

@@ -12,6 +12,8 @@ import {
   removeItem,
   demoteItem,
   promoteItem,
+  promoteChildren,
+  demoteFollowingSiblings,
   serializeOutline,
   setReadOnly,
   isReadOnly,
@@ -206,6 +208,50 @@ describe('WYSIWYG HTML outliner', () => {
   it('cannot promote a top-level item', () => {
     assert.equal(promoteItem(items[0]), false);
     assert.equal(promoteItem(items[4]), false);
+  });
+
+  it('toolbar promote lifts children to become siblings of the selected item', () => {
+    // Alpha has Beta (with Gamma) and Delta — promote on Alpha lifts Beta and Delta.
+    assert.equal(promoteChildren(items[0]), true);
+    assert.deepEqual(serializeOutline(root), [
+      { text: 'Alpha', children: [] },
+      {
+        text: 'Beta',
+        children: [{ text: 'Gamma', children: [] }],
+      },
+      { text: 'Delta', children: [] },
+      { text: 'Epsilon', children: [] },
+    ]);
+  });
+
+  it('toolbar promote does nothing when the item has no children', () => {
+    assert.equal(promoteChildren(items[4]), false); // Epsilon
+    assert.deepEqual(getItemTexts(root), ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']);
+  });
+
+  it('toolbar demote pulls following same-level siblings under the selected item', () => {
+    // Demote on Beta: Delta (same level under Alpha) becomes a child of Beta.
+    assert.equal(demoteFollowingSiblings(items[1]), true);
+    assert.deepEqual(serializeOutline(root), [
+      {
+        text: 'Alpha',
+        children: [
+          {
+            text: 'Beta',
+            children: [
+              { text: 'Gamma', children: [] },
+              { text: 'Delta', children: [] },
+            ],
+          },
+        ],
+      },
+      { text: 'Epsilon', children: [] },
+    ]);
+  });
+
+  it('toolbar demote does nothing when there are no following siblings', () => {
+    assert.equal(demoteFollowingSiblings(items[3]), false); // Delta is last under Alpha
+    assert.equal(demoteFollowingSiblings(items[4]), false); // Epsilon is last top-level
   });
 
   it('keeps nested HTML outline structure after edits', () => {

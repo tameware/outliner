@@ -13,8 +13,8 @@
     <div class="toolbar" role="toolbar" aria-label="Outline actions">
       <button type="button" id="btn-add" title="Add line (Enter)">Add line</button>
       <button type="button" id="btn-remove" title="Remove line (Backspace on empty)">Remove</button>
-      <button type="button" id="btn-promote" title="Promote (Shift+Tab)">Promote</button>
-      <button type="button" id="btn-demote" title="Demote (Tab)">Demote</button>
+      <button type="button" id="btn-promote" title="Lift children up to this level">Promote</button>
+      <button type="button" id="btn-demote" title="Pull following lines under this one">Demote</button>
       <button type="button" id="btn-expand-all">Expand all</button>
       <button type="button" id="btn-collapse-all">Collapse all</button>
       <button type="button" id="btn-clear" title="Remove all lines (⌘Z / Ctrl+Z to undo)">Clear outline</button>
@@ -70,8 +70,8 @@
     </dialog>
     <p class="hints">
       <kbd>Enter</kbd> new line ·
-      <kbd>Tab</kbd> demote ·
-      <kbd>Shift</kbd>+<kbd>Tab</kbd> promote ·
+      <kbd>Tab</kbd> indent ·
+      <kbd>Shift</kbd>+<kbd>Tab</kbd> outdent ·
       <kbd>Backspace</kbd> on empty deletes ·
       click ▸/▾ to expand/collapse
     </p>
@@ -106,13 +106,25 @@
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">Tab — demote (indent under the previous line)</div>
+                  <div class="text" contenteditable="true">Tab — indent this line under the one above</div>
                 </div>
               </li>
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">Shift+Tab — promote (move out one level)</div>
+                  <div class="text" contenteditable="true">Shift+Tab — move this line out one level</div>
+                </div>
+              </li>
+              <li data-item>
+                <div class="row">
+                  <button type="button" class="toggle" aria-label="Toggle"></button>
+                  <div class="text" contenteditable="true">Promote button — lift this line’s children up beside it</div>
+                </div>
+              </li>
+              <li data-item>
+                <div class="row">
+                  <button type="button" class="toggle" aria-label="Toggle"></button>
+                  <div class="text" contenteditable="true">Demote button — pull the following same-level lines under this one</div>
                 </div>
               </li>
               <li data-item>

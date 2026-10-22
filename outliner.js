@@ -205,6 +205,54 @@ export function promoteItem(item) {
   return true;
 }
 
+/**
+ * Toolbar Promote: lift this item's children up so they become its siblings
+ * (inserted immediately after it). Tab/Shift+Tab still use promoteItem/demoteItem.
+ */
+export function promoteChildren(item) {
+  const children = directChildItems(item);
+  if (!children.length) return false;
+
+  let insertAfter = item;
+  for (const child of children) {
+    insertAfter.after(child);
+    insertAfter = child;
+    syncItemMeta(child);
+  }
+  pruneEmptyLists(item);
+  syncItemMeta(item);
+  const root = item.closest('[data-outline-root]');
+  if (root) syncTree(root);
+  focusItem(item);
+  return true;
+}
+
+/**
+ * Toolbar Demote: pull following same-level siblings under this item as children.
+ * Tab/Shift+Tab still use promoteItem/demoteItem.
+ */
+export function demoteFollowingSiblings(item) {
+  const following = [];
+  let sib = item.nextElementSibling;
+  while (sib) {
+    const next = sib.nextElementSibling;
+    if (sib.matches('[data-item]')) following.push(sib);
+    sib = next;
+  }
+  if (!following.length) return false;
+
+  const list = ensureChildList(item);
+  following.forEach((f) => list.appendChild(f));
+  item.dataset.state = 'expanded';
+  list.hidden = false;
+  syncItemMeta(item);
+  following.forEach(syncItemMeta);
+  const root = item.closest('[data-outline-root]');
+  if (root) syncTree(root);
+  focusItem(item);
+  return true;
+}
+
 export function serializeOutline(root) {
   function walk(list) {
     return [...list.children]
@@ -334,6 +382,8 @@ export function mountOutliner(root, options = {}) {
     removeItem,
     promoteItem,
     demoteItem,
+    promoteChildren,
+    demoteFollowingSiblings,
     toggleItem,
     getActiveItem: () => {
       const el = document.activeElement;

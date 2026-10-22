@@ -8,7 +8,7 @@ A browser-based WYSIWYG outliner built on nested HTML lists. Edit text in place,
 - Expand / collapse parents (▸ / ▾)
 - Inline editing (`contenteditable`)
 - Add / remove lines (toolbar or keyboard)
-- Promote / demote (`Shift+Tab` / `Tab`)
+- Indent / outdent (`Tab` / `Shift+Tab`); toolbar Promote lifts children up, Demote gathers following siblings
 - OPML 2.0 save and open (including expansion state)
 - Optional **Sign in with Google** + **Save / Open from cloud** (GCP App Engine API)
 
