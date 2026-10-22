@@ -23,6 +23,7 @@ import {
 } from './cloud.js';
 import { mountCloudUi } from './cloud-ui.js';
 import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
+import { applyReadOnlyToolbar } from './readonly-toolbar.js';
 
 const api = boot();
 window.__outlinerApi = api;
@@ -42,6 +43,7 @@ function syncUrl(id) {
 function setToolbarEnabled(enabled) {
   document.querySelectorAll('.toolbar button').forEach((btn) => {
     btn.disabled = !enabled;
+    if (enabled) btn.hidden = false;
   });
   const fileInput = document.getElementById('file-open');
   if (fileInput) fileInput.disabled = !enabled;
@@ -153,10 +155,7 @@ async function initCloud() {
       const tree = parseOpml(got.opml);
       loadOutline(root, tree);
       setReadOnly(root, true);
-      setToolbarEnabled(false);
-      // Expand/collapse remain useful in read-only mode.
-      document.getElementById('btn-expand-all').disabled = false;
-      document.getElementById('btn-collapse-all').disabled = false;
+      applyReadOnlyToolbar(document.querySelector('.toolbar'));
       if (got.title) document.title = got.title;
     } catch (error) {
       console.warn('Could not load shared outline', error);
