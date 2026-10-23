@@ -372,7 +372,10 @@ function createKeydownHandler(options = {}) {
 
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      addItemAfter(item);
+      runStructural(() => {
+        addItemAfter(item);
+        return true;
+      });
       return;
     }
 

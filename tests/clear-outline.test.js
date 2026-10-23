@@ -573,4 +573,30 @@ describe('undo/redo preserves focus', () => {
       root.querySelector('[data-item]').querySelector(':scope > ol > [data-item]'),
     );
   });
+
+  it('undoes Enter (add line) and returns focus to the previous line', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'A', children: [] },
+        { text: 'B', children: [] },
+      ],
+    });
+    const a = root.querySelector('[data-item]');
+    const aText = a.querySelector('.text');
+    placeCaret(aText, 1);
+    aText.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.deepEqual(getItemTexts(root), ['A', '', 'B']);
+    assert.equal(focusedText(), '');
+
+    history.undo();
+    assert.deepEqual(getItemTexts(root), ['A', 'B']);
+    assert.equal(focusedText(), 'A');
+    assert.equal(caretOffset(), 1);
+  });
 });

@@ -2,9 +2,17 @@
  * Clear outline plus multi-step undo/redo for structural restores (OPML snapshots).
  * Undo via Cmd/Ctrl+Z or Edit → Undo (beforeinput historyUndo);
  * redo via Shift+Cmd/Ctrl+Z, Cmd/Ctrl+Y, or Edit → Redo.
+ *
+ * Each stack entry stores the OPML snapshot and the focus to restore with it
+ * (captured before the mutation for undo entries, so Enter/add returns to the prior line).
  */
 
 const DEFAULT_MAX_DEPTH = 50;
+
+/**
+ * @typedef {{ itemIndex: number, caretOffset: number | null }} FocusSave
+ * @typedef {{ opml: string, focus: FocusSave | null }} HistoryEntry
+ */
 
 /**
  * @param {object} options
@@ -31,9 +39,9 @@ export function createOutlineHistory({
   redoButton = null,
   maxDepth = DEFAULT_MAX_DEPTH,
 }) {
-  /** @type {string[]} */
+  /** @type {HistoryEntry[]} */
   const undoStack = [];
-  /** @type {string[]} */
+  /** @type {HistoryEntry[]} */
   const redoStack = [];
   const depthLimit = Math.max(1, Number(maxDepth) || DEFAULT_MAX_DEPTH);
 
@@ -48,9 +56,8 @@ export function createOutlineHistory({
   }
 
   /**
-   * Remember which outline line is focused (DFS index + caret) across full DOM restores.
    * @param {HTMLElement | null | undefined} root
-   * @returns {{ itemIndex: number, caretOffset: number | null } | null}
+   * @returns {FocusSave | null}
    */
   function captureFocus(root) {
     if (!root) return null;
@@ -75,7 +82,7 @@ export function createOutlineHistory({
 
   /**
    * @param {HTMLElement | null | undefined} root
-   * @param {{ itemIndex: number, caretOffset: number | null } | null} saved
+   * @param {FocusSave | null} saved
    */
   function restoreFocus(root, saved) {
     if (!root || !saved) return;
@@ -103,11 +110,15 @@ export function createOutlineHistory({
     }
   }
 
-  function restore(opml) {
+  /**
+   * @param {HistoryEntry | string} entry
+   */
+  function applyEntry(entry) {
     const root = getRoot();
-    const saved = captureFocus(root);
+    const opml = typeof entry === 'string' ? entry : entry.opml;
+    const focus = typeof entry === 'string' ? captureFocus(root) : entry.focus;
     loadOutline(root, parseOpml(opml));
-    restoreFocus(root, saved);
+    restoreFocus(root, focus);
   }
 
   function trimUndo() {
@@ -119,8 +130,12 @@ export function createOutlineHistory({
     if (redoButton) redoButton.disabled = redoStack.length === 0;
   }
 
-  function pushUndo(opml) {
-    undoStack.push(opml);
+  /**
+   * @param {string} opml
+   * @param {FocusSave | null} [focus]
+   */
+  function pushUndo(opml, focus = null) {
+    undoStack.push({ opml, focus });
     trimUndo();
     redoStack.length = 0;
     syncButtons();
@@ -128,17 +143,21 @@ export function createOutlineHistory({
 
   /** Push current outline onto the undo stack (call before a structural mutation). */
   function record() {
-    pushUndo(snapshot());
+    const root = getRoot();
+    pushUndo(snapshot(), captureFocus(root));
   }
 
   /**
    * Snapshot, run a mutation, and keep the snapshot only if the mutation reports success.
+   * Focus saved is the pre-mutation focus (so undoing Enter returns to the prior line).
    * @param {() => boolean | void} mutate
    */
   function run(mutate) {
+    const root = getRoot();
     const before = snapshot();
+    const focusBefore = captureFocus(root);
     const ok = mutate();
-    if (ok) pushUndo(before);
+    if (ok) pushUndo(before, focusBefore);
     else syncButtons();
     return Boolean(ok);
   }
@@ -146,6 +165,7 @@ export function createOutlineHistory({
   function clear() {
     const root = getRoot();
     if (!root) return;
+    const focusBefore = captureFocus(root);
     const before = clearOutline
       ? clearOutline(root, { title: getTitle() })
       : (() => {
@@ -153,22 +173,24 @@ export function createOutlineHistory({
           loadOutline(root, { items: [] });
           return opml;
         })();
-    pushUndo(before);
+    pushUndo(before, focusBefore);
   }
 
   function undo() {
     if (!undoStack.length) return false;
-    redoStack.push(snapshot());
-    restore(undoStack.pop());
+    const root = getRoot();
+    redoStack.push({ opml: snapshot(), focus: captureFocus(root) });
+    applyEntry(undoStack.pop());
     syncButtons();
     return true;
   }
 
   function redo() {
     if (!redoStack.length) return false;
-    undoStack.push(snapshot());
+    const root = getRoot();
+    undoStack.push({ opml: snapshot(), focus: captureFocus(root) });
     trimUndo();
-    restore(redoStack.pop());
+    applyEntry(redoStack.pop());
     syncButtons();
     return true;
   }
