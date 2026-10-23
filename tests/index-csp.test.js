@@ -27,4 +27,10 @@ describe('index.html CSP-safe entry', () => {
     assert.match(appJs, /boot\s*\(/);
     assert.match(appJs, /initCloud|loadCloudConfig/);
   });
+
+  it('starter tip says show or hide children (show before hide)', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    assert.match(html, /to show or hide its children/);
+    assert.doesNotMatch(html, /to hide or show its children/);
+  });
 });
