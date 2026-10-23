@@ -106,6 +106,7 @@ export function createItem(text = '') {
 
   const textNode = document.createElement('div');
   textNode.className = 'text';
+  textNode.setAttribute('contenteditable', 'true');
   textNode.contentEditable = 'true';
   textNode.spellcheck = true;
   textNode.textContent = text;
@@ -654,7 +655,9 @@ export function setReadOnly(root, readOnly) {
   if (readOnly) root.dataset.readonly = 'true';
   else delete root.dataset.readonly;
   root.querySelectorAll('.text').forEach((el) => {
-    el.contentEditable = readOnly ? 'false' : 'true';
+    const value = readOnly ? 'false' : 'true';
+    el.setAttribute('contenteditable', value);
+    el.contentEditable = value;
   });
   return root;
 }

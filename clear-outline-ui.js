@@ -47,8 +47,67 @@ export function createOutlineHistory({
     return toOpml(root, { title: getTitle() });
   }
 
+  /**
+   * Remember which outline line is focused (DFS index + caret) across full DOM restores.
+   * @param {HTMLElement | null | undefined} root
+   * @returns {{ itemIndex: number, caretOffset: number | null } | null}
+   */
+  function captureFocus(root) {
+    if (!root) return null;
+    const active = document.activeElement;
+    if (!active || !root.contains(active)) return null;
+    const item = active.closest?.('[data-item]');
+    if (!item || !root.contains(item)) return null;
+    const items = [...root.querySelectorAll('[data-item]')];
+    const itemIndex = items.indexOf(item);
+    if (itemIndex < 0) return null;
+    let caretOffset = null;
+    const text = item.querySelector('.text');
+    const sel = window.getSelection?.();
+    if (text && sel?.rangeCount) {
+      const range = sel.getRangeAt(0);
+      if (text === range.startContainer || text.contains(range.startContainer)) {
+        caretOffset = range.startOffset;
+      }
+    }
+    return { itemIndex, caretOffset };
+  }
+
+  /**
+   * @param {HTMLElement | null | undefined} root
+   * @param {{ itemIndex: number, caretOffset: number | null } | null} saved
+   */
+  function restoreFocus(root, saved) {
+    if (!root || !saved) return;
+    const items = [...root.querySelectorAll('[data-item]')];
+    const item = items[saved.itemIndex];
+    if (!item) return;
+    const text = item.querySelector('.text');
+    if (!text) return;
+    text.focus();
+    if (saved.caretOffset == null || !window.getSelection) return;
+    try {
+      const node = text.firstChild || text;
+      const max =
+        node.nodeType === Node.TEXT_NODE
+          ? node.textContent.length
+          : node.childNodes.length;
+      const range = document.createRange();
+      range.setStart(node, Math.min(saved.caretOffset, max));
+      range.collapse(true);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch {
+      /* ignore */
+    }
+  }
+
   function restore(opml) {
-    loadOutline(getRoot(), parseOpml(opml));
+    const root = getRoot();
+    const saved = captureFocus(root);
+    loadOutline(root, parseOpml(opml));
+    restoreFocus(root, saved);
   }
 
   function trimUndo() {

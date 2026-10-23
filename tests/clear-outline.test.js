@@ -451,3 +451,126 @@ describe('Tab / Shift+Tab undo', () => {
     assert.equal(promoteItem(only), false);
   });
 });
+
+describe('undo/redo preserves focus', () => {
+  let root;
+  let history;
+
+  function placeCaret(el, offset) {
+    el.focus();
+    const range = document.createRange();
+    const node = el.firstChild || el;
+    range.setStart(node, Math.min(offset, node.textContent?.length ?? 0));
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  function caretOffset() {
+    const sel = window.getSelection();
+    if (!sel?.rangeCount) return null;
+    return sel.getRangeAt(0).startOffset;
+  }
+
+  function focusedText() {
+    const el = document.activeElement;
+    return el?.classList?.contains('text') ? el.textContent : null;
+  }
+
+  beforeEach(() => {
+    setupDom();
+    root = document.querySelector('[data-outline-root]');
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    mountOutliner(root, {
+      runStructural: (mutate) => history.run(mutate),
+    });
+  });
+
+  it('keeps focus and caret after undoing Tab indent', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'A', children: [] },
+        { text: 'B', children: [] },
+      ],
+    });
+    const bText = [...root.querySelectorAll('[data-item]')][1].querySelector('.text');
+    placeCaret(bText, 1);
+    history.run(() => demoteItem([...root.querySelectorAll('[data-item]')][1]));
+    assert.equal(focusedText(), 'B');
+    assert.equal(caretOffset(), 1);
+
+    history.undo();
+    assert.equal(focusedText(), 'B');
+    assert.equal(caretOffset(), 1);
+    assert.equal(
+      root.querySelector('[data-item]').querySelector(':scope > ol > [data-item]'),
+      null,
+    );
+  });
+
+  it('keeps focus and caret after undoing Shift+Tab outdent', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'A',
+          children: [{ text: 'Hello', children: [] }],
+        },
+      ],
+    });
+    const child = root.querySelector('[data-item] [data-item]');
+    const text = child.querySelector('.text');
+    placeCaret(text, 2);
+    history.run(() => promoteItem(child));
+    assert.equal(focusedText(), 'Hello');
+    assert.equal(caretOffset(), 2);
+
+    history.undo();
+    assert.equal(focusedText(), 'Hello');
+    assert.equal(caretOffset(), 2);
+  });
+
+  it('keeps focus and caret after undoing toolbar Promote', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'Parent',
+          children: [{ text: 'Kid', children: [] }],
+        },
+      ],
+    });
+    const parent = root.querySelector('[data-item]');
+    const text = parent.querySelector('.text');
+    placeCaret(text, 3);
+    history.run(() => promoteChildren(parent));
+    history.undo();
+    assert.equal(focusedText(), 'Parent');
+    assert.equal(caretOffset(), 3);
+  });
+
+  it('keeps focus and caret after redoing a structural edit', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'A', children: [] },
+        { text: 'B', children: [] },
+      ],
+    });
+    const b = [...root.querySelectorAll('[data-item]')][1];
+    placeCaret(b.querySelector('.text'), 1);
+    history.run(() => demoteItem(b));
+    history.undo();
+    history.redo();
+    assert.equal(focusedText(), 'B');
+    assert.equal(caretOffset(), 1);
+    assert.ok(
+      root.querySelector('[data-item]').querySelector(':scope > ol > [data-item]'),
+    );
+  });
+});
