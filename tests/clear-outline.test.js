@@ -8,6 +8,8 @@ import {
   loadOutline,
   parseOpml,
   toOpml,
+  promoteChildren,
+  demoteFollowingSiblings,
 } from '../outliner.js';
 import { createOutlineHistory } from '../clear-outline-ui.js';
 
@@ -115,5 +117,77 @@ describe('clear outline', () => {
     root.dispatchEvent(event);
     assert.equal(event.defaultPrevented, true);
     assert.deepEqual(getItemTexts(root), ['Alpha', 'Beta']);
+  });
+
+  it('undoes promote after record() via Edit menu / Cmd-Z', () => {
+    history.bindShortcuts(root);
+    const alpha = root.querySelector('[data-item]');
+    history.record();
+    assert.equal(promoteChildren(alpha), true);
+    assert.equal(
+      root.querySelector('[data-item]').querySelector(':scope > ol > [data-item]'),
+      null,
+    );
+
+    const event = new window.InputEvent('beforeinput', {
+      bubbles: true,
+      cancelable: true,
+      inputType: 'historyUndo',
+    });
+    root.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+    assert.ok(
+      root.querySelector('[data-item]').querySelector(':scope > ol > [data-item]'),
+    );
+  });
+
+  it('undoes demote after record() via Cmd/Ctrl+Z', () => {
+    history.bindShortcuts(root);
+    loadOutline(root, {
+      items: [
+        { text: 'A', children: [] },
+        { text: 'B', children: [] },
+      ],
+    });
+    const a = root.querySelector('[data-item]');
+    history.record();
+    assert.equal(demoteFollowingSiblings(a), true);
+    assert.deepEqual(getItemTexts(root), ['A', 'B']);
+    assert.ok(
+      root.querySelector('[data-item]').querySelector(':scope > ol > [data-item]'),
+    );
+
+    root.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'z',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.deepEqual(getItemTexts(root), ['A', 'B']);
+    assert.equal(
+      root.querySelector('[data-item]').querySelector(':scope > ol > [data-item]'),
+      null,
+    );
+  });
+
+  it('run() records only when the mutation succeeds', () => {
+    const alpha = root.querySelector('[data-item]');
+    assert.equal(
+      history.run(() => promoteChildren(alpha)),
+      true,
+    );
+    assert.equal(history.canUndo(), true);
+
+    // Epsilon-style: leaf with no children → promote fails, no undo entry added.
+    history.discard();
+    loadOutline(root, { items: [{ text: 'Leaf', children: [] }] });
+    const leaf = root.querySelector('[data-item]');
+    assert.equal(
+      history.run(() => promoteChildren(leaf)),
+      false,
+    );
+    assert.equal(history.canUndo(), false);
   });
 });

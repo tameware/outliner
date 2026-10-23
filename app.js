@@ -59,6 +59,26 @@ document.querySelectorAll('.toolbar button, .cloud-bar button').forEach((btn) =>
   btn.addEventListener('mousedown', (event) => event.preventDefault());
 });
 
+const outlineHistory = createOutlineHistory({
+  getRoot: () => root,
+  button: document.getElementById('btn-clear'),
+  toOpml,
+  parseOpml,
+  loadOutline,
+  clearOutline,
+  getTitle: () => document.title || 'Outline',
+});
+outlineHistory.bindShortcuts(root);
+
+/** @param {'promote' | 'demote'} action */
+function runPromoteDemote(action) {
+  const item = api.getActiveItem();
+  if (!item) return false;
+  return outlineHistory.run(() =>
+    action === 'promote' ? promoteChildren(item) : demoteFollowingSiblings(item),
+  );
+}
+
 document.getElementById('btn-add').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   const item = api.getActiveItem();
@@ -71,13 +91,11 @@ document.getElementById('btn-remove').addEventListener('click', () => {
 });
 document.getElementById('btn-promote').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
-  const item = api.getActiveItem();
-  if (item) promoteChildren(item);
+  runPromoteDemote('promote');
 });
 document.getElementById('btn-demote').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
-  const item = api.getActiveItem();
-  if (item) demoteFollowingSiblings(item);
+  runPromoteDemote('demote');
 });
 
 document.addEventListener(
@@ -86,11 +104,7 @@ document.addEventListener(
     if (root.dataset.readonly === 'true') return;
     const action = matchPromoteDemoteShortcut(event);
     if (!action) return;
-    const item = api.getActiveItem();
-    if (!item) return;
-    const ok =
-      action === 'promote' ? promoteChildren(item) : demoteFollowingSiblings(item);
-    if (ok) event.preventDefault();
+    if (runPromoteDemote(action)) event.preventDefault();
   },
   true,
 );
@@ -104,17 +118,6 @@ document.getElementById('btn-collapse-all').addEventListener('click', () => {
     if (item.dataset.state !== 'collapsed') toggleItem(item);
   });
 });
-
-const outlineHistory = createOutlineHistory({
-  getRoot: () => root,
-  button: document.getElementById('btn-clear'),
-  toOpml,
-  parseOpml,
-  loadOutline,
-  clearOutline,
-  getTitle: () => document.title || 'Outline',
-});
-outlineHistory.bindShortcuts(root);
 
 document.getElementById('btn-clear').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;

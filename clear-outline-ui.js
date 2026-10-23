@@ -41,6 +41,26 @@ export function createOutlineHistory({
     loadOutline(getRoot(), parseOpml(opml));
   }
 
+  /** Push current outline onto the undo stack (call before a structural mutation). */
+  function record() {
+    undoStack.push(snapshot());
+    redoStack.length = 0;
+  }
+
+  /**
+   * Snapshot, run a mutation, and keep the snapshot only if the mutation reports success.
+   * @param {() => boolean | void} mutate
+   */
+  function run(mutate) {
+    const before = snapshot();
+    const ok = mutate();
+    if (ok) {
+      undoStack.push(before);
+      redoStack.length = 0;
+    }
+    return Boolean(ok);
+  }
+
   function clear() {
     const root = getRoot();
     if (!root) return;
@@ -110,6 +130,8 @@ export function createOutlineHistory({
 
   return {
     clear,
+    record,
+    run,
     undo,
     redo,
     discard,

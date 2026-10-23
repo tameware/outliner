@@ -13,8 +13,8 @@
     <div class="toolbar" role="toolbar" aria-label="Outline actions">
       <button type="button" id="btn-add" title="Add line (Enter)">Add line</button>
       <button type="button" id="btn-remove" title="Remove line (Backspace on empty)">Remove</button>
-      <button type="button" id="btn-promote" title="Lift children up to this level (⌘[ / Ctrl+[)">Promote</button>
-      <button type="button" id="btn-demote" title="Pull following lines under this one (⌘] / Ctrl+])">Demote</button>
+      <button type="button" id="btn-promote" title="Lift children up to this level (⌘[ / Ctrl+[; undo ⌘Z / Ctrl+Z)">Promote</button>
+      <button type="button" id="btn-demote" title="Pull following lines under this one (⌘] / Ctrl+]; undo ⌘Z / Ctrl+Z)">Demote</button>
       <button type="button" id="btn-expand-all">Expand all</button>
       <button type="button" id="btn-collapse-all">Collapse all</button>
       <button type="button" id="btn-clear" title="Remove all lines (⌘Z / Ctrl+Z to undo)">Clear outline</button>
@@ -118,13 +118,13 @@
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">Promote (⌘[ / Ctrl+[) — lift this line’s children up beside it</div>
+                  <div class="text" contenteditable="true">Promote (⌘[ / Ctrl+[) — lift this line’s children up beside it (undo with ⌘Z / Ctrl+Z)</div>
                 </div>
               </li>
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">Demote (⌘] / Ctrl+]) — pull the following same-level lines under this one</div>
+                  <div class="text" contenteditable="true">Demote (⌘] / Ctrl+]) — pull the following same-level lines under this one (undo with ⌘Z / Ctrl+Z)</div>
                 </div>
               </li>
               <li data-item>
