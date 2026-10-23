@@ -161,48 +161,100 @@ export function removeItem(item) {
   return null;
 }
 
+/**
+ * Run a DOM mutation without stealing focus or moving the caret on `item`'s text.
+ * Moving nodes can blur in some engines; restore the prior caret instead of jumping to the end.
+ * @template T
+ * @param {HTMLElement} item
+ * @param {() => T} mutate
+ * @returns {T}
+ */
+function withoutFocusChange(item, mutate) {
+  const el = textEl(item);
+  const hadFocus = Boolean(el && document.activeElement === el);
+  let startContainer = null;
+  let startOffset = null;
+  if (hadFocus) {
+    const sel = window.getSelection?.();
+    if (sel?.rangeCount) {
+      const range = sel.getRangeAt(0);
+      if (el === range.startContainer || el.contains(range.startContainer)) {
+        startContainer = range.startContainer;
+        startOffset = range.startOffset;
+      }
+    }
+  }
+
+  const result = mutate();
+
+  if (hadFocus && el?.isConnected) {
+    el.focus();
+    if (startOffset != null && window.getSelection) {
+      try {
+        const node =
+          startContainer?.isConnected ? startContainer : el.firstChild || el;
+        const max =
+          node.nodeType === Node.TEXT_NODE
+            ? node.textContent.length
+            : node.childNodes.length;
+        const range = document.createRange();
+        range.setStart(node, Math.min(startOffset, max));
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch {
+        /* ignore selection restore failures */
+      }
+    }
+  }
+
+  return result;
+}
+
 export function demoteItem(item) {
   const prev = item.previousElementSibling;
   if (!prev || !prev.matches('[data-item]')) return false;
 
-  const list = ensureChildList(prev);
-  list.appendChild(item);
-  prev.dataset.state = 'expanded';
-  list.hidden = false;
-  syncItemMeta(prev);
-  syncItemMeta(item);
-  focusItem(item);
-  return true;
+  return withoutFocusChange(item, () => {
+    const list = ensureChildList(prev);
+    list.appendChild(item);
+    prev.dataset.state = 'expanded';
+    list.hidden = false;
+    syncItemMeta(prev);
+    syncItemMeta(item);
+    return true;
+  });
 }
 
 export function promoteItem(item) {
   const parentItem = item.parentElement?.closest('[data-item]');
   if (!parentItem) return false;
 
-  const parentList = item.parentElement;
-  const following = [];
-  let sib = item.nextElementSibling;
-  while (sib) {
-    const next = sib.nextElementSibling;
-    if (sib.matches('[data-item]')) following.push(sib);
-    sib = next;
-  }
+  return withoutFocusChange(item, () => {
+    const following = [];
+    let sib = item.nextElementSibling;
+    while (sib) {
+      const next = sib.nextElementSibling;
+      if (sib.matches('[data-item]')) following.push(sib);
+      sib = next;
+    }
 
-  parentItem.after(item);
+    parentItem.after(item);
 
-  if (following.length) {
-    const list = ensureChildList(item);
-    following.forEach((f) => list.appendChild(f));
-    item.dataset.state = 'expanded';
-    list.hidden = false;
-  }
+    if (following.length) {
+      const list = ensureChildList(item);
+      following.forEach((f) => list.appendChild(f));
+      item.dataset.state = 'expanded';
+      list.hidden = false;
+    }
 
-  pruneEmptyLists(parentItem);
-  syncItemMeta(parentItem);
-  syncItemMeta(item);
-  following.forEach(syncItemMeta);
-  focusItem(item);
-  return true;
+    pruneEmptyLists(parentItem);
+    syncItemMeta(parentItem);
+    syncItemMeta(item);
+    following.forEach(syncItemMeta);
+    return true;
+  });
 }
 
 /**
@@ -213,18 +265,19 @@ export function promoteChildren(item) {
   const children = directChildItems(item);
   if (!children.length) return false;
 
-  let insertAfter = item;
-  for (const child of children) {
-    insertAfter.after(child);
-    insertAfter = child;
-    syncItemMeta(child);
-  }
-  pruneEmptyLists(item);
-  syncItemMeta(item);
-  const root = item.closest('[data-outline-root]');
-  if (root) syncTree(root);
-  focusItem(item);
-  return true;
+  return withoutFocusChange(item, () => {
+    let insertAfter = item;
+    for (const child of children) {
+      insertAfter.after(child);
+      insertAfter = child;
+      syncItemMeta(child);
+    }
+    pruneEmptyLists(item);
+    syncItemMeta(item);
+    const root = item.closest('[data-outline-root]');
+    if (root) syncTree(root);
+    return true;
+  });
 }
 
 /**
@@ -241,16 +294,17 @@ export function demoteFollowingSiblings(item) {
   }
   if (!following.length) return false;
 
-  const list = ensureChildList(item);
-  following.forEach((f) => list.appendChild(f));
-  item.dataset.state = 'expanded';
-  list.hidden = false;
-  syncItemMeta(item);
-  following.forEach(syncItemMeta);
-  const root = item.closest('[data-outline-root]');
-  if (root) syncTree(root);
-  focusItem(item);
-  return true;
+  return withoutFocusChange(item, () => {
+    const list = ensureChildList(item);
+    following.forEach((f) => list.appendChild(f));
+    item.dataset.state = 'expanded';
+    list.hidden = false;
+    syncItemMeta(item);
+    following.forEach(syncItemMeta);
+    const root = item.closest('[data-outline-root]');
+    if (root) syncTree(root);
+    return true;
+  });
 }
 
 export function serializeOutline(root) {

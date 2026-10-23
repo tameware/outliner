@@ -254,6 +254,59 @@ describe('WYSIWYG HTML outliner', () => {
     assert.equal(demoteFollowingSiblings(items[4]), false); // Epsilon is last top-level
   });
 
+  function placeCaret(el, offset) {
+    el.focus();
+    const range = document.createRange();
+    const node = el.firstChild || el;
+    range.setStart(node, Math.min(offset, node.textContent?.length ?? 0));
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  function caretOffset() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    return sel.getRangeAt(0).startOffset;
+  }
+
+  it('Tab demote does not move focus or caret', () => {
+    const delta = items[3];
+    const text = delta.querySelector('.text');
+    placeCaret(text, 2);
+    assert.equal(demoteItem(delta), true);
+    assert.equal(document.activeElement, text);
+    assert.equal(caretOffset(), 2);
+  });
+
+  it('Shift+Tab promote does not move focus or caret', () => {
+    const gamma = items[2];
+    const text = gamma.querySelector('.text');
+    placeCaret(text, 1);
+    assert.equal(promoteItem(gamma), true);
+    assert.equal(document.activeElement, text);
+    assert.equal(caretOffset(), 1);
+  });
+
+  it('toolbar Promote does not move focus or caret', () => {
+    const alpha = items[0];
+    const text = alpha.querySelector('.text');
+    placeCaret(text, 3);
+    assert.equal(promoteChildren(alpha), true);
+    assert.equal(document.activeElement, text);
+    assert.equal(caretOffset(), 3);
+  });
+
+  it('toolbar Demote does not move focus or caret', () => {
+    const beta = items[1];
+    const text = beta.querySelector('.text');
+    placeCaret(text, 2);
+    assert.equal(demoteFollowingSiblings(beta), true);
+    assert.equal(document.activeElement, text);
+    assert.equal(caretOffset(), 2);
+  });
+
   it('keeps nested HTML outline structure after edits', () => {
     addItemAfter(items[4]);
     demoteItem([...root.querySelectorAll('[data-item]')][5]);
