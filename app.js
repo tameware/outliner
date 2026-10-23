@@ -31,11 +31,14 @@ const rootEl = document.querySelector('[data-outline-root]');
 const outlineHistory = createOutlineHistory({
   getRoot: () => rootEl,
   button: document.getElementById('btn-clear'),
+  undoButton: document.getElementById('btn-undo'),
+  redoButton: document.getElementById('btn-redo'),
   toOpml,
   parseOpml,
   loadOutline,
   clearOutline,
   getTitle: () => document.title || 'Outline',
+  maxDepth: 50,
 });
 
 const api = boot('[data-outline-root]', {
@@ -79,6 +82,14 @@ function runPromoteDemote(action) {
   );
 }
 
+document.getElementById('btn-undo').addEventListener('click', () => {
+  if (root.dataset.readonly === 'true') return;
+  outlineHistory.undo();
+});
+document.getElementById('btn-redo').addEventListener('click', () => {
+  if (root.dataset.readonly === 'true') return;
+  outlineHistory.redo();
+});
 document.getElementById('btn-remove').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   const item = api.getActiveItem();

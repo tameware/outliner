@@ -7,6 +7,8 @@ describe('read-only toolbar', () => {
   it('hides all toolbar buttons except Expand all and Collapse all', () => {
     const dom = new JSDOM(`<!DOCTYPE html><body>
       <div class="toolbar">
+        <button type="button" id="btn-undo">Undo</button>
+        <button type="button" id="btn-redo">Redo</button>
         <button type="button" id="btn-remove">Remove</button>
         <button type="button" id="btn-promote">Promote</button>
         <button type="button" id="btn-demote">Demote</button>

@@ -11,6 +11,8 @@
     <h1>Outliner</h1>
     <p class="tagline">Nested HTML outline — edit, expand, promote/demote, and save as OPML.</p>
     <div class="toolbar" role="toolbar" aria-label="Outline actions">
+      <button type="button" id="btn-undo" title="Undo (⌘Z / Ctrl+Z)" disabled>Undo</button>
+      <button type="button" id="btn-redo" title="Redo (⇧⌘Z / Ctrl+Y)" disabled>Redo</button>
       <button type="button" id="btn-remove" title="Remove line (Backspace on empty)">Remove</button>
       <button type="button" id="btn-promote" title="Lift children up to this level (⌘[ / Ctrl+[; undo ⌘Z / Ctrl+Z)">Promote</button>
       <button type="button" id="btn-demote" title="Pull following lines under this one (⌘] / Ctrl+]; undo ⌘Z / Ctrl+Z)">Demote</button>
@@ -183,7 +185,7 @@
           <li data-item>
             <div class="row">
               <button type="button" class="toggle" aria-label="Toggle"></button>
-              <div class="text" contenteditable="true">Clear outline removes all lines — undo with Edit → Undo or ⌘Z / Ctrl+Z.</div>
+              <div class="text" contenteditable="true">Clear outline removes all lines — Undo / Redo in the toolbar, or ⌘Z / Ctrl+Z (⇧⌘Z / Ctrl+Y to redo), repeatedly for multiple steps.</div>
             </div>
           </li>
           <li data-item>

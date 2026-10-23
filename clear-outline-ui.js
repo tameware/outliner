@@ -1,7 +1,10 @@
 /**
- * Clear outline plus undo/redo history for structural restores (OPML snapshots).
- * Undo via Cmd/Ctrl+Z or Edit → Undo (beforeinput historyUndo); redo via Shift+Cmd/Ctrl+Z.
+ * Clear outline plus multi-step undo/redo for structural restores (OPML snapshots).
+ * Undo via Cmd/Ctrl+Z or Edit → Undo (beforeinput historyUndo);
+ * redo via Shift+Cmd/Ctrl+Z, Cmd/Ctrl+Y, or Edit → Redo.
  */
+
+const DEFAULT_MAX_DEPTH = 50;
 
 /**
  * @param {object} options
@@ -12,6 +15,9 @@
  * @param {typeof import('./outliner.js').clearOutline} [options.clearOutline]
  * @param {() => string} [options.getTitle]
  * @param {HTMLButtonElement} [options.button] kept labelled "Clear outline" (never toggled)
+ * @param {HTMLButtonElement | null} [options.undoButton]
+ * @param {HTMLButtonElement | null} [options.redoButton]
+ * @param {number} [options.maxDepth] max undo entries (oldest dropped); default 50
  */
 export function createOutlineHistory({
   getRoot,
@@ -21,15 +27,19 @@ export function createOutlineHistory({
   clearOutline,
   getTitle = () => 'Outline',
   button = null,
+  undoButton = null,
+  redoButton = null,
+  maxDepth = DEFAULT_MAX_DEPTH,
 }) {
   /** @type {string[]} */
   const undoStack = [];
   /** @type {string[]} */
   const redoStack = [];
+  const depthLimit = Math.max(1, Number(maxDepth) || DEFAULT_MAX_DEPTH);
 
   if (button) {
     button.textContent = 'Clear outline';
-    button.title = 'Remove all lines (undo with ⌘Z / Ctrl+Z)';
+    button.title = 'Remove all lines (⌘Z / Ctrl+Z to undo)';
   }
 
   function snapshot() {
@@ -41,10 +51,25 @@ export function createOutlineHistory({
     loadOutline(getRoot(), parseOpml(opml));
   }
 
+  function trimUndo() {
+    while (undoStack.length > depthLimit) undoStack.shift();
+  }
+
+  function syncButtons() {
+    if (undoButton) undoButton.disabled = undoStack.length === 0;
+    if (redoButton) redoButton.disabled = redoStack.length === 0;
+  }
+
+  function pushUndo(opml) {
+    undoStack.push(opml);
+    trimUndo();
+    redoStack.length = 0;
+    syncButtons();
+  }
+
   /** Push current outline onto the undo stack (call before a structural mutation). */
   function record() {
-    undoStack.push(snapshot());
-    redoStack.length = 0;
+    pushUndo(snapshot());
   }
 
   /**
@@ -54,10 +79,8 @@ export function createOutlineHistory({
   function run(mutate) {
     const before = snapshot();
     const ok = mutate();
-    if (ok) {
-      undoStack.push(before);
-      redoStack.length = 0;
-    }
+    if (ok) pushUndo(before);
+    else syncButtons();
     return Boolean(ok);
   }
 
@@ -71,27 +94,30 @@ export function createOutlineHistory({
           loadOutline(root, { items: [] });
           return opml;
         })();
-    undoStack.push(before);
-    redoStack.length = 0;
+    pushUndo(before);
   }
 
   function undo() {
     if (!undoStack.length) return false;
     redoStack.push(snapshot());
     restore(undoStack.pop());
+    syncButtons();
     return true;
   }
 
   function redo() {
     if (!redoStack.length) return false;
     undoStack.push(snapshot());
+    trimUndo();
     restore(redoStack.pop());
+    syncButtons();
     return true;
   }
 
   function discard() {
     undoStack.length = 0;
     redoStack.length = 0;
+    syncButtons();
   }
 
   /**
@@ -102,8 +128,13 @@ export function createOutlineHistory({
 
     function onKeyDown(event) {
       const mod = event.metaKey || event.ctrlKey;
-      if (!mod || event.key.toLowerCase() !== 'z') return;
-      if (event.altKey) return;
+      if (!mod || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === 'y') {
+        if (redo()) event.preventDefault();
+        return;
+      }
+      if (key !== 'z') return;
       if (event.shiftKey) {
         if (redo()) event.preventDefault();
       } else if (undo()) {
@@ -128,6 +159,8 @@ export function createOutlineHistory({
     };
   }
 
+  syncButtons();
+
   return {
     clear,
     record,
@@ -138,6 +171,9 @@ export function createOutlineHistory({
     discardUndo: discard,
     canUndo: () => undoStack.length > 0,
     canRedo: () => redoStack.length > 0,
+    undoDepth: () => undoStack.length,
+    redoDepth: () => redoStack.length,
+    syncButtons,
     bindShortcuts,
     // Back-compat alias used by older call sites
     clearOrUndo: clear,

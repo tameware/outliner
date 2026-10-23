@@ -194,6 +194,154 @@ describe('clear outline', () => {
   });
 });
 
+describe('multi-step undo/redo stack', () => {
+  let root;
+  let history;
+
+  beforeEach(() => {
+    setupDom();
+    root = document.querySelector('[data-outline-root]');
+    mountOutliner(root);
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+      maxDepth: 50,
+    });
+  });
+
+  it('undoes and redoes several structural edits in order', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'A', children: [] },
+        { text: 'B', children: [] },
+        { text: 'C', children: [] },
+      ],
+    });
+
+    // 1) demote B under A
+    history.run(() => demoteItem([...root.querySelectorAll('[data-item]')][1]));
+    // 2) demote C under A (as sibling of B under A) — C is last top-level after step 1
+    history.run(() => demoteItem([...root.querySelectorAll(':scope > [data-item]')][1]));
+    // 3) clear
+    history.clear();
+    assert.deepEqual(getItemTexts(root), ['']);
+    assert.equal(history.undoDepth(), 3);
+    assert.equal(history.redoDepth(), 0);
+
+    assert.equal(history.undo(), true); // undo clear → A with B,C children
+    assert.ok(getItemTexts(root).includes('A'));
+    assert.notDeepEqual(getItemTexts(root), ['']);
+    assert.equal(history.undoDepth(), 2);
+    assert.equal(history.redoDepth(), 1);
+
+    assert.equal(history.undo(), true);
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), ['A', 'B', 'C']);
+    assert.equal(
+      root.querySelector(':scope > [data-item]')?.querySelector(':scope > ol > [data-item]'),
+      null,
+    );
+    assert.equal(history.canUndo(), false);
+    assert.equal(history.redoDepth(), 3);
+
+    assert.equal(history.redo(), true);
+    assert.equal(history.redo(), true);
+    assert.equal(history.redo(), true);
+    assert.deepEqual(getItemTexts(root), ['']);
+    assert.equal(history.canRedo(), false);
+  });
+
+  it('drops the oldest entries when maxDepth is exceeded', () => {
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+      maxDepth: 2,
+    });
+    loadOutline(root, {
+      items: [
+        { text: 'A', children: [] },
+        { text: 'B', children: [] },
+      ],
+    });
+    history.run(() => demoteItem([...root.querySelectorAll('[data-item]')][1]));
+    history.clear();
+    history.clear(); // third entry — should drop the first
+    assert.equal(history.undoDepth(), 2);
+
+    history.undo(); // undo second clear
+    history.undo(); // undo first clear → still demoted, cannot reach pre-demote
+    assert.equal(history.canUndo(), false);
+    assert.ok(
+      root.querySelector('[data-item]')?.querySelector(':scope > ol > [data-item]'),
+    );
+  });
+
+  it('clears the redo stack after a new edit following undo', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'A', children: [] },
+        { text: 'B', children: [] },
+      ],
+    });
+    history.run(() => demoteItem([...root.querySelectorAll('[data-item]')][1]));
+    history.clear();
+    history.undo();
+    assert.equal(history.canRedo(), true);
+    history.run(() => promoteChildren(root.querySelector('[data-item]')));
+    assert.equal(history.canRedo(), false);
+  });
+
+  it('redoes via Ctrl/Cmd+Y as well as Shift+Cmd/Ctrl+Z', () => {
+    history.bindShortcuts(root);
+    history.clear();
+    history.undo();
+
+    root.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'y',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.deepEqual(getItemTexts(root), ['']);
+  });
+
+  it('updates Undo/Redo buttons when the stacks change', () => {
+    const undoBtn = document.createElement('button');
+    undoBtn.id = 'btn-undo';
+    const redoBtn = document.createElement('button');
+    redoBtn.id = 'btn-redo';
+    document.body.append(undoBtn, redoBtn);
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+      undoButton: undoBtn,
+      redoButton: redoBtn,
+    });
+    assert.equal(undoBtn.disabled, true);
+    assert.equal(redoBtn.disabled, true);
+    history.clear();
+    assert.equal(undoBtn.disabled, false);
+    assert.equal(redoBtn.disabled, true);
+    history.undo();
+    assert.equal(undoBtn.disabled, true);
+    assert.equal(redoBtn.disabled, false);
+  });
+});
+
 describe('Tab / Shift+Tab undo', () => {
   let root;
   let history;
