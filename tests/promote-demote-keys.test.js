@@ -3,21 +3,21 @@ import assert from 'node:assert/strict';
 import { matchPromoteDemoteShortcut } from '../promote-demote-keys.js';
 
 describe('promote/demote shortcuts', () => {
-  it('maps Cmd/Ctrl+] to promote and Cmd/Ctrl+[ to demote', () => {
+  it('maps Cmd/Ctrl+[ to promote and Cmd/Ctrl+] to demote', () => {
     assert.equal(
-      matchPromoteDemoteShortcut({ key: ']', metaKey: true }),
+      matchPromoteDemoteShortcut({ key: '[', metaKey: true }),
       'promote',
     );
     assert.equal(
-      matchPromoteDemoteShortcut({ key: '[', metaKey: true }),
+      matchPromoteDemoteShortcut({ key: ']', metaKey: true }),
       'demote',
     );
     assert.equal(
-      matchPromoteDemoteShortcut({ key: ']', ctrlKey: true }),
+      matchPromoteDemoteShortcut({ key: '[', ctrlKey: true }),
       'promote',
     );
     assert.equal(
-      matchPromoteDemoteShortcut({ key: '[', ctrlKey: true }),
+      matchPromoteDemoteShortcut({ key: ']', ctrlKey: true }),
       'demote',
     );
   });
