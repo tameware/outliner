@@ -1,6 +1,5 @@
 import {
   boot,
-  addItemAfter,
   removeItem,
   promoteChildren,
   demoteFollowingSiblings,
@@ -80,11 +79,6 @@ function runPromoteDemote(action) {
   );
 }
 
-document.getElementById('btn-add').addEventListener('click', () => {
-  if (root.dataset.readonly === 'true') return;
-  const item = api.getActiveItem();
-  if (item) addItemAfter(item);
-});
 document.getElementById('btn-remove').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   const item = api.getActiveItem();

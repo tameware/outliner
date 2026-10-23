@@ -33,4 +33,12 @@ describe('index.html CSP-safe entry', () => {
     assert.match(html, /to show or hide its children/);
     assert.doesNotMatch(html, /to hide or show its children/);
   });
+
+  it('has no Add line toolbar button (Enter adds a line)', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    assert.doesNotMatch(html, /id="btn-add"/);
+    assert.doesNotMatch(html, />Add line</);
+    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    assert.doesNotMatch(appJs, /btn-add/);
+  });
 });
