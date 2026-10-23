@@ -28,6 +28,7 @@ import { mountCloudUi } from './cloud-ui.js';
 import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
 import { applyReadOnlyToolbar } from './readonly-toolbar.js';
 import { createOutlineHistory } from './clear-outline-ui.js';
+import { matchPromoteDemoteShortcut } from './promote-demote-keys.js';
 
 const api = boot();
 window.__outlinerApi = api;
@@ -78,6 +79,21 @@ document.getElementById('btn-demote').addEventListener('click', () => {
   const item = api.getActiveItem();
   if (item) demoteFollowingSiblings(item);
 });
+
+document.addEventListener(
+  'keydown',
+  (event) => {
+    if (root.dataset.readonly === 'true') return;
+    const action = matchPromoteDemoteShortcut(event);
+    if (!action) return;
+    const item = api.getActiveItem();
+    if (!item) return;
+    const ok =
+      action === 'promote' ? promoteChildren(item) : demoteFollowingSiblings(item);
+    if (ok) event.preventDefault();
+  },
+  true,
+);
 document.getElementById('btn-expand-all').addEventListener('click', () => {
   root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {
     if (item.dataset.state === 'collapsed') toggleItem(item);
