@@ -18,6 +18,7 @@ import {
   setReadOnly,
   isReadOnly,
   loadOutline,
+  focusSameLevelSibling,
 } from '../outliner.js';
 
 function setupDom(html) {
@@ -305,6 +306,54 @@ describe('WYSIWYG HTML outliner', () => {
     assert.equal(demoteFollowingSiblings(beta), true);
     assert.equal(document.activeElement, text);
     assert.equal(caretOffset(), 2);
+  });
+
+  it('ArrowDown moves to the next headline at the same level', () => {
+    // Beta and Delta are siblings under Alpha; Gamma is a child of Beta.
+    assert.equal(focusSameLevelSibling(items[1], 'down'), true); // Beta → Delta
+    assert.equal(document.activeElement, items[3].querySelector('.text'));
+    assert.equal(getItemText(items[3]), 'Delta');
+  });
+
+  it('ArrowUp moves to the previous headline at the same level', () => {
+    assert.equal(focusSameLevelSibling(items[3], 'up'), true); // Delta → Beta
+    assert.equal(document.activeElement, items[1].querySelector('.text'));
+    assert.equal(getItemText(items[1]), 'Beta');
+  });
+
+  it('same-level arrows skip nested children', () => {
+    // From Alpha, down goes to Epsilon (top-level), not into Beta.
+    assert.equal(focusSameLevelSibling(items[0], 'down'), true);
+    assert.equal(document.activeElement, items[4].querySelector('.text'));
+    assert.equal(getItemText(items[4]), 'Epsilon');
+  });
+
+  it('same-level arrows do nothing at the edge of a list', () => {
+    assert.equal(focusSameLevelSibling(items[0], 'up'), false);
+    assert.equal(focusSameLevelSibling(items[4], 'down'), false);
+    assert.equal(focusSameLevelSibling(items[2], 'up'), false); // Gamma is only child under Beta
+  });
+
+  it('ArrowUp/ArrowDown keydown moves same-level focus', () => {
+    const betaText = items[1].querySelector('.text');
+    betaText.focus();
+    betaText.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'ArrowDown',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(document.activeElement, items[3].querySelector('.text'));
+
+    document.activeElement.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'ArrowUp',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(document.activeElement, items[1].querySelector('.text'));
   });
 
   it('keeps nested HTML outline structure after edits', () => {

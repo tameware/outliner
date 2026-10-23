@@ -337,6 +337,20 @@ export function focusItem(item) {
   }
 }
 
+/**
+ * Move focus to the previous or next headline at the same nesting level.
+ * @param {HTMLElement} item
+ * @param {'up' | 'down'} direction
+ * @returns {boolean} true if focus moved
+ */
+export function focusSameLevelSibling(item, direction) {
+  const sibling =
+    direction === 'up' ? item.previousElementSibling : item.nextElementSibling;
+  if (!sibling?.matches?.('[data-item]')) return false;
+  focusItem(sibling);
+  return true;
+}
+
 function itemFromEventTarget(target) {
   return target?.closest?.('[data-item]') ?? null;
 }
@@ -367,6 +381,15 @@ function createKeydownHandler(options = {}) {
       if (event.key === 'Enter' || event.key === 'Tab' || event.key === 'Backspace') {
         event.preventDefault();
       }
+      // Still allow same-level arrow navigation while read-only.
+      if (event.key === 'ArrowUp') {
+        if (focusSameLevelSibling(item, 'up')) event.preventDefault();
+        return;
+      }
+      if (event.key === 'ArrowDown') {
+        if (focusSameLevelSibling(item, 'down')) event.preventDefault();
+        return;
+      }
       return;
     }
 
@@ -389,6 +412,16 @@ function createKeydownHandler(options = {}) {
     if (event.key === 'Backspace' && getItemText(item) === '' && isCaretAtStart(event.target)) {
       event.preventDefault();
       removeItem(item);
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      if (focusSameLevelSibling(item, 'up')) event.preventDefault();
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      if (focusSameLevelSibling(item, 'down')) event.preventDefault();
       return;
     }
 
@@ -450,6 +483,7 @@ export function mountOutliner(root, options = {}) {
     promoteChildren,
     demoteFollowingSiblings,
     toggleItem,
+    focusSameLevelSibling,
     getActiveItem: () => {
       const el = document.activeElement;
       const fromFocus = el?.closest?.('[data-item]');
