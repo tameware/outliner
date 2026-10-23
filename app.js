@@ -2,8 +2,6 @@ import {
   boot,
   addItemAfter,
   removeItem,
-  promoteItem,
-  demoteItem,
   promoteChildren,
   demoteFollowingSiblings,
   toggleItem,
@@ -30,9 +28,23 @@ import { applyReadOnlyToolbar } from './readonly-toolbar.js';
 import { createOutlineHistory } from './clear-outline-ui.js';
 import { matchPromoteDemoteShortcut } from './promote-demote-keys.js';
 
-const api = boot();
+const rootEl = document.querySelector('[data-outline-root]');
+const outlineHistory = createOutlineHistory({
+  getRoot: () => rootEl,
+  button: document.getElementById('btn-clear'),
+  toOpml,
+  parseOpml,
+  loadOutline,
+  clearOutline,
+  getTitle: () => document.title || 'Outline',
+});
+
+const api = boot('[data-outline-root]', {
+  runStructural: (mutate) => outlineHistory.run(mutate),
+});
 window.__outlinerApi = api;
 const root = api.root;
+outlineHistory.bindShortcuts(root);
 
 let currentOutlineId = outlineIdFromLocation(window.location);
 let currentRevision = null;
@@ -58,17 +70,6 @@ function setToolbarEnabled(enabled) {
 document.querySelectorAll('.toolbar button, .cloud-bar button').forEach((btn) => {
   btn.addEventListener('mousedown', (event) => event.preventDefault());
 });
-
-const outlineHistory = createOutlineHistory({
-  getRoot: () => root,
-  button: document.getElementById('btn-clear'),
-  toOpml,
-  parseOpml,
-  loadOutline,
-  clearOutline,
-  getTitle: () => document.title || 'Outline',
-});
-outlineHistory.bindShortcuts(root);
 
 /** @param {'promote' | 'demote'} action */
 function runPromoteDemote(action) {

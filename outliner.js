@@ -298,47 +298,54 @@ function isCaretAtStart(el) {
   return pre.toString().length === 0;
 }
 
-function handleKeydown(event) {
-  const item = itemFromEventTarget(event.target);
-  if (!item || !event.target.classList?.contains('text')) return;
-  const outlineRoot = item.closest('[data-outline-root]');
-  if (isReadOnly(outlineRoot)) {
-    if (event.key === 'Enter' || event.key === 'Tab' || event.key === 'Backspace') {
-      event.preventDefault();
+/**
+ * @param {{ runStructural?: (mutate: () => boolean | void) => boolean | void }} [options]
+ */
+function createKeydownHandler(options = {}) {
+  const runStructural = options.runStructural ?? ((mutate) => mutate());
+
+  return function handleKeydown(event) {
+    const item = itemFromEventTarget(event.target);
+    if (!item || !event.target.classList?.contains('text')) return;
+    const outlineRoot = item.closest('[data-outline-root]');
+    if (isReadOnly(outlineRoot)) {
+      if (event.key === 'Enter' || event.key === 'Tab' || event.key === 'Backspace') {
+        event.preventDefault();
+      }
+      return;
     }
-    return;
-  }
 
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault();
-    addItemAfter(item);
-    return;
-  }
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      addItemAfter(item);
+      return;
+    }
 
-  if (event.key === 'Tab') {
-    event.preventDefault();
-    if (event.shiftKey) promoteItem(item);
-    else demoteItem(item);
-    return;
-  }
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      if (event.shiftKey) runStructural(() => promoteItem(item));
+      else runStructural(() => demoteItem(item));
+      return;
+    }
 
-  if (event.key === 'Backspace' && getItemText(item) === '' && isCaretAtStart(event.target)) {
-    event.preventDefault();
-    removeItem(item);
-    return;
-  }
+    if (event.key === 'Backspace' && getItemText(item) === '' && isCaretAtStart(event.target)) {
+      event.preventDefault();
+      removeItem(item);
+      return;
+    }
 
-  if (event.key === 'ArrowLeft' && event.metaKey) {
-    event.preventDefault();
-    if (hasChildren(item) && isExpanded(item)) toggleItem(item);
-    return;
-  }
+    if (event.key === 'ArrowLeft' && event.metaKey) {
+      event.preventDefault();
+      if (hasChildren(item) && isExpanded(item)) toggleItem(item);
+      return;
+    }
 
-  if (event.key === 'ArrowRight' && event.metaKey) {
-    event.preventDefault();
-    if (hasChildren(item) && !isExpanded(item)) toggleItem(item);
-    return;
-  }
+    if (event.key === 'ArrowRight' && event.metaKey) {
+      event.preventDefault();
+      if (hasChildren(item) && !isExpanded(item)) toggleItem(item);
+      return;
+    }
+  };
 }
 
 function handleClick(event) {
@@ -367,7 +374,7 @@ export function mountOutliner(root, options = {}) {
   }
 
   if (options.bindEvents !== false) {
-    root.addEventListener('keydown', handleKeydown);
+    root.addEventListener('keydown', createKeydownHandler(options));
     root.addEventListener('click', (event) => {
       rememberItem(event);
       handleClick(event);
@@ -397,10 +404,10 @@ export function mountOutliner(root, options = {}) {
 }
 
 // Browser entry: auto-mount when loaded as a classic or module script with a root present.
-export function boot(selector = '[data-outline-root]') {
+export function boot(selector = '[data-outline-root]', options = {}) {
   const root = document.querySelector(selector);
   if (!root) return null;
-  return mountOutliner(root);
+  return mountOutliner(root, options);
 }
 
 

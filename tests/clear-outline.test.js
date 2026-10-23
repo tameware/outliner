@@ -10,6 +10,8 @@ import {
   toOpml,
   promoteChildren,
   demoteFollowingSiblings,
+  demoteItem,
+  promoteItem,
 } from '../outliner.js';
 import { createOutlineHistory } from '../clear-outline-ui.js';
 
@@ -189,5 +191,115 @@ describe('clear outline', () => {
       false,
     );
     assert.equal(history.canUndo(), false);
+  });
+});
+
+describe('Tab / Shift+Tab undo', () => {
+  let root;
+  let history;
+
+  beforeEach(() => {
+    setupDom();
+    root = document.querySelector('[data-outline-root]');
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    mountOutliner(root, {
+      runStructural: (mutate) => history.run(mutate),
+    });
+    history.bindShortcuts(root);
+  });
+
+  it('undoes Tab indent via Edit menu historyUndo', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'A', children: [] },
+        { text: 'B', children: [] },
+      ],
+    });
+    const b = [...root.querySelectorAll('[data-item]')][1];
+    const text = b.querySelector('.text');
+    text.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Tab',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.ok(
+      root.querySelector('[data-item]').querySelector(':scope > ol > [data-item]'),
+    );
+
+    const event = new window.InputEvent('beforeinput', {
+      bubbles: true,
+      cancelable: true,
+      inputType: 'historyUndo',
+    });
+    root.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(
+      root.querySelector('[data-item]').querySelector(':scope > ol > [data-item]'),
+      null,
+    );
+    assert.deepEqual(getItemTexts(root), ['A', 'B']);
+  });
+
+  it('undoes Shift+Tab outdent via Cmd/Ctrl+Z', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'A',
+          children: [{ text: 'B', children: [] }],
+        },
+      ],
+    });
+    const b = root.querySelector('[data-item] [data-item]');
+    b.querySelector('.text').dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Tab',
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(
+      root.querySelector('[data-item]').querySelector(':scope > ol > [data-item]'),
+      null,
+    );
+    assert.deepEqual(getItemTexts(root), ['A', 'B']);
+
+    root.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'z',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.ok(
+      root.querySelector('[data-item]').querySelector(':scope > ol > [data-item]'),
+    );
+    assert.deepEqual(getItemTexts(root), ['A', 'B']);
+  });
+
+  it('does not push undo when Tab indent is a no-op', () => {
+    loadOutline(root, { items: [{ text: 'Only', children: [] }] });
+    const only = root.querySelector('[data-item]');
+    only.querySelector('.text').dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Tab',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(history.canUndo(), false);
+    // Sanity: direct demote of first item is also a no-op
+    assert.equal(demoteItem(only), false);
+    assert.equal(promoteItem(only), false);
   });
 });
