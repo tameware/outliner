@@ -41,4 +41,9 @@ describe('index.html CSP-safe entry', () => {
     const appJs = readFileSync(join(root, 'app.js'), 'utf8');
     assert.doesNotMatch(appJs, /btn-add/);
   });
+
+  it('shows Tameware Outliner as the page heading', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    assert.match(html, /<h1>Tameware Outliner<\/h1>/);
+  });
 });
