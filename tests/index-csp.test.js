@@ -46,4 +46,9 @@ describe('index.html CSP-safe entry', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     assert.match(html, /<h1>Tameware Outliner<\/h1>/);
   });
+
+  it('blanks the starter outline on deep-link boot', () => {
+    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    assert.match(appJs, /blankOutlineForDeepLink/);
+  });
 });

@@ -26,6 +26,7 @@ import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
 import { applyReadOnlyToolbar } from './readonly-toolbar.js';
 import { createOutlineHistory } from './clear-outline-ui.js';
 import { matchPromoteDemoteShortcut } from './promote-demote-keys.js';
+import { blankOutlineForDeepLink } from './deep-link-boot.js';
 
 const rootEl = document.querySelector('[data-outline-root]');
 const outlineHistory = createOutlineHistory({
@@ -52,6 +53,11 @@ let currentOutlineId = outlineIdFromLocation(window.location);
 let currentRevision = null;
 let leaseToken = null;
 const viewToken = viewTokenFromLocation(window.location);
+
+// Avoid flashing the starter outline while ?id= / ?view= content loads.
+if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
+  outlineHistory.discard();
+}
 
 function syncUrl(id) {
   currentOutlineId = id;
