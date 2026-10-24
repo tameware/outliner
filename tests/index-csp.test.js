@@ -51,4 +51,15 @@ describe('index.html CSP-safe entry', () => {
     const appJs = readFileSync(join(root, 'app.js'), 'utf8');
     assert.match(appJs, /blankOutlineForDeepLink/);
   });
+
+  it('provides File, Edit, and View menus', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    assert.match(html, /data-menu="file"/);
+    assert.match(html, /data-menu="edit"/);
+    assert.match(html, /data-menu="view"/);
+    assert.match(html, /id="menu-save"/);
+    assert.match(html, /id="menu-save-as"/);
+    assert.match(html, /id="menu-import"/);
+    assert.match(html, /id="menu-export"/);
+  });
 });

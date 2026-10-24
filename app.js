@@ -1,6 +1,5 @@
 import {
   boot,
-  removeItem,
   promoteChildren,
   demoteFollowingSiblings,
   toggleItem,
@@ -27,13 +26,17 @@ import { applyReadOnlyToolbar } from './readonly-toolbar.js';
 import { createOutlineHistory } from './clear-outline-ui.js';
 import { matchPromoteDemoteShortcut } from './promote-demote-keys.js';
 import { blankOutlineForDeepLink } from './deep-link-boot.js';
+import { mountMenubar } from './menubar.js';
 
 const rootEl = document.querySelector('[data-outline-root]');
+const menubar = document.querySelector('.menubar');
+mountMenubar(menubar);
+
 const outlineHistory = createOutlineHistory({
   getRoot: () => rootEl,
-  button: document.getElementById('btn-clear'),
-  undoButton: document.getElementById('btn-undo'),
-  redoButton: document.getElementById('btn-redo'),
+  button: document.getElementById('menu-clear'),
+  undoButton: document.getElementById('menu-undo'),
+  redoButton: document.getElementById('menu-redo'),
   toOpml,
   parseOpml,
   loadOutline,
@@ -65,17 +68,8 @@ function syncUrl(id) {
   window.history.replaceState(null, '', next);
 }
 
-function setToolbarEnabled(enabled) {
-  document.querySelectorAll('.toolbar button').forEach((btn) => {
-    btn.disabled = !enabled;
-    if (enabled) btn.hidden = false;
-  });
-  const fileInput = document.getElementById('file-open');
-  if (fileInput) fileInput.disabled = !enabled;
-}
-
-// Keep outline focus when using the toolbar.
-document.querySelectorAll('.toolbar button, .cloud-bar button').forEach((btn) => {
+// Keep outline focus when using menus / cloud chrome.
+document.querySelectorAll('.menubar [role="menuitem"], .cloud-bar button').forEach((btn) => {
   btn.addEventListener('mousedown', (event) => event.preventDefault());
 });
 
@@ -88,24 +82,19 @@ function runPromoteDemote(action) {
   );
 }
 
-document.getElementById('btn-undo').addEventListener('click', () => {
+document.getElementById('menu-undo').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   outlineHistory.undo();
 });
-document.getElementById('btn-redo').addEventListener('click', () => {
+document.getElementById('menu-redo').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   outlineHistory.redo();
 });
-document.getElementById('btn-remove').addEventListener('click', () => {
-  if (root.dataset.readonly === 'true') return;
-  const item = api.getActiveItem();
-  if (item) removeItem(item);
-});
-document.getElementById('btn-promote').addEventListener('click', () => {
+document.getElementById('menu-promote').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   runPromoteDemote('promote');
 });
-document.getElementById('btn-demote').addEventListener('click', () => {
+document.getElementById('menu-demote').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   runPromoteDemote('demote');
 });
@@ -120,18 +109,19 @@ document.addEventListener(
   },
   true,
 );
-document.getElementById('btn-expand-all').addEventListener('click', () => {
+
+document.getElementById('menu-expand-all').addEventListener('click', () => {
   root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {
     if (item.dataset.state === 'collapsed') toggleItem(item);
   });
 });
-document.getElementById('btn-collapse-all').addEventListener('click', () => {
+document.getElementById('menu-collapse-all').addEventListener('click', () => {
   root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {
     if (item.dataset.state !== 'collapsed') toggleItem(item);
   });
 });
 
-document.getElementById('btn-clear').addEventListener('click', () => {
+document.getElementById('menu-clear').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   outlineHistory.clear();
   const first = root.querySelector('[data-item]');
@@ -140,13 +130,13 @@ document.getElementById('btn-clear').addEventListener('click', () => {
 
 const fileInput = document.getElementById('file-open');
 
-document.getElementById('btn-save').addEventListener('click', () => {
+document.getElementById('menu-export').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   const title = document.title || 'Outline';
   downloadOpml(root, { title, filename: 'outline.opml' });
 });
 
-document.getElementById('btn-open').addEventListener('click', () => {
+document.getElementById('menu-import').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   fileInput.click();
 });
@@ -209,7 +199,7 @@ async function initCloud() {
       const tree = parseOpml(got.opml);
       loadOutline(root, tree);
       setReadOnly(root, true);
-      applyReadOnlyToolbar(document.querySelector('.toolbar'));
+      applyReadOnlyToolbar(document.querySelector('.menubar'));
       if (got.title) document.title = got.title;
     } catch (error) {
       console.warn('Could not load shared outline', error);
@@ -263,7 +253,6 @@ async function initCloud() {
   });
 
   if (configured && cloud && currentOutlineId && !viewToken) {
-    // Deep link: load when signed in
     auth.onAuthStateChanged(async (user) => {
       if (!user || !currentOutlineId) return;
       try {

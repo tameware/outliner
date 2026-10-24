@@ -46,7 +46,6 @@ export function createOutlineHistory({
   const depthLimit = Math.max(1, Number(maxDepth) || DEFAULT_MAX_DEPTH);
 
   if (button) {
-    button.textContent = 'Clear outline';
     button.title = 'Remove all lines (⌘Z / Ctrl+Z to undo)';
   }
 

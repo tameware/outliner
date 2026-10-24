@@ -5,15 +5,19 @@ import { mountCloudUi } from '../cloud-ui.js';
 
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><html><body>
+    <nav class="menubar">
+      <button type="button" id="menu-open" disabled>Open…</button>
+      <button type="button" id="menu-save" disabled>Save…</button>
+      <button type="button" id="menu-save-as" disabled>Save As…</button>
+    </nav>
     <div class="cloud-bar" data-cloud-bar hidden>
       <button type="button" id="btn-sign-in">Sign in</button>
       <button type="button" id="btn-sign-out" hidden>Sign out</button>
       <span id="cloud-user" hidden></span>
-      <button type="button" id="btn-cloud-save" disabled>Save to cloud</button>
-      <button type="button" id="btn-cloud-open" disabled>Open from cloud</button>
       <button type="button" id="btn-cloud-share" disabled>Copy read-only link</button>
       <dialog id="cloud-save-dialog">
         <form method="dialog" id="cloud-save-form">
+          <h2>Save to cloud</h2>
           <label>Name <input id="cloud-save-name" name="name" required /></label>
           <button type="submit" id="btn-cloud-save-confirm">Save</button>
           <button type="button" id="btn-cloud-save-cancel" value="cancel">Cancel</button>
@@ -36,7 +40,6 @@ function setupDom() {
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.HTMLDialogElement = dom.window.HTMLDialogElement;
-  // jsdom dialog stubs
   for (const id of ['cloud-save-dialog', 'cloud-open-dialog', 'cloud-share-dialog']) {
     const el = document.getElementById(id);
     el.showModal = () => {
@@ -139,11 +142,12 @@ describe('cloud UI', () => {
     });
     const bar = document.querySelector('[data-cloud-bar]');
     assert.equal(bar.hidden, false);
-    assert.equal(document.getElementById('btn-cloud-save').disabled, true);
+    assert.equal(document.getElementById('menu-save').disabled, true);
 
     document.getElementById('btn-sign-in').click();
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(document.getElementById('btn-cloud-save').disabled, false);
+    assert.equal(document.getElementById('menu-save').disabled, false);
+    assert.equal(document.getElementById('menu-save').textContent, 'Save…');
     assert.equal(document.getElementById('cloud-user').hidden, false);
     assert.match(document.getElementById('cloud-user').textContent, /Ada/);
     ui.destroy();
@@ -161,7 +165,7 @@ describe('cloud UI', () => {
 
   it('asks for a name before saving a new outline to the cloud', async () => {
     mountCloudUi({ auth, cloud, outline, configured: true });
-    document.getElementById('btn-cloud-save').click();
+    document.getElementById('menu-save').click();
     await new Promise((r) => setTimeout(r, 0));
 
     const dialog = document.getElementById('cloud-save-dialog');
@@ -179,12 +183,13 @@ describe('cloud UI', () => {
     assert.equal(createdCalls[0].title, 'My bridge card');
     assert.equal(outlineId, 'new-1');
     assert.equal(outline._title, 'My bridge card');
+    assert.equal(document.getElementById('menu-save').textContent, 'Save');
     assert.equal(dialog.hasAttribute('open'), false);
   });
 
   it('lists saved outlines by name when opening from cloud', async () => {
     mountCloudUi({ auth, cloud, outline, configured: true });
-    document.getElementById('btn-cloud-open').click();
+    document.getElementById('menu-open').click();
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
 
@@ -203,23 +208,24 @@ describe('cloud UI', () => {
     };
     outline.getRevision = () => revision;
     mountCloudUi({ auth, cloud, outline, configured: true });
-    document.getElementById('btn-cloud-open').click();
+    document.getElementById('menu-open').click();
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
     document.querySelector('#cloud-outline-list button').click();
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
     assert.equal(revision, 4);
+    assert.equal(document.getElementById('menu-save').textContent, 'Save');
   });
 
-  it('creates a new cloud outline when saving under a different name (Save As)', async () => {
+  it('Save As always creates a new cloud outline', async () => {
     outlineId = 'existing-1';
     outline.getTitle = () => 'Old name';
     outline.getRevision = () => 2;
     outline.getLeaseToken = () => 'lease';
     mountCloudUi({ auth, cloud, outline, configured: true });
 
-    document.getElementById('btn-cloud-save').click();
+    document.getElementById('menu-save-as').click();
     await new Promise((r) => setTimeout(r, 0));
     document.getElementById('cloud-save-name').value = 'Brand new name';
     document.getElementById('cloud-save-form').dispatchEvent(
@@ -234,7 +240,7 @@ describe('cloud UI', () => {
     assert.equal(outlineId, 'new-1');
   });
 
-  it('updates the current cloud outline when saving under the same name', async () => {
+  it('Save updates the current cloud outline without a name dialog', async () => {
     outlineId = 'existing-1';
     outline.getTitle = () => 'Same name';
     outline.getRevision = () => 2;
@@ -246,15 +252,14 @@ describe('cloud UI', () => {
     };
     mountCloudUi({ auth, cloud, outline, configured: true });
 
-    document.getElementById('btn-cloud-save').click();
-    await new Promise((r) => setTimeout(r, 0));
-    document.getElementById('cloud-save-name').value = 'Same name';
-    document.getElementById('cloud-save-form').dispatchEvent(
-      new dom.window.Event('submit', { bubbles: true, cancelable: true }),
-    );
+    document.getElementById('menu-save').click();
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
 
+    assert.equal(
+      document.getElementById('cloud-save-dialog').hasAttribute('open'),
+      false,
+    );
     assert.equal(createdCalls.length, 0);
     assert.equal(savedCalls.length, 1);
     assert.equal(savedCalls[0].id, 'existing-1');

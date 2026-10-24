@@ -2,6 +2,8 @@
  * Toolbar/UI wiring for optional cloud auth and save/restore.
  */
 
+import { syncCloudSaveMenuLabel } from './menubar.js';
+
 /**
  * @param {object} options
  * @param {boolean} options.configured
@@ -15,8 +17,9 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
   const btnSignIn = document.getElementById('btn-sign-in');
   const btnSignOut = document.getElementById('btn-sign-out');
   const userEl = document.getElementById('cloud-user');
-  const btnSave = document.getElementById('btn-cloud-save');
-  const btnOpen = document.getElementById('btn-cloud-open');
+  const btnSave = document.getElementById('menu-save');
+  const btnSaveAs = document.getElementById('menu-save-as');
+  const btnOpen = document.getElementById('menu-open');
   const btnShare = document.getElementById('btn-cloud-share');
   const saveDialog = document.getElementById('cloud-save-dialog');
   const saveForm = document.getElementById('cloud-save-form');
@@ -30,6 +33,9 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
   const btnShareCopy = document.getElementById('btn-cloud-share-copy');
   const btnShareClose = document.getElementById('btn-cloud-share-close');
   const statusEl = document.getElementById('cloud-status');
+
+  /** @type {'save' | 'save-as'} */
+  let saveDialogMode = 'save';
 
   if (!bar) {
     return { destroy() {} };
@@ -48,6 +54,10 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
     if (statusEl) statusEl.textContent = message || '';
   }
 
+  function syncSaveLabel() {
+    syncCloudSaveMenuLabel(btnSave, outline.getOutlineId?.());
+  }
+
   function syncAuthUi() {
     const signedIn = Boolean(user);
     if (btnSignIn) btnSignIn.hidden = signedIn || readOnlyView;
@@ -62,6 +72,11 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
     if (btnSave) {
       btnSave.hidden = readOnlyView;
       btnSave.disabled = !canMutate;
+      syncSaveLabel();
+    }
+    if (btnSaveAs) {
+      btnSaveAs.hidden = readOnlyView;
+      btnSaveAs.disabled = !canMutate;
     }
     if (btnOpen) {
       btnOpen.hidden = readOnlyView;
@@ -113,28 +128,46 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
     else if (el) el.setAttribute('open', '');
   }
 
-  function onSave() {
+  function openSaveDialog(mode) {
+    saveDialogMode = mode;
     if (saveNameInput) {
       saveNameInput.value = outline.getTitle?.() || 'Untitled';
+    }
+    const heading = saveDialog?.querySelector('h2');
+    if (heading) {
+      heading.textContent = mode === 'save-as' ? 'Save As' : 'Save to cloud';
     }
     openDialogEl(saveDialog);
     saveNameInput?.focus?.();
     saveNameInput?.select?.();
   }
 
-  async function saveWithName(title) {
+  function onSave() {
+    const id = outline.getOutlineId?.();
+    if (id) {
+      void saveWithName(outline.getTitle?.() || 'Untitled', { forceNew: false });
+      return;
+    }
+    openSaveDialog('save');
+  }
+
+  function onSaveAs() {
+    openSaveDialog('save-as');
+  }
+
+  async function saveWithName(title, { forceNew = false } = {}) {
     const name = String(title || '').trim() || 'Untitled';
     await withBusy('Saving to cloud…', async () => {
       const previousTitle = String(outline.getTitle?.() || '').trim();
       let id = outline.getOutlineId?.();
-      // New name while an outline is open → Save As (create), so Open can list each name.
-      const saveAsNew = Boolean(id) && name !== previousTitle;
+      const saveAsNew =
+        forceNew || Boolean(id) && name !== previousTitle;
 
       outline.setTitle?.(name);
       const opml = outline.toOpml();
 
       if (!id || saveAsNew) {
-        if (saveAsNew) {
+        if (id && saveAsNew) {
           outline.setOutlineId?.(null);
           outline.setRevision?.(null);
           outline.setLeaseToken?.(null);
@@ -146,6 +179,7 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
         outline.setRevision?.(revision);
         outline.setLeaseToken?.(null);
         if (outline.syncUrl) outline.syncUrl(id);
+        syncSaveLabel();
         setStatus(`Saved “${name}”`);
         return;
       }
@@ -161,7 +195,6 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
         throw new Error('Missing outline revision; reopen from cloud and try again');
       }
 
-      // Always renew the lease; tokens expire (~60s) and stale ones cause "valid lease required".
       let leaseToken = null;
       if (cloud.acquireLock) {
         const lease = await cloud.acquireLock(id);
@@ -176,6 +209,7 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
         title: name,
       });
       outline.setRevision?.(saved?.revision ?? revision);
+      syncSaveLabel();
       setStatus(`Saved “${name}”`);
     });
   }
@@ -225,6 +259,7 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
       outline.setTitle?.(title);
       if (outline.syncUrl) outline.syncUrl(id);
       closeDialog(openDialog);
+      syncSaveLabel();
       setStatus(title ? `Opened “${title}”` : `Opened ${id}`);
     });
   }
@@ -287,6 +322,9 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
   btnSave?.addEventListener('click', () => {
     onSave();
   });
+  btnSaveAs?.addEventListener('click', () => {
+    onSaveAs();
+  });
   btnOpen?.addEventListener('click', () => {
     void onOpen();
   });
@@ -307,7 +345,7 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
       return;
     }
     closeDialog(saveDialog);
-    void saveWithName(name);
+    void saveWithName(name, { forceNew: saveDialogMode === 'save-as' });
   });
 
   if (readOnlyView) {
@@ -320,5 +358,6 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
     destroy() {
       if (typeof unsub === 'function') unsub();
     },
+    syncSaveLabel,
   };
 }

@@ -53,34 +53,93 @@ body {
   max-width: 36rem;
 }
 
-.toolbar {
+.toolbar,
+.menubar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  align-items: center;
+  gap: 0.35rem;
   margin-bottom: 0.75rem;
 }
 
-.toolbar button {
+.menu {
+  position: relative;
+}
+
+.menu > summary {
   appearance: none;
+  list-style: none;
   border: 1px solid var(--line);
   background: #fff;
   color: var(--ink);
   border-radius: 6px;
-  padding: 0.4rem 0.7rem;
+  padding: 0.4rem 0.75rem;
   font: inherit;
   font-size: 0.85rem;
   cursor: pointer;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
 }
 
-.toolbar button:hover {
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.menu > summary:hover,
+.menu[open] > summary {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
 
-.toolbar button:focus-visible {
+.menu > summary:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+.menu-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.2rem);
+  left: 0;
+  min-width: 11rem;
+  margin: 0;
+  padding: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.menu-panel [role='menuitem'] {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  border-radius: 5px;
+  padding: 0.45rem 0.65rem;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-panel [role='menuitem']:hover:not(:disabled),
+.menu-panel [role='menuitem']:focus-visible {
+  background: var(--accent-soft);
+  outline: none;
+}
+
+.menu-panel [role='menuitem']:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.menu-sep {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 0.25rem 0.35rem;
 }
 
 .cloud-bar {
