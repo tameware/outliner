@@ -53,58 +53,53 @@ body {
   max-width: 36rem;
 }
 
-.toolbar,
 .menubar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.15rem;
   margin-bottom: 0.75rem;
+  position: relative;
+  z-index: 5;
 }
 
 .menu {
   position: relative;
+  flex: 0 0 auto;
 }
 
-.menu > summary {
+.menu-label {
   appearance: none;
-  list-style: none;
-  border: 1px solid var(--line);
-  background: #fff;
+  border: 0;
+  background: transparent;
   color: var(--ink);
-  border-radius: 6px;
-  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  padding: 0.35rem 0.55rem;
   font: inherit;
-  font-size: 0.85rem;
-  cursor: pointer;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  font-size: 0.9rem;
+  cursor: default;
 }
 
-.menu > summary::-webkit-details-marker {
-  display: none;
-}
-
-.menu > summary:hover,
-.menu[open] > summary {
-  border-color: var(--accent);
+.menu-label:hover,
+.menu.is-open > .menu-label {
   background: var(--accent-soft);
 }
 
-.menu > summary:focus-visible {
+.menu-label:focus-visible {
   outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
 .menu-panel {
   position: absolute;
-  z-index: 20;
-  top: calc(100% + 0.2rem);
+  z-index: 30;
+  top: 100%;
   left: 0;
-  min-width: 11rem;
+  min-width: 12rem;
   margin: 0;
   padding: 0.3rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 6px;
   background: #fff;
   box-shadow: var(--shadow);
   display: flex;
@@ -112,17 +107,21 @@ body {
   gap: 0.1rem;
 }
 
+.menu-panel[hidden] {
+  display: none;
+}
+
 .menu-panel [role='menuitem'] {
   appearance: none;
   border: 0;
   background: transparent;
   color: var(--ink);
-  border-radius: 5px;
+  border-radius: 4px;
   padding: 0.45rem 0.65rem;
   font: inherit;
   font-size: 0.85rem;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
 
 .menu-panel [role='menuitem']:hover:not(:disabled),

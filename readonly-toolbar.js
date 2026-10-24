@@ -13,7 +13,7 @@ export function applyReadOnlyToolbar(toolbar) {
   const keepMenus = new Set(READONLY_MENU_NAMES);
   const keepItems = new Set(READONLY_TOOLBAR_IDS);
 
-  toolbar.querySelectorAll('details.menu').forEach((menu) => {
+  toolbar.querySelectorAll('.menu').forEach((menu) => {
     const name = menu.getAttribute('data-menu');
     menu.hidden = !keepMenus.has(name);
   });

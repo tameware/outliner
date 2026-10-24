@@ -68,7 +68,7 @@ function syncUrl(id) {
   window.history.replaceState(null, '', next);
 }
 
-// Keep outline focus when using menus / cloud chrome.
+// Keep outline focus when using menu items / cloud chrome (not menu labels).
 document.querySelectorAll('.menubar [role="menuitem"], .cloud-bar button').forEach((btn) => {
   btn.addEventListener('mousedown', (event) => event.preventDefault());
 });
