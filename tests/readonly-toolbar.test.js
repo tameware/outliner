@@ -4,17 +4,17 @@ import { JSDOM } from 'jsdom';
 import { applyReadOnlyToolbar } from '../readonly-toolbar.js';
 
 describe('read-only toolbar', () => {
-  it('keeps only the View menu with Expand/Collapse in read-only mode', () => {
+  it('keeps File, Edit, and View visible and only enables Expand/Collapse', () => {
     const dom = new JSDOM(`<!DOCTYPE html><body>
       <nav class="menubar">
-        <div class="menu" data-menu="file">
+        <div class="menu" data-menu="file" hidden>
           <button type="button" class="menu-label">File</button>
           <div class="menu-panel">
             <button type="button" role="menuitem" id="menu-open">Open…</button>
             <button type="button" role="menuitem" id="menu-export">Export…</button>
           </div>
         </div>
-        <div class="menu" data-menu="edit">
+        <div class="menu" data-menu="edit" hidden>
           <button type="button" class="menu-label">Edit</button>
           <div class="menu-panel">
             <button type="button" role="menuitem" id="menu-undo">Undo</button>
@@ -36,11 +36,11 @@ describe('read-only toolbar', () => {
     const visibleMenus = [...toolbar.querySelectorAll('.menu')]
       .filter((menu) => !menu.hidden)
       .map((menu) => menu.getAttribute('data-menu'));
-    assert.deepEqual(visibleMenus, ['view']);
+    assert.deepEqual(visibleMenus, ['file', 'edit', 'view']);
 
-    const visibleItems = [...toolbar.querySelectorAll('[role="menuitem"]')]
-      .filter((btn) => !btn.hidden)
+    const enabled = [...toolbar.querySelectorAll('[role="menuitem"]')]
+      .filter((btn) => !btn.disabled)
       .map((btn) => btn.id);
-    assert.deepEqual(visibleItems, ['menu-expand-all', 'menu-collapse-all']);
+    assert.deepEqual(enabled, ['menu-expand-all', 'menu-collapse-all']);
   });
 });
