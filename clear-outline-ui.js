@@ -1,7 +1,11 @@
 /**
  * Clear outline plus multi-step undo/redo for structural restores (OPML snapshots).
- * Undo via Cmd/Ctrl+Z or Edit → Undo (beforeinput historyUndo);
- * redo via Shift+Cmd/Ctrl+Z, Cmd/Ctrl+Y, or Edit → Redo.
+ *
+ * All undo/redo goes through undo()/redo() — Edit menu, Cmd/Ctrl+Z / Shift+Cmd/Ctrl+Z /
+ * Cmd/Ctrl+Y, and contenteditable beforeinput historyUndo/historyRedo.
+ *
+ * Keyboard shortcuts listen on document so they still work after Edit-menu actions
+ * leave focus on menu chrome (outside the outline root).
  *
  * Each stack entry stores the OPML snapshot and the focus to restore with it
  * (captured before the mutation for undo entries, so Enter/add returns to the prior line).
@@ -201,14 +205,36 @@ export function createOutlineHistory({
   }
 
   /**
-   * @param {EventTarget} target
+   * True when focus is in a text field outside the outline (e.g. Save dialog),
+   * so Cmd/Ctrl+Z should stay with the browser's native field undo.
+   * @param {EventTarget | null} target
    */
-  function bindShortcuts(target) {
-    if (!target?.addEventListener) return () => {};
+  function isForeignEditable(target) {
+    const el = target?.nodeType === 1 ? target : target?.parentElement;
+    if (!el?.closest) return false;
+    const outline = getRoot();
+    if (outline?.contains(el)) return false;
+    if (el.closest('input, textarea, select')) return true;
+    if (el.isContentEditable) return true;
+    return false;
+  }
+
+  /**
+   * Bind Cmd/Ctrl+Z (and redo keys) on document; bind beforeinput on the outline root.
+   * Menu Undo/Redo should call undo()/redo() directly — same functions as these shortcuts.
+   *
+   * @param {EventTarget | null | undefined} outlineRoot
+   * @param {{ keyTarget?: EventTarget | null }} [options]
+   */
+  function bindShortcuts(outlineRoot, options = {}) {
+    if (!outlineRoot?.addEventListener) return () => {};
+    const keyTarget = options.keyTarget ?? outlineRoot.ownerDocument ?? document;
+    if (!keyTarget?.addEventListener) return () => {};
 
     function onKeyDown(event) {
       const mod = event.metaKey || event.ctrlKey;
       if (!mod || event.altKey) return;
+      if (isForeignEditable(event.target)) return;
       const key = event.key.toLowerCase();
       if (key === 'y') {
         if (redo()) event.preventDefault();
@@ -230,12 +256,13 @@ export function createOutlineHistory({
       }
     }
 
-    // Capture so we run before contenteditable's native undo when we have a snapshot.
-    target.addEventListener('keydown', onKeyDown, true);
-    target.addEventListener('beforeinput', onBeforeInput, true);
+    // Document capture: works even when focus is on menu chrome after Edit → Indent.
+    // Outline beforeinput: intercepts contenteditable's native undo when focused in a line.
+    keyTarget.addEventListener('keydown', onKeyDown, true);
+    outlineRoot.addEventListener('beforeinput', onBeforeInput, true);
     return () => {
-      target.removeEventListener('keydown', onKeyDown, true);
-      target.removeEventListener('beforeinput', onBeforeInput, true);
+      keyTarget.removeEventListener('keydown', onKeyDown, true);
+      outlineRoot.removeEventListener('beforeinput', onBeforeInput, true);
     };
   }
 

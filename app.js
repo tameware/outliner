@@ -25,6 +25,7 @@ import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
 import { applyReadOnlyToolbar } from './readonly-toolbar.js';
 import { createOutlineHistory } from './clear-outline-ui.js';
 import { matchPromoteDemoteShortcut } from './promote-demote-keys.js';
+import { mountIndentOutdentMenu } from './indent-outdent-menu.js';
 import { blankOutlineForDeepLink } from './deep-link-boot.js';
 import { mountMenubar } from './menubar.js';
 
@@ -68,10 +69,12 @@ function syncUrl(id) {
   window.history.replaceState(null, '', next);
 }
 
-// Keep outline focus when using menu items / cloud chrome (not menu labels).
-document.querySelectorAll('.menubar [role="menuitem"], .cloud-bar button').forEach((btn) => {
-  btn.addEventListener('mousedown', (event) => event.preventDefault());
-});
+// Keep outline focus when using the menubar / cloud chrome (including menu labels).
+document
+  .querySelectorAll('.menubar .menu-label, .menubar [role="menuitem"], .cloud-bar button')
+  .forEach((btn) => {
+    btn.addEventListener('mousedown', (event) => event.preventDefault());
+  });
 
 /** @param {'promote' | 'demote'} action */
 function runPromoteDemote(action) {
@@ -90,6 +93,14 @@ document.getElementById('menu-redo').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   outlineHistory.redo();
 });
+mountIndentOutdentMenu({
+  indentButton: document.getElementById('menu-indent'),
+  outdentButton: document.getElementById('menu-outdent'),
+  getActiveItem: () => api.getActiveItem(),
+  runStructural: (mutate) => outlineHistory.run(mutate),
+  isReadOnly: () => root.dataset.readonly === 'true',
+});
+
 document.getElementById('menu-promote').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   runPromoteDemote('promote');
