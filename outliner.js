@@ -4,6 +4,8 @@
  * Supports expand/collapse, inline editing, add/remove, promote/demote.
  */
 
+import { tryInsertSuitShortcut } from './suit-shortcuts.js';
+
 function childList(item) {
   return item.querySelector(':scope > ol');
 }
@@ -390,6 +392,17 @@ function createKeydownHandler(options = {}) {
         if (focusSameLevelSibling(item, 'down')) event.preventDefault();
         return;
       }
+      return;
+    }
+
+    if (
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      event.key.length === 1 &&
+      tryInsertSuitShortcut(event.target, event.key)
+    ) {
+      event.preventDefault();
       return;
     }
 
