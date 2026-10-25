@@ -34,6 +34,22 @@ describe('index.html CSP-safe entry', () => {
     assert.doesNotMatch(html, /to hide or show its children/);
   });
 
+  it('how-to outline does not mention undo/redo shortcuts', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    const tips = [...html.matchAll(/class="text" contenteditable="true">([^<]*)</g)].map(
+      (m) => m[1],
+    );
+    assert.ok(tips.some((t) => /How to use this outliner/.test(t)));
+    for (const tip of tips) {
+      assert.doesNotMatch(tip, /undo with/i);
+      assert.doesNotMatch(tip, /to redo/i);
+      assert.doesNotMatch(tip, /⌘Z/);
+      assert.doesNotMatch(tip, /Ctrl\+Z/);
+      assert.doesNotMatch(tip, /Ctrl\+Y/);
+      assert.doesNotMatch(tip, /⇧⌘Z/);
+    }
+  });
+
   it('has no Add line toolbar button (Enter adds a line)', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     assert.doesNotMatch(html, /id="btn-add"/);
