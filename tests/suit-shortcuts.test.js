@@ -56,6 +56,25 @@ describe('suit shortcuts', () => {
       assert.equal(tryInsertSuitShortcut(text, 'c'), true);
       assert.equal(text.textContent, `AK${SUIT_GLYPHS.clubs}`);
       assert.equal(getItemText(document.querySelector('[data-item]')), `AK${SUIT_GLYPHS.clubs}`);
+      assert.equal(text.querySelector('.suit-red'), null);
+    });
+
+    it('wraps hearts and diamonds in a red suit span', () => {
+      assert.equal(tryInsertSuitShortcut(text, 'h'), true);
+      assert.equal(text.textContent, `AK${SUIT_GLYPHS.hearts}`);
+      const heart = text.querySelector('.suit-red');
+      assert.ok(heart);
+      assert.equal(heart.textContent, SUIT_GLYPHS.hearts);
+
+      text.textContent = 'Q!';
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      assert.equal(tryInsertSuitShortcut(text, 'd'), true);
+      assert.equal(text.querySelector('.suit-red').textContent, SUIT_GLYPHS.diamonds);
     });
 
     it('is triggered from keydown on a text line', () => {

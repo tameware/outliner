@@ -23,6 +23,25 @@ export function suitGlyphForKey(key) {
   return BY_LETTER[key.toLowerCase()] ?? null;
 }
 
+/** @param {string} glyph */
+export function isRedSuit(glyph) {
+  return glyph === SUIT_GLYPHS.hearts || glyph === SUIT_GLYPHS.diamonds;
+}
+
+/**
+ * @param {string} glyph
+ * @returns {Text | HTMLElement}
+ */
+export function createSuitNode(glyph) {
+  if (isRedSuit(glyph)) {
+    const span = document.createElement('span');
+    span.className = 'suit suit-red';
+    span.textContent = glyph;
+    return span;
+  }
+  return document.createTextNode(glyph);
+}
+
 /**
  * @param {string} textBeforeCaret
  * @param {string} key
@@ -54,28 +73,23 @@ export function textBeforeCaret(textEl) {
 }
 
 /**
- * @param {HTMLElement} textEl
- * @param {number} offset
+ * @param {Node} node
  */
-function placeCaretAt(textEl, offset) {
-  textEl.focus();
-  const node = textEl.firstChild;
+function placeCaretAfter(node) {
   const sel = window.getSelection?.();
   if (!sel) return;
   const range = document.createRange();
-  if (node && node.nodeType === 3) {
-    range.setStart(node, Math.min(offset, node.textContent.length));
-  } else {
-    range.selectNodeContents(textEl);
-    range.collapse(offset === 0);
-  }
+  range.setStartAfter(node);
   range.collapse(true);
   sel.removeAllRanges();
   sel.addRange(range);
+  const root = node.parentElement;
+  root?.focus?.();
 }
 
 /**
  * Replace a preceding "!" plus the typed suit letter with the Unicode glyph.
+ * Hearts and diamonds are wrapped in `.suit-red` for red display.
  * @param {HTMLElement} textEl
  * @param {string} key
  * @returns {boolean}
@@ -95,7 +109,12 @@ export function tryInsertSuitShortcut(textEl, key) {
   afterRange.setStart(range.startContainer, range.startOffset);
   const after = afterRange.toString();
 
-  textEl.textContent = before.slice(0, -1) + glyph + after;
-  placeCaretAt(textEl, before.length - 1 + glyph.length);
+  const prefix = before.slice(0, -1);
+  textEl.replaceChildren();
+  if (prefix) textEl.appendChild(document.createTextNode(prefix));
+  const suitNode = createSuitNode(glyph);
+  textEl.appendChild(suitNode);
+  if (after) textEl.appendChild(document.createTextNode(after));
+  placeCaretAfter(suitNode);
   return true;
 }

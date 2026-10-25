@@ -473,6 +473,10 @@ ol.outline ol {
   border-radius: 3px;
 }
 
+.suit-red {
+  color: #c41e3a;
+}
+
 @media (max-width: 640px) {
   .chrome,
   main {
