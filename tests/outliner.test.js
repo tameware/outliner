@@ -9,6 +9,7 @@ import {
   hasChildren,
   toggleItem,
   addItemAfter,
+  addItemBelow,
   removeItem,
   demoteItem,
   promoteItem,
@@ -79,6 +80,11 @@ function childListOf(item) {
   return item.querySelector(':scope > ol');
 }
 
+function directFirstChild(item) {
+  const list = childListOf(item);
+  return list?.querySelector(':scope > [data-item]') ?? null;
+}
+
 describe('WYSIWYG HTML outliner', () => {
   let root;
   let items;
@@ -129,6 +135,69 @@ describe('WYSIWYG HTML outliner', () => {
       '',
       'Epsilon',
     ]);
+  });
+
+  it('addItemBelow inserts a same-level sibling when the line has no children', () => {
+    const created = addItemBelow(items[3]); // Delta is a leaf
+    assert.equal(items[3].nextElementSibling, created);
+    assert.equal(created.parentElement, items[3].parentElement);
+    assert.deepEqual(serializeOutline(root), [
+      {
+        text: 'Alpha',
+        children: [
+          {
+            text: 'Beta',
+            children: [{ text: 'Gamma', children: [] }],
+          },
+          { text: 'Delta', children: [] },
+          { text: '', children: [] },
+        ],
+      },
+      { text: 'Epsilon', children: [] },
+    ]);
+  });
+
+  it('addItemBelow inserts as the first child when the line has subheads', () => {
+    const created = addItemBelow(items[0]); // Alpha has children
+    assert.equal(created.parentElement.closest('[data-item]'), items[0]);
+    assert.equal(directFirstChild(items[0]), created);
+    assert.deepEqual(serializeOutline(root), [
+      {
+        text: 'Alpha',
+        children: [
+          { text: '', children: [] },
+          {
+            text: 'Beta',
+            children: [{ text: 'Gamma', children: [] }],
+          },
+          { text: 'Delta', children: [] },
+        ],
+      },
+      { text: 'Epsilon', children: [] },
+    ]);
+  });
+
+  it('addItemBelow expands a collapsed parent when inserting the first subhead', () => {
+    toggleItem(items[0]);
+    assert.equal(isExpanded(items[0]), false);
+    const created = addItemBelow(items[0]);
+    assert.equal(isExpanded(items[0]), true);
+    assert.equal(directFirstChild(items[0]), created);
+    assert.equal(childListOf(items[0]).hidden, false);
+  });
+
+  it('Enter key uses addItemBelow (first child under a parent)', () => {
+    const alphaText = items[0].querySelector('.text');
+    alphaText.focus();
+    alphaText.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(directFirstChild(items[0]), document.activeElement.closest('[data-item]'));
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), '');
   });
 
   it('removes an item and keeps siblings intact', () => {

@@ -128,6 +128,27 @@ export function addItemAfter(item, text = '') {
   return created;
 }
 
+/**
+ * Enter: insert directly below the current line.
+ * - Leaf (no subheads): same-level sibling after it.
+ * - Parent (has subheads): first child under it (and expand if collapsed).
+ */
+export function addItemBelow(item, text = '') {
+  if (!hasChildren(item)) return addItemAfter(item, text);
+
+  const created = createItem(text);
+  const list = ensureChildList(item);
+  const first = directChildItems(item)[0];
+  if (first) list.insertBefore(created, first);
+  else list.appendChild(created);
+  item.dataset.state = 'expanded';
+  list.hidden = false;
+  syncItemMeta(item);
+  syncItemMeta(created);
+  focusItem(created);
+  return created;
+}
+
 export function removeItem(item) {
   const root = item.closest('[data-outline-root]');
   const parentItem = item.parentElement?.closest('[data-item]');
@@ -409,7 +430,7 @@ function createKeydownHandler(options = {}) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       runStructural(() => {
-        addItemAfter(item);
+        addItemBelow(item);
         return true;
       });
       return;
@@ -490,6 +511,7 @@ export function mountOutliner(root, options = {}) {
   return {
     root,
     addItemAfter,
+    addItemBelow,
     removeItem,
     promoteItem,
     demoteItem,

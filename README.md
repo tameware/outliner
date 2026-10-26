@@ -32,7 +32,7 @@ Or open `index.html` via any static file server. Modules need HTTP(S), not `file
 
 | Key | Action |
 | --- | --- |
-| `Enter` | New sibling line |
+| `Enter` | New line below (sibling if leaf; first child if parent) |
 | `Tab` | Demote (indent) |
 | `Shift+Tab` | Promote (outdent) |
 | `Backspace` on empty line | Delete line |
