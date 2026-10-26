@@ -36,14 +36,16 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
 
   /** @type {'save' | 'save-as'} */
   let saveDialogMode = 'save';
+  /** @type {((ok: boolean) => void) | null} */
+  let saveDialogWaiter = null;
 
   if (!bar) {
-    return { destroy() {} };
+    return { destroy() {}, async saveCurrent() { return false; } };
   }
 
   if (!configured) {
     bar.hidden = true;
-    return { destroy() {} };
+    return { destroy() {}, async saveCurrent() { return false; } };
   }
 
   bar.hidden = false;
@@ -95,10 +97,12 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
     try {
       await fn();
       setStatus('');
+      return true;
     } catch (error) {
       const message = error?.message || String(error);
       setStatus(message);
       window.alert(message);
+      return false;
     } finally {
       busy = false;
       syncAuthUi();
@@ -128,6 +132,12 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
     else if (el) el.setAttribute('open', '');
   }
 
+  function resolveSaveDialog(ok) {
+    const resolve = saveDialogWaiter;
+    saveDialogWaiter = null;
+    resolve?.(ok);
+  }
+
   function openSaveDialog(mode) {
     saveDialogMode = mode;
     if (saveNameInput) {
@@ -140,24 +150,39 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
     openDialogEl(saveDialog);
     saveNameInput?.focus?.();
     saveNameInput?.select?.();
+    return new Promise((resolve) => {
+      saveDialogWaiter = resolve;
+    });
   }
 
-  function onSave() {
+  async function onSave() {
     const id = outline.getOutlineId?.();
     if (id) {
-      void saveWithName(outline.getTitle?.() || 'Untitled', { forceNew: false });
-      return;
+      return saveWithName(outline.getTitle?.() || 'Untitled', { forceNew: false });
     }
-    openSaveDialog('save');
+    return openSaveDialog('save');
   }
 
   function onSaveAs() {
-    openSaveDialog('save-as');
+    return openSaveDialog('save-as');
+  }
+
+  /**
+   * Save the current outline (prompt for name when needed).
+   * @returns {Promise<boolean>}
+   */
+  async function saveCurrent() {
+    if (readOnlyView) return false;
+    if (!user) {
+      window.alert('Sign in with Google to save to the cloud.');
+      return false;
+    }
+    return onSave();
   }
 
   async function saveWithName(title, { forceNew = false } = {}) {
     const name = String(title || '').trim() || 'Untitled';
-    await withBusy('Saving to cloud…', async () => {
+    const ok = await withBusy('Saving to cloud…', async () => {
       const previousTitle = String(outline.getTitle?.() || '').trim();
       let id = outline.getOutlineId?.();
       const saveAsNew =
@@ -212,6 +237,8 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
       syncSaveLabel();
       setStatus(`Saved “${name}”`);
     });
+    if (ok) outline.markClean?.();
+    return ok;
   }
 
   async function onOpen() {
@@ -246,6 +273,10 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
   }
 
   async function openOutline(id, listedTitle) {
+    if (outline.beforeReplace) {
+      const allow = await outline.beforeReplace();
+      if (!allow) return;
+    }
     await withBusy('Opening…', async () => {
       const got = await cloud.getOutline(id);
       const opml = typeof got === 'string' ? got : got.opml;
@@ -260,6 +291,7 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
       if (outline.syncUrl) outline.syncUrl(id);
       closeDialog(openDialog);
       syncSaveLabel();
+      outline.markClean?.();
       setStatus(title ? `Opened “${title}”` : `Opened ${id}`);
     });
   }
@@ -311,6 +343,7 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
 
   function onCancelSave() {
     closeDialog(saveDialog);
+    resolveSaveDialog(false);
   }
 
   btnSignIn?.addEventListener('click', () => {
@@ -320,10 +353,10 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
     void onSignOut();
   });
   btnSave?.addEventListener('click', () => {
-    onSave();
+    void onSave();
   });
   btnSaveAs?.addEventListener('click', () => {
-    onSaveAs();
+    void onSaveAs();
   });
   btnOpen?.addEventListener('click', () => {
     void onOpen();
@@ -345,7 +378,9 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
       return;
     }
     closeDialog(saveDialog);
-    void saveWithName(name, { forceNew: saveDialogMode === 'save-as' });
+    void saveWithName(name, { forceNew: saveDialogMode === 'save-as' }).then((ok) => {
+      resolveSaveDialog(ok);
+    });
   });
 
   if (readOnlyView) {
@@ -359,5 +394,6 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
       if (typeof unsub === 'function') unsub();
     },
     syncSaveLabel,
+    saveCurrent,
   };
 }

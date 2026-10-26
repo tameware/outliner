@@ -298,4 +298,46 @@ describe('cloud UI', () => {
     assert.equal(written.length, 1);
     assert.match(written[0], /view=share-tok/);
   });
+
+  it('asks beforeReplace before opening a listed outline and aborts when denied', async () => {
+    const loads = [];
+    outline.loadOutline = () => {
+      loads.push(1);
+    };
+    outline.beforeReplace = async () => false;
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-open').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-outline-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(loads.length, 0);
+  });
+
+  it('saveCurrent marks clean after a successful overwrite save', async () => {
+    outlineId = 'existing-1';
+    outline.getTitle = () => 'Same name';
+    outline.getRevision = () => 2;
+    outline.getLeaseToken = () => 'lease';
+    let cleaned = 0;
+    outline.markClean = () => {
+      cleaned += 1;
+    };
+    const ui = mountCloudUi({ auth, cloud, outline, configured: true });
+    const ok = await ui.saveCurrent();
+    assert.equal(ok, true);
+    assert.equal(savedCalls.length, 1);
+    assert.equal(cleaned, 1);
+  });
+
+  it('saveCurrent resolves false when the name dialog is cancelled', async () => {
+    const ui = mountCloudUi({ auth, cloud, outline, configured: true });
+    const pending = ui.saveCurrent();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.ok(document.getElementById('cloud-save-dialog').hasAttribute('open'));
+    document.getElementById('btn-cloud-save-cancel').click();
+    assert.equal(await pending, false);
+    assert.equal(createdCalls.length, 0);
+  });
 });

@@ -254,6 +254,19 @@ body {
   gap: 0.5rem;
 }
 
+/* Mac OS 9-style save alert: Don't Save |····| Cancel Save */
+#unsaved-dialog .cloud-dialog-actions {
+  justify-content: flex-end;
+}
+
+#unsaved-dialog #unsaved-discard {
+  margin-right: auto;
+}
+
+#unsaved-dialog #unsaved-save {
+  font-weight: 600;
+}
+
 .cloud-dialog-actions button {
   appearance: none;
   border: 1px solid var(--line);
