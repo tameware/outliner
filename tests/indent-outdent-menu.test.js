@@ -248,8 +248,8 @@ describe('Edit Indent / Outdent menu', () => {
 describe('index.html Edit menu Indent / Outdent', () => {
   it('lists Indent and Outdent in the Edit menu', () => {
     const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
-    assert.match(html, /id="menu-indent"[^>]*>Indent</);
-    assert.match(html, /id="menu-outdent"[^>]*>Outdent</);
+    assert.match(html, /id="menu-indent"[^>]*>\s*Indent/);
+    assert.match(html, /id="menu-outdent"[^>]*>\s*Outdent/);
     const editPanel = html.match(/data-menu="edit"[\s\S]*?data-menu="view"/)?.[0] ?? '';
     assert.match(editPanel, /menu-indent/);
     assert.match(editPanel, /menu-outdent/);

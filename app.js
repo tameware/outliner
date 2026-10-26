@@ -28,10 +28,12 @@ import { matchPromoteDemoteShortcut } from './promote-demote-keys.js';
 import { mountIndentOutdentMenu } from './indent-outdent-menu.js';
 import { blankOutlineForDeepLink } from './deep-link-boot.js';
 import { mountMenubar } from './menubar.js';
+import { applyMenuShortcuts } from './menu-shortcuts.js';
 
 const rootEl = document.querySelector('[data-outline-root]');
 const menubar = document.querySelector('.menubar');
 mountMenubar(menubar);
+applyMenuShortcuts(document);
 
 const outlineHistory = createOutlineHistory({
   getRoot: () => rootEl,

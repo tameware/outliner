@@ -25,14 +25,26 @@
       <div class="menu" data-menu="edit">
         <button type="button" class="menu-label" aria-haspopup="menu" aria-expanded="false">Edit</button>
         <div class="menu-panel" role="menu" hidden>
-          <button type="button" role="menuitem" id="menu-undo" disabled>Undo</button>
-          <button type="button" role="menuitem" id="menu-redo" disabled>Redo</button>
+          <button type="button" role="menuitem" id="menu-undo" disabled>
+            Undo<span class="menu-shortcut" data-keys="mod+z"></span>
+          </button>
+          <button type="button" role="menuitem" id="menu-redo" disabled>
+            Redo<span class="menu-shortcut" data-keys="mod+shift+z"></span>
+          </button>
           <hr class="menu-sep" />
-          <button type="button" role="menuitem" id="menu-indent">Indent</button>
-          <button type="button" role="menuitem" id="menu-outdent">Outdent</button>
+          <button type="button" role="menuitem" id="menu-indent">
+            Indent<span class="menu-shortcut" data-keys="tab"></span>
+          </button>
+          <button type="button" role="menuitem" id="menu-outdent">
+            Outdent<span class="menu-shortcut" data-keys="shift+tab"></span>
+          </button>
           <hr class="menu-sep" />
-          <button type="button" role="menuitem" id="menu-promote">Promote</button>
-          <button type="button" role="menuitem" id="menu-demote">Demote</button>
+          <button type="button" role="menuitem" id="menu-promote">
+            Promote<span class="menu-shortcut" data-keys="mod+["></span>
+          </button>
+          <button type="button" role="menuitem" id="menu-demote">
+            Demote<span class="menu-shortcut" data-keys="mod+]"></span>
+          </button>
           <hr class="menu-sep" />
           <button type="button" role="menuitem" id="menu-clear">Clear Outline</button>
         </div>

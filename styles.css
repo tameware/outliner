@@ -95,7 +95,7 @@ body {
   z-index: 30;
   top: 100%;
   left: 0;
-  min-width: 12rem;
+  min-width: 14rem;
   margin: 0;
   padding: 0.3rem;
   border: 1px solid var(--line);
@@ -122,6 +122,19 @@ body {
   font-size: 0.85rem;
   text-align: left;
   cursor: default;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.menu-shortcut {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.78em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .menu-panel [role='menuitem']:hover:not(:disabled),
