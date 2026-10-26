@@ -12,5 +12,9 @@ export function createDirtyTracker({ getSnapshot }) {
     markClean() {
       baseline = getSnapshot();
     },
+    /** @returns {string} last clean OPML snapshot */
+    getBaseline() {
+      return baseline;
+    },
   };
 }

@@ -35,6 +35,10 @@ import {
   offerSaveIfDirty,
   mountUnsavedChangesDialog,
 } from './unsaved-changes.js';
+import {
+  revertToCleanSnapshot,
+  syncRevertMenuItem,
+} from './revert-outline.js';
 
 const rootEl = document.querySelector('[data-outline-root]');
 const menubar = document.querySelector('.menubar');
@@ -208,6 +212,40 @@ document.getElementById('menu-export').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   const title = document.title || 'Outline';
   downloadOpml(root, { title, filename: 'outline.opml' });
+});
+
+const revertButton = document.getElementById('menu-revert');
+function syncRevert() {
+  if (root.dataset.readonly === 'true') {
+    if (revertButton) revertButton.disabled = true;
+    return;
+  }
+  syncRevertMenuItem(revertButton, () => dirty.isDirty());
+}
+syncRevert();
+document
+  .querySelector('[data-menu="file"] .menu-label')
+  ?.addEventListener('click', syncRevert);
+root.addEventListener('input', syncRevert);
+
+document.getElementById('menu-revert').addEventListener('click', () => {
+  if (root.dataset.readonly === 'true') return;
+  const ok = revertToCleanSnapshot({
+    isDirty: () => dirty.isDirty(),
+    getBaseline: () => dirty.getBaseline(),
+    getRoot: () => root,
+    parseOpml,
+    loadOutline,
+    setTitle: (title) => {
+      if (title) document.title = title;
+    },
+    run: (mutate) => outlineHistory.run(mutate),
+  });
+  if (ok) {
+    const first = root.querySelector('[data-item]');
+    if (first) focusItem(first);
+  }
+  syncRevert();
 });
 
 document.getElementById('menu-import').addEventListener('click', () => {

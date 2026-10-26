@@ -20,4 +20,14 @@ describe('dirty tracker', () => {
     snap = 'c';
     assert.equal(dirty.isDirty(), true);
   });
+
+  it('getBaseline returns the last clean snapshot', () => {
+    let snap = 'clean-opml';
+    const dirty = createDirtyTracker({ getSnapshot: () => snap });
+    assert.equal(dirty.getBaseline(), 'clean-opml');
+    snap = 'dirty-opml';
+    assert.equal(dirty.getBaseline(), 'clean-opml');
+    dirty.markClean();
+    assert.equal(dirty.getBaseline(), 'dirty-opml');
+  });
 });

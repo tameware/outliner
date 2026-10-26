@@ -88,6 +88,7 @@ describe('index.html CSP-safe entry', () => {
     assert.doesNotMatch(html, /<details/);
     assert.match(html, /id="menu-save"/);
     assert.match(html, /id="menu-save-as"/);
+    assert.match(html, /id="menu-revert"/);
     assert.match(html, /id="menu-import"/);
     assert.match(html, /id="menu-export"/);
   });
