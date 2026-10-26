@@ -10,6 +10,11 @@
  *   DELETE /api/outlines/:id/lock header X-Lease-Token
  *   POST   /api/outlines/:id/share
  *   GET    /api/outlines/shared/:token   (no auth; read-only)
+ *   POST   /api/outlines/:id/share-edit
+ *   GET    /api/outlines/edit/:token     (no auth; editable)
+ *   PUT    /api/outlines/edit/:token     (no auth; If-Match + lease)
+ *   POST   /api/outlines/edit/:token/lock
+ *   DELETE /api/outlines/edit/:token/lock
  */
 
 /**
@@ -83,6 +88,7 @@ export function locationWithOutlineId(locationLike, id) {
   if (id) params.set('id', id);
   else params.delete('id');
   params.delete('view');
+  params.delete('edit');
   const qs = params.toString();
   const path = locationLike.pathname || '/';
   const hash = locationLike.hash || '';
@@ -106,6 +112,29 @@ export function viewTokenFromLocation(locationLike) {
 export function locationWithViewToken(locationLike, token) {
   const params = new URLSearchParams();
   if (token) params.set('view', token);
+  const qs = params.toString();
+  const path = locationLike.pathname || '/';
+  const hash = locationLike.hash || '';
+  return qs ? `${path}?${qs}${hash}` : `${path}${hash}`;
+}
+
+/**
+ * @param {{ search?: string, hash?: string }} locationLike
+ * @returns {string | null}
+ */
+export function editTokenFromLocation(locationLike) {
+  const params = new URLSearchParams(locationLike.search || '');
+  const token = params.get('edit');
+  return token && token.trim() ? token.trim() : null;
+}
+
+/**
+ * @param {{ pathname?: string, search?: string, hash?: string }} locationLike
+ * @param {string | null} token
+ */
+export function locationWithEditToken(locationLike, token) {
+  const params = new URLSearchParams();
+  if (token) params.set('edit', token);
   const qs = params.toString();
   const path = locationLike.pathname || '/';
   const hash = locationLike.hash || '';
@@ -162,6 +191,57 @@ export function createCloudClient({ apiBase, getIdToken, fetch: fetchFn = global
       '';
     const n = Number.parseInt(String(raw).replaceAll('"', '').trim(), 10);
     return Number.isFinite(n) ? n : null;
+  }
+
+  /**
+   * Public fetch without Bearer (shared or editable).
+   * @param {string} path
+   */
+  async function publicOutlineGet(path) {
+    const response = await fetchFn(`${base}${path}`);
+    if (!response.ok) {
+      const text = await response.text();
+      let body = null;
+      try {
+        body = text ? JSON.parse(text) : null;
+      } catch {
+        body = text;
+      }
+      const detail =
+        (body && typeof body === 'object' && (body.error || body.message)) ||
+        text ||
+        response.statusText;
+      throw new CloudApiError(String(detail || `HTTP ${response.status}`), response.status, body);
+    }
+    const opml = await response.text();
+    return { response, opml };
+  }
+
+  /**
+   * Public JSON/empty request without Bearer (edit-token write paths).
+   * @param {string} path
+   * @param {RequestInit} [init]
+   */
+  async function publicRequest(path, init = {}) {
+    const response = await fetchFn(`${base}${path}`, init);
+    if (!response.ok) {
+      const text = await response.text();
+      let body = null;
+      try {
+        body = text ? JSON.parse(text) : null;
+      } catch {
+        body = text;
+      }
+      const detail =
+        (body && typeof body === 'object' && (body.error || body.message)) ||
+        text ||
+        response.statusText;
+      throw new CloudApiError(String(detail || `HTTP ${response.status}`), response.status, body);
+    }
+    if (response.status === 204) return null;
+    const type = response.headers.get('Content-Type') || '';
+    if (type.includes('json')) return response.json();
+    return response.text();
   }
 
   return {
@@ -240,34 +320,68 @@ export function createCloudClient({ apiBase, getIdToken, fetch: fetchFn = global
       });
     },
 
+    async createEditShareLink(id) {
+      return request(`/api/outlines/${encodeURIComponent(id)}/share-edit`, {
+        method: 'POST',
+      });
+    },
+
     /**
      * Public read-only fetch (no Bearer token).
      * @returns {Promise<{ opml: string, title: string | null, revision: number | null }>}
      */
     async getSharedOutline(shareToken) {
-      const response = await fetchFn(
-        `${base}/api/outlines/shared/${encodeURIComponent(shareToken)}`,
+      const { response, opml } = await publicOutlineGet(
+        `/api/outlines/shared/${encodeURIComponent(shareToken)}`,
       );
-      if (!response.ok) {
-        const text = await response.text();
-        let body = null;
-        try {
-          body = text ? JSON.parse(text) : null;
-        } catch {
-          body = text;
-        }
-        const detail =
-          (body && typeof body === 'object' && (body.error || body.message)) ||
-          text ||
-          response.statusText;
-        throw new CloudApiError(String(detail || `HTTP ${response.status}`), response.status, body);
-      }
-      const opml = await response.text();
       return {
         opml,
         title: response.headers.get('X-Outline-Title'),
         revision: revisionFromHeaders(response),
       };
+    },
+
+    /**
+     * Public editable fetch (no Bearer token).
+     * @returns {Promise<{ opml: string, title: string | null, revision: number | null, id: string | null }>}
+     */
+    async getEditableOutline(editToken) {
+      const { response, opml } = await publicOutlineGet(
+        `/api/outlines/edit/${encodeURIComponent(editToken)}`,
+      );
+      return {
+        opml,
+        title: response.headers.get('X-Outline-Title'),
+        revision: revisionFromHeaders(response),
+        id: response.headers.get('X-Outline-Id'),
+      };
+    },
+
+    async saveEditableOutline(editToken, { opml, revision, leaseToken, title }) {
+      const headers = {
+        'Content-Type': 'application/xml',
+      };
+      if (revision != null) headers['If-Match'] = String(revision);
+      if (leaseToken) headers['X-Lease-Token'] = leaseToken;
+      if (title) headers['X-Outline-Title'] = title;
+      return publicRequest(`/api/outlines/edit/${encodeURIComponent(editToken)}`, {
+        method: 'PUT',
+        headers,
+        body: opml,
+      });
+    },
+
+    async acquireEditLock(editToken) {
+      return publicRequest(`/api/outlines/edit/${encodeURIComponent(editToken)}/lock`, {
+        method: 'POST',
+      });
+    },
+
+    async releaseEditLock(editToken, leaseToken) {
+      return publicRequest(`/api/outlines/edit/${encodeURIComponent(editToken)}/lock`, {
+        method: 'DELETE',
+        headers: leaseToken ? { 'X-Lease-Token': leaseToken } : {},
+      });
     },
   };
 }

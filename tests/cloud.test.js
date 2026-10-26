@@ -8,6 +8,8 @@ import {
   locationWithOutlineId,
   viewTokenFromLocation,
   locationWithViewToken,
+  editTokenFromLocation,
+  locationWithEditToken,
 } from '../cloud.js';
 
 describe('cloud config', () => {
@@ -30,7 +32,7 @@ describe('outline id in URL', () => {
 
   it('builds a URL that carries the outline id', () => {
     const href = locationWithOutlineId(
-      { pathname: '/outliner/', search: '', hash: '' },
+      { pathname: '/outliner/', search: '?view=v&edit=e', hash: '' },
       'xyz',
     );
     assert.equal(href, '/outliner/?id=xyz');
@@ -44,8 +46,25 @@ describe('view token in URL', () => {
       'share-tok',
     );
     assert.equal(
-      locationWithViewToken({ pathname: '/outliner/', search: '?id=x', hash: '' }, 'abc'),
+      locationWithViewToken({ pathname: '/outliner/', search: '?id=x&edit=e', hash: '' }, 'abc'),
       '/outliner/?view=abc',
+    );
+  });
+});
+
+describe('edit token in URL', () => {
+  it('reads and builds an editable share query param', () => {
+    assert.equal(
+      editTokenFromLocation({ search: '?edit=edit-tok', hash: '' }),
+      'edit-tok',
+    );
+    assert.equal(editTokenFromLocation({ search: '', hash: '' }), null);
+    assert.equal(
+      locationWithEditToken(
+        { pathname: '/outliner/', search: '?id=x&view=v', hash: '' },
+        'abc',
+      ),
+      '/outliner/?edit=abc',
     );
   });
 });
@@ -204,6 +223,79 @@ describe('cloud API client', () => {
     const got = await client().getSharedOutline('share-1');
     assert.match(got.opml, /<opml/);
     assert.equal(got.title, 'Shared');
+  });
+
+  it('creates an editable share link for an outline', async () => {
+    fetchMock.mock.mockImplementation(async () => {
+      return new Response(
+        JSON.stringify({ token: 'edit-1', urlPath: '/outliner/?edit=edit-1' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    });
+    const result = await client().createEditShareLink('abc');
+    assert.equal(result.token, 'edit-1');
+    assert.equal(result.urlPath, '/outliner/?edit=edit-1');
+    const [url, init] = fetchMock.mock.calls[0].arguments;
+    assert.equal(url, 'https://api.example.com/api/outlines/abc/share-edit');
+    assert.equal(init.method, 'POST');
+  });
+
+  it('loads an editable outline without auth and returns id', async () => {
+    fetchMock.mock.mockImplementation(async (url, init) => {
+      assert.equal(url, 'https://api.example.com/api/outlines/edit/edit-1');
+      assert.equal(init?.headers?.Authorization, undefined);
+      return new Response('<opml></opml>', {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/xml',
+          'X-Outline-Title': 'Editable',
+          'X-Outline-Id': 'outline-9',
+          'X-Outline-Revision': '4',
+        },
+      });
+    });
+    const got = await client().getEditableOutline('edit-1');
+    assert.match(got.opml, /<opml/);
+    assert.equal(got.title, 'Editable');
+    assert.equal(got.id, 'outline-9');
+    assert.equal(got.revision, 4);
+  });
+
+  it('saves and locks via edit token without bearer auth', async () => {
+    fetchMock.mock.mockImplementation(async (url, init) => {
+      assert.equal(init?.headers?.Authorization, undefined);
+      if (String(url).endsWith('/lock') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ token: 'lease-e', leaseUntil: '2099' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (String(url).endsWith('/lock') && init?.method === 'DELETE') {
+        return new Response(null, { status: 204 });
+      }
+      return new Response(JSON.stringify({ id: 'outline-9', revision: 5 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    const c = client();
+    const lease = await c.acquireEditLock('edit-1');
+    assert.equal(lease.token, 'lease-e');
+    const saved = await c.saveEditableOutline('edit-1', {
+      opml: '<opml></opml>',
+      revision: 4,
+      leaseToken: 'lease-e',
+      title: 'T',
+    });
+    assert.equal(saved.revision, 5);
+    await c.releaseEditLock('edit-1', 'lease-e');
+    assert.equal(
+      fetchMock.mock.calls[0].arguments[0],
+      'https://api.example.com/api/outlines/edit/edit-1/lock',
+    );
+    assert.equal(fetchMock.mock.calls[1].arguments[1].method, 'PUT');
+    assert.equal(fetchMock.mock.calls[1].arguments[1].headers['If-Match'], '4');
+    assert.equal(fetchMock.mock.calls[1].arguments[1].headers['X-Lease-Token'], 'lease-e');
   });
 
   it('strips trailing slash on apiBase', async () => {

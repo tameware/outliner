@@ -8,11 +8,12 @@ import {
 import { loadOutline, getItemTexts } from '../outliner.js';
 
 describe('deep-link boot', () => {
-  it('detects id and view query params', () => {
+  it('detects id, view, and edit query params', () => {
     assert.equal(hasRemoteOutlineParams({ search: '' }), false);
     assert.equal(hasRemoteOutlineParams({ search: '?foo=1' }), false);
     assert.equal(hasRemoteOutlineParams({ search: '?id=abc' }), true);
     assert.equal(hasRemoteOutlineParams({ search: '?view=tok' }), true);
+    assert.equal(hasRemoteOutlineParams({ search: '?edit=tok' }), true);
     assert.equal(hasRemoteOutlineParams({ search: '?id=a&view=b' }), true);
   });
 

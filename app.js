@@ -19,6 +19,7 @@ import {
   outlineIdFromLocation,
   locationWithOutlineId,
   viewTokenFromLocation,
+  editTokenFromLocation,
 } from './cloud.js';
 import { mountCloudUi } from './cloud-ui.js';
 import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
@@ -64,9 +65,34 @@ let currentOutlineId = outlineIdFromLocation(window.location);
 let currentRevision = null;
 let leaseToken = null;
 const viewToken = viewTokenFromLocation(window.location);
+const editToken = editTokenFromLocation(window.location);
 /** @type {{ saveCurrent: () => Promise<boolean> } | null} */
 let cloudUi = null;
 let cloudSaveAvailable = false;
+
+/**
+ * When opened via ?edit=, map owner cloud methods onto edit-token endpoints.
+ * @param {ReturnType<typeof createCloudClient>} cloud
+ * @param {string} token
+ */
+function cloudWithEditToken(cloud, token) {
+  return {
+    ...cloud,
+    async getOutline() {
+      const got = await cloud.getEditableOutline(token);
+      return { opml: got.opml, revision: got.revision };
+    },
+    async saveOutline(_id, args) {
+      return cloud.saveEditableOutline(token, args);
+    },
+    async acquireLock() {
+      return cloud.acquireEditLock(token);
+    },
+    async releaseLock(_id, lease) {
+      return cloud.releaseEditLock(token, lease);
+    },
+  };
+}
 
 const dirty = createDirtyTracker({
   getSnapshot: () => toOpml(root, { title: document.title || 'Outline' }),
@@ -94,7 +120,7 @@ async function beforeReplace() {
   return result === 'proceed';
 }
 
-// Avoid flashing the starter outline while ?id= / ?view= content loads.
+// Avoid flashing the starter outline while ?id= / ?view= / ?edit= content loads.
 if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
   outlineHistory.discard();
 }
@@ -225,7 +251,7 @@ async function initCloud() {
     });
   }
 
-  if (configured && cloudConfig.firebase && !viewToken) {
+  if (configured && cloudConfig.firebase && !viewToken && !editToken) {
     try {
       const [{ initializeApp }, authMod] = await Promise.all([
         import('https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js'),
@@ -259,21 +285,54 @@ async function initCloud() {
     }
   }
 
+  if (configured && cloud && editToken && !viewToken) {
+    try {
+      const got = await cloud.getEditableOutline(editToken);
+      const tree = parseOpml(got.opml);
+      loadOutline(root, tree);
+      if (got.id) currentOutlineId = got.id;
+      currentRevision = got.revision ?? null;
+      leaseToken = null;
+      if (got.title) document.title = got.title;
+      dirty.markClean();
+      const item = root.querySelector('[data-item]');
+      if (item) focusItem(item);
+    } catch (error) {
+      console.warn('Could not load editable outline', error);
+      window.alert('Could not open editable link: ' + (error?.message || error));
+    }
+  }
+
+  const nullCloud = {
+    async listOutlines() { return []; },
+    async getOutline() { return { opml: '', revision: null }; },
+    async createOutline() { return { id: 'local' }; },
+    async saveOutline() { return {}; },
+    async acquireLock() { return { token: '' }; },
+    async releaseLock() {},
+    async createShareLink() { return { token: '', urlPath: '' }; },
+    async createEditShareLink() { return { token: '', urlPath: '' }; },
+    async getSharedOutline() { return { opml: '', title: null }; },
+    async getEditableOutline() {
+      return { opml: '', title: null, revision: null, id: null };
+    },
+    async saveEditableOutline() { return {}; },
+    async acquireEditLock() { return { token: '' }; },
+    async releaseEditLock() {},
+  };
+
+  let sessionCloud = cloud || nullCloud;
+  if (cloud && editToken && !viewToken) {
+    sessionCloud = cloudWithEditToken(cloud, editToken);
+  }
+
   cloudSaveAvailable = configured;
   cloudUi = mountCloudUi({
     configured,
     readOnlyView: Boolean(viewToken),
+    editShareMode: Boolean(editToken) && !viewToken,
     auth,
-    cloud: cloud || {
-      async listOutlines() { return []; },
-      async getOutline() { return { opml: '', revision: null }; },
-      async createOutline() { return { id: 'local' }; },
-      async saveOutline() { return {}; },
-      async acquireLock() { return { token: '' }; },
-      async releaseLock() {},
-      async createShareLink() { return { token: '', urlPath: '' }; },
-      async getSharedOutline() { return { opml: '', title: null }; },
-    },
+    cloud: sessionCloud,
     outline: {
       root,
       toOpml: () => toOpml(root, { title: document.title || 'Outline' }),
@@ -301,13 +360,17 @@ async function initCloud() {
       setLeaseToken: (token) => {
         leaseToken = token;
       },
-      syncUrl,
+      syncUrl: editToken
+        ? () => {
+            /* keep ?edit= in the address bar */
+          }
+        : syncUrl,
       beforeReplace,
       markClean: () => dirty.markClean(),
     },
   });
 
-  if (configured && cloud && currentOutlineId && !viewToken) {
+  if (configured && cloud && currentOutlineId && !viewToken && !editToken) {
     auth.onAuthStateChanged(async (user) => {
       if (!user || !currentOutlineId) return;
       try {

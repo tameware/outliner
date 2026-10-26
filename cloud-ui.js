@@ -8,11 +8,19 @@ import { syncCloudSaveMenuLabel } from './menubar.js';
  * @param {object} options
  * @param {boolean} options.configured
  * @param {boolean} [options.readOnlyView]
+ * @param {boolean} [options.editShareMode] guest editing via ?edit= token (no Google sign-in)
  * @param {{ onAuthStateChanged: Function, signInWithGoogle: Function, signOut: Function }} options.auth
  * @param {ReturnType<import('./cloud.js').createCloudClient>} options.cloud
  * @param {object} options.outline
  */
-export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = false }) {
+export function mountCloudUi({
+  configured,
+  auth,
+  cloud,
+  outline,
+  readOnlyView = false,
+  editShareMode = false,
+}) {
   const bar = document.querySelector('[data-cloud-bar]');
   const btnSignIn = document.getElementById('btn-sign-in');
   const btnSignOut = document.getElementById('btn-sign-out');
@@ -21,6 +29,7 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
   const btnSaveAs = document.getElementById('menu-save-as');
   const btnOpen = document.getElementById('menu-open');
   const btnShare = document.getElementById('btn-cloud-share');
+  const btnShareEdit = document.getElementById('btn-cloud-share-edit');
   const saveDialog = document.getElementById('cloud-save-dialog');
   const saveForm = document.getElementById('cloud-save-form');
   const saveNameInput = document.getElementById('cloud-save-name');
@@ -29,6 +38,8 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
   const listEl = document.getElementById('cloud-outline-list');
   const btnCancel = document.getElementById('btn-cloud-open-cancel');
   const shareDialog = document.getElementById('cloud-share-dialog');
+  const shareHeading = document.getElementById('cloud-share-heading');
+  const shareHint = document.getElementById('cloud-share-hint');
   const shareUrlInput = document.getElementById('cloud-share-url');
   const btnShareCopy = document.getElementById('btn-cloud-share-copy');
   const btnShareClose = document.getElementById('btn-cloud-share-close');
@@ -62,31 +73,37 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
 
   function syncAuthUi() {
     const signedIn = Boolean(user);
-    if (btnSignIn) btnSignIn.hidden = signedIn || readOnlyView;
-    if (btnSignOut) btnSignOut.hidden = !signedIn || readOnlyView;
+    const hideOwnerChrome = readOnlyView || editShareMode;
+    if (btnSignIn) btnSignIn.hidden = signedIn || hideOwnerChrome;
+    if (btnSignOut) btnSignOut.hidden = !signedIn || hideOwnerChrome;
     if (userEl) {
-      userEl.hidden = !signedIn || readOnlyView;
+      userEl.hidden = !signedIn || hideOwnerChrome;
       userEl.textContent = signedIn
         ? user.displayName || user.email || user.uid || 'Signed in'
         : '';
     }
-    const canMutate = signedIn && !busy && !readOnlyView;
+    const canMutate =
+      !busy && !readOnlyView && (editShareMode || signedIn);
     if (btnSave) {
       btnSave.hidden = readOnlyView;
       btnSave.disabled = !canMutate;
       syncSaveLabel();
     }
     if (btnSaveAs) {
-      btnSaveAs.hidden = readOnlyView;
-      btnSaveAs.disabled = !canMutate;
+      btnSaveAs.hidden = hideOwnerChrome;
+      btnSaveAs.disabled = !canMutate || editShareMode;
     }
     if (btnOpen) {
-      btnOpen.hidden = readOnlyView;
-      btnOpen.disabled = !canMutate;
+      btnOpen.hidden = hideOwnerChrome;
+      btnOpen.disabled = !canMutate || editShareMode;
     }
     if (btnShare) {
-      btnShare.hidden = readOnlyView;
-      btnShare.disabled = !canMutate;
+      btnShare.hidden = hideOwnerChrome;
+      btnShare.disabled = !canMutate || editShareMode;
+    }
+    if (btnShareEdit) {
+      btnShareEdit.hidden = hideOwnerChrome;
+      btnShareEdit.disabled = !canMutate || editShareMode;
     }
   }
 
@@ -173,7 +190,7 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
    */
   async function saveCurrent() {
     if (readOnlyView) return false;
-    if (!user) {
+    if (!user && !editShareMode) {
       window.alert('Sign in with Google to save to the cloud.');
       return false;
     }
@@ -185,8 +202,10 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
     const ok = await withBusy('Saving to cloud…', async () => {
       const previousTitle = String(outline.getTitle?.() || '').trim();
       let id = outline.getOutlineId?.();
+      // Edit-link guests always overwrite; renaming must not mint a new owner outline.
       const saveAsNew =
-        forceNew || Boolean(id) && name !== previousTitle;
+        !editShareMode &&
+        (forceNew || (Boolean(id) && name !== previousTitle));
 
       outline.setTitle?.(name);
       const opml = outline.toOpml();
@@ -304,6 +323,41 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
     }
   }
 
+  /** @type {'view' | 'edit'} */
+  let shareDialogKind = 'view';
+
+  function configureShareDialog(kind) {
+    shareDialogKind = kind;
+    if (kind === 'edit') {
+      if (shareHeading) shareHeading.textContent = 'Editable link';
+      if (shareHint) {
+        shareHint.textContent =
+          'Anyone with this link can view and edit the outline. Treat it like a password.';
+      }
+    } else {
+      if (shareHeading) shareHeading.textContent = 'Read-only link';
+      if (shareHint) {
+        shareHint.textContent =
+          'Anyone with this link can view the outline but not edit it.';
+      }
+    }
+  }
+
+  async function presentShareLink(kind, result, copiedLabel, readyLabel) {
+    configureShareDialog(kind);
+    const href = absoluteShareUrl(result.urlPath);
+    if (shareUrlInput) shareUrlInput.value = href;
+    try {
+      await navigator.clipboard?.writeText?.(href);
+      setStatus(copiedLabel);
+    } catch {
+      setStatus(readyLabel);
+    }
+    openDialogEl(shareDialog);
+    shareUrlInput?.focus?.();
+    shareUrlInput?.select?.();
+  }
+
   async function onShare() {
     const id = outline.getOutlineId?.();
     if (!id) {
@@ -312,26 +366,40 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
     }
     await withBusy('Creating link…', async () => {
       const result = await cloud.createShareLink(id);
-      const href = absoluteShareUrl(result.urlPath);
-      if (shareUrlInput) shareUrlInput.value = href;
-      try {
-        await navigator.clipboard?.writeText?.(href);
-        setStatus('Read-only link copied');
-      } catch {
-        setStatus('Read-only link ready');
-      }
-      openDialogEl(shareDialog);
-      shareUrlInput?.focus?.();
-      shareUrlInput?.select?.();
+      await presentShareLink(
+        'view',
+        result,
+        'Read-only link copied',
+        'Read-only link ready',
+      );
+    });
+  }
+
+  async function onShareEdit() {
+    const id = outline.getOutlineId?.();
+    if (!id) {
+      window.alert('Save this outline to the cloud before creating an editable link.');
+      return;
+    }
+    await withBusy('Creating link…', async () => {
+      const result = await cloud.createEditShareLink(id);
+      await presentShareLink(
+        'edit',
+        result,
+        'Editable link copied',
+        'Editable link ready',
+      );
     });
   }
 
   async function onShareCopy() {
     const href = shareUrlInput?.value;
     if (!href) return;
+    const label =
+      shareDialogKind === 'edit' ? 'Editable link copied' : 'Read-only link copied';
     try {
       await navigator.clipboard.writeText(href);
-      setStatus('Read-only link copied');
+      setStatus(label);
     } catch {
       shareUrlInput?.select?.();
     }
@@ -364,6 +432,9 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
   btnShare?.addEventListener('click', () => {
     void onShare();
   });
+  btnShareEdit?.addEventListener('click', () => {
+    void onShareEdit();
+  });
   btnCancel?.addEventListener('click', onCancelOpen);
   btnSaveCancel?.addEventListener('click', onCancelSave);
   btnShareCopy?.addEventListener('click', () => {
@@ -385,6 +456,8 @@ export function mountCloudUi({ configured, auth, cloud, outline, readOnlyView = 
 
   if (readOnlyView) {
     setStatus('Read-only view');
+  } else if (editShareMode) {
+    setStatus('Editing via shared link');
   }
 
   syncAuthUi();

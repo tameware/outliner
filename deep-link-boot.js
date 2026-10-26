@@ -1,6 +1,7 @@
 import {
   outlineIdFromLocation,
   viewTokenFromLocation,
+  editTokenFromLocation,
 } from './cloud.js';
 
 /**
@@ -8,7 +9,9 @@ import {
  */
 export function hasRemoteOutlineParams(locationLike) {
   return Boolean(
-    outlineIdFromLocation(locationLike) || viewTokenFromLocation(locationLike),
+    outlineIdFromLocation(locationLike) ||
+      viewTokenFromLocation(locationLike) ||
+      editTokenFromLocation(locationLike),
   );
 }
 

@@ -15,6 +15,7 @@ function setupDom() {
       <button type="button" id="btn-sign-out" hidden>Sign out</button>
       <span id="cloud-user" hidden></span>
       <button type="button" id="btn-cloud-share" disabled>Copy read-only link</button>
+      <button type="button" id="btn-cloud-share-edit" disabled>Copy editable link</button>
       <dialog id="cloud-save-dialog">
         <form method="dialog" id="cloud-save-form">
           <h2>Save to cloud</h2>
@@ -28,6 +29,8 @@ function setupDom() {
         <button type="button" id="btn-cloud-open-cancel">Cancel</button>
       </dialog>
       <dialog id="cloud-share-dialog">
+        <h2 id="cloud-share-heading">Read-only link</h2>
+        <p id="cloud-share-hint" class="cloud-share-hint"></p>
         <input id="cloud-share-url" readonly />
         <button type="button" id="btn-cloud-share-copy">Copy</button>
         <button type="button" id="btn-cloud-share-close">Close</button>
@@ -267,8 +270,7 @@ describe('cloud UI', () => {
     assert.equal(savedCalls[0].leaseToken, 'fresh-lease');
   });
 
-  it('creates a read-only share link for the current saved outline', async () => {
-    outlineId = 'existing-1';
+  function mockClipboard() {
     const written = [];
     const clipboard = {
       writeText: async (text) => {
@@ -283,6 +285,12 @@ describe('cloud UI', () => {
       configurable: true,
       value: window.navigator,
     });
+    return written;
+  }
+
+  it('creates a read-only share link for the current saved outline', async () => {
+    outlineId = 'existing-1';
+    const written = mockClipboard();
     cloud.createShareLink = async () => ({
       token: 'share-tok',
       urlPath: '/outliner/?view=share-tok',
@@ -295,8 +303,48 @@ describe('cloud UI', () => {
     const dialog = document.getElementById('cloud-share-dialog');
     assert.ok(dialog.hasAttribute('open'));
     assert.match(document.getElementById('cloud-share-url').value, /view=share-tok/);
+    assert.match(document.getElementById('cloud-share-heading').textContent, /read-only/i);
     assert.equal(written.length, 1);
     assert.match(written[0], /view=share-tok/);
+  });
+
+  it('creates an editable share link for the current saved outline', async () => {
+    outlineId = 'existing-1';
+    const written = mockClipboard();
+    cloud.createEditShareLink = async () => ({
+      token: 'edit-tok',
+      urlPath: '/outliner/?edit=edit-tok',
+    });
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('btn-cloud-share-edit').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.ok(document.getElementById('cloud-share-dialog').hasAttribute('open'));
+    assert.match(document.getElementById('cloud-share-url').value, /edit=edit-tok/);
+    assert.match(document.getElementById('cloud-share-heading').textContent, /editable/i);
+    assert.match(document.getElementById('cloud-share-hint').textContent, /edit/i);
+    assert.equal(written.length, 1);
+    assert.match(written[0], /edit=edit-tok/);
+  });
+
+  it('in editShareMode enables Save without sign-in and hides share/open chrome', async () => {
+    signedInUser = null;
+    outlineId = 'shared-edit-1';
+    mountCloudUi({
+      auth,
+      cloud,
+      outline,
+      configured: true,
+      editShareMode: true,
+    });
+    assert.equal(document.getElementById('btn-sign-in').hidden, true);
+    assert.equal(document.getElementById('btn-cloud-share').hidden, true);
+    assert.equal(document.getElementById('btn-cloud-share-edit').hidden, true);
+    assert.equal(document.getElementById('menu-open').hidden, true);
+    assert.equal(document.getElementById('menu-save-as').hidden, true);
+    assert.equal(document.getElementById('menu-save').disabled, false);
+    assert.equal(document.getElementById('menu-save').hidden, false);
   });
 
   it('asks beforeReplace before opening a listed outline and aborts when denied', async () => {
