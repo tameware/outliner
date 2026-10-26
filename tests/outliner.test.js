@@ -20,6 +20,7 @@ import {
   isReadOnly,
   loadOutline,
   focusSameLevelSibling,
+  focusAdjacentItem,
 } from '../outliner.js';
 
 function setupDom(html) {
@@ -377,33 +378,62 @@ describe('WYSIWYG HTML outliner', () => {
     assert.equal(caretOffset(), 2);
   });
 
-  it('ArrowDown moves to the next headline at the same level', () => {
+  it('focusSameLevelSibling moves to the next headline at the same level', () => {
     // Beta and Delta are siblings under Alpha; Gamma is a child of Beta.
     assert.equal(focusSameLevelSibling(items[1], 'down'), true); // Beta → Delta
     assert.equal(document.activeElement, items[3].querySelector('.text'));
     assert.equal(getItemText(items[3]), 'Delta');
   });
 
-  it('ArrowUp moves to the previous headline at the same level', () => {
+  it('focusSameLevelSibling moves to the previous headline at the same level', () => {
     assert.equal(focusSameLevelSibling(items[3], 'up'), true); // Delta → Beta
     assert.equal(document.activeElement, items[1].querySelector('.text'));
     assert.equal(getItemText(items[1]), 'Beta');
   });
 
-  it('same-level arrows skip nested children', () => {
+  it('focusSameLevelSibling skips nested children', () => {
     // From Alpha, down goes to Epsilon (top-level), not into Beta.
     assert.equal(focusSameLevelSibling(items[0], 'down'), true);
     assert.equal(document.activeElement, items[4].querySelector('.text'));
     assert.equal(getItemText(items[4]), 'Epsilon');
   });
 
-  it('same-level arrows do nothing at the edge of a list', () => {
+  it('focusSameLevelSibling does nothing at the edge of a list', () => {
     assert.equal(focusSameLevelSibling(items[0], 'up'), false);
     assert.equal(focusSameLevelSibling(items[4], 'down'), false);
     assert.equal(focusSameLevelSibling(items[2], 'up'), false); // Gamma is only child under Beta
   });
 
-  it('ArrowUp/ArrowDown keydown moves same-level focus', () => {
+  it('focusAdjacentItem moves to the next visible line regardless of level', () => {
+    // Alpha → Beta → Gamma → Delta → Epsilon in document order.
+    assert.equal(focusAdjacentItem(items[0], 'down'), true); // Alpha → Beta
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Beta');
+    assert.equal(focusAdjacentItem(items[1], 'down'), true); // Beta → Gamma
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Gamma');
+    assert.equal(focusAdjacentItem(items[2], 'down'), true); // Gamma → Delta
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Delta');
+  });
+
+  it('focusAdjacentItem moves to the previous visible line regardless of level', () => {
+    assert.equal(focusAdjacentItem(items[3], 'up'), true); // Delta → Gamma
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Gamma');
+    assert.equal(focusAdjacentItem(items[2], 'up'), true); // Gamma → Beta
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Beta');
+  });
+
+  it('focusAdjacentItem skips lines under a collapsed parent', () => {
+    toggleItem(items[1]); // collapse Beta (hides Gamma)
+    assert.equal(isExpanded(items[1]), false);
+    assert.equal(focusAdjacentItem(items[1], 'down'), true); // Beta → Delta (skip Gamma)
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Delta');
+  });
+
+  it('focusAdjacentItem does nothing at the outline edges', () => {
+    assert.equal(focusAdjacentItem(items[0], 'up'), false);
+    assert.equal(focusAdjacentItem(items[4], 'down'), false);
+  });
+
+  it('ArrowUp/ArrowDown keydown move to adjacent lines', () => {
     const betaText = items[1].querySelector('.text');
     betaText.focus();
     betaText.dispatchEvent(
@@ -413,7 +443,7 @@ describe('WYSIWYG HTML outliner', () => {
         cancelable: true,
       }),
     );
-    assert.equal(document.activeElement, items[3].querySelector('.text'));
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Gamma');
 
     document.activeElement.dispatchEvent(
       new window.KeyboardEvent('keydown', {
@@ -422,7 +452,124 @@ describe('WYSIWYG HTML outliner', () => {
         cancelable: true,
       }),
     );
-    assert.equal(document.activeElement, items[1].querySelector('.text'));
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Beta');
+  });
+
+  it('Option/Alt+ArrowUp/ArrowDown keydown move same-level focus', () => {
+    const betaText = items[1].querySelector('.text');
+    betaText.focus();
+    const down = new window.KeyboardEvent('keydown', {
+      key: 'ArrowDown',
+      code: 'ArrowDown',
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    betaText.dispatchEvent(down);
+    assert.equal(down.defaultPrevented, true);
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Delta');
+
+    const up = new window.KeyboardEvent('keydown', {
+      key: 'ArrowUp',
+      code: 'ArrowUp',
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.activeElement.dispatchEvent(up);
+    assert.equal(up.defaultPrevented, true);
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Beta');
+  });
+
+  it('Option/Alt+ArrowDown uses activeElement when the event is dispatched on document', () => {
+    const betaText = items[1].querySelector('.text');
+    betaText.focus();
+    const down = new window.KeyboardEvent('keydown', {
+      key: 'ArrowDown',
+      code: 'ArrowDown',
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(down);
+    assert.equal(down.defaultPrevented, true);
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Delta');
+  });
+
+  it('Option/Alt+ArrowDown reaches the next same-depth line under a following parent', () => {
+    // Gamma is the last child under Beta; next same-depth line is none in the
+    // default fixture — extend Delta with a child so Option+↓ from Gamma can move.
+    loadOutline(root, {
+      items: [
+        {
+          text: 'Alpha',
+          children: [
+            {
+              text: 'Beta',
+              children: [{ text: 'Gamma', children: [] }],
+            },
+            {
+              text: 'Delta',
+              children: [{ text: 'Foxtrot', children: [] }],
+            },
+          ],
+        },
+      ],
+    });
+    const all = [...root.querySelectorAll('[data-item]')];
+    const gamma = all.find((el) => getItemText(el) === 'Gamma');
+    const foxtrot = all.find((el) => getItemText(el) === 'Foxtrot');
+    gamma.querySelector('.text').focus();
+    // DOM nextElementSibling is null; same-depth navigation should still find Foxtrot.
+    assert.equal(gamma.nextElementSibling, null);
+    assert.equal(focusSameLevelSibling(gamma, 'down'), true);
+    assert.equal(document.activeElement.closest('[data-item]'), foxtrot);
+
+    const ev = new window.KeyboardEvent('keydown', {
+      key: 'ArrowDown',
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    // Reset and verify keydown path.
+    gamma.querySelector('.text').focus();
+    gamma.querySelector('.text').dispatchEvent(ev);
+    assert.equal(ev.defaultPrevented, true);
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Foxtrot');
+  });
+
+  it('Option/Alt+ArrowDown falls back to the next line when no same-depth target exists', () => {
+    // Delta is the last depth-1 child under Alpha; next visible line is Epsilon (depth 0).
+    // Option+↑ still finds Beta — the classic “↑ works, ↓ doesn’t” spot without fallback.
+    const deltaText = items[3].querySelector('.text');
+    deltaText.focus();
+    assert.equal(focusSameLevelSibling(items[3], 'down'), false);
+
+    const down = new window.KeyboardEvent('keydown', {
+      key: 'ArrowDown',
+      code: 'ArrowDown',
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    deltaText.dispatchEvent(down);
+    assert.equal(down.defaultPrevented, true);
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Epsilon');
+  });
+
+  it('Shift+ArrowDown does not move same-level focus (left to contenteditable selection)', () => {
+    const betaText = items[1].querySelector('.text');
+    betaText.focus();
+    const down = new window.KeyboardEvent('keydown', {
+      key: 'ArrowDown',
+      code: 'ArrowDown',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    betaText.dispatchEvent(down);
+    assert.equal(down.defaultPrevented, false);
+    assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Beta');
   });
 
   it('keeps nested HTML outline structure after edits', () => {

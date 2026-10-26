@@ -361,21 +361,123 @@ export function focusItem(item) {
 }
 
 /**
- * Move focus to the previous or next headline at the same nesting level.
+ * Nesting depth relative to the outline root (0 = top-level).
+ * @param {HTMLElement} item
+ * @param {HTMLElement} root
+ */
+function outlineDepth(item, root) {
+  let depth = 0;
+  let el = item.parentElement;
+  while (el && el !== root) {
+    if (el.matches?.('[data-item]')) depth += 1;
+    el = el.parentElement;
+  }
+  return depth;
+}
+
+/**
+ * True when the item is shown (not under a collapsed parent's hidden list).
+ * @param {HTMLElement} item
+ * @param {HTMLElement} root
+ */
+function isVisibleOutlineItem(item, root) {
+  let el = item.parentElement;
+  while (el && el !== root) {
+    if (el.matches?.('ol') && el.hidden) return false;
+    el = el.parentElement;
+  }
+  return true;
+}
+
+/**
+ * Visible outline items in document order.
+ * @param {HTMLElement} root
+ */
+function visibleOutlineItems(root) {
+  return [...root.querySelectorAll('[data-item]')].filter((el) =>
+    isVisibleOutlineItem(el, root),
+  );
+}
+
+/**
+ * Move focus to the previous or next visible headline at the same nesting depth
+ * (not only DOM siblings — so Option+↓ works past the last child of a parent).
  * @param {HTMLElement} item
  * @param {'up' | 'down'} direction
  * @returns {boolean} true if focus moved
  */
 export function focusSameLevelSibling(item, direction) {
-  const sibling =
-    direction === 'up' ? item.previousElementSibling : item.nextElementSibling;
-  if (!sibling?.matches?.('[data-item]')) return false;
-  focusItem(sibling);
+  const root = item.closest('[data-outline-root]');
+  if (!root) return false;
+  const visible = visibleOutlineItems(root);
+  const idx = visible.indexOf(item);
+  if (idx < 0) return false;
+  const depth = outlineDepth(item, root);
+  if (direction === 'down') {
+    for (let i = idx + 1; i < visible.length; i += 1) {
+      if (outlineDepth(visible[i], root) === depth) {
+        focusItem(visible[i]);
+        return true;
+      }
+    }
+  } else {
+    for (let i = idx - 1; i >= 0; i -= 1) {
+      if (outlineDepth(visible[i], root) === depth) {
+        focusItem(visible[i]);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Move focus to the previous or next visible line in document order (any nesting level).
+ * @param {HTMLElement} item
+ * @param {'up' | 'down'} direction
+ * @returns {boolean} true if focus moved
+ */
+export function focusAdjacentItem(item, direction) {
+  const root = item.closest('[data-outline-root]');
+  if (!root) return false;
+  const visible = visibleOutlineItems(root);
+  const idx = visible.indexOf(item);
+  if (idx < 0) return false;
+  const next = direction === 'up' ? visible[idx - 1] : visible[idx + 1];
+  if (!next) return false;
+  focusItem(next);
   return true;
 }
 
 function itemFromEventTarget(target) {
   return target?.closest?.('[data-item]') ?? null;
+}
+
+/**
+ * Resolve the editing line for a key event. Prefer activeElement so Text-node
+ * targets (common in contenteditable) still map to the `.text` line.
+ * @param {Event} event
+ */
+function textLineFromEvent(event) {
+  const active = document.activeElement;
+  if (active?.closest) {
+    const fromActive = active.closest('.text');
+    if (fromActive) return fromActive;
+  }
+  let t = event.target;
+  if (t?.nodeType === Node.TEXT_NODE) t = t.parentElement;
+  return t?.closest?.('.text') ?? null;
+}
+
+/**
+ * @param {KeyboardEvent} event
+ * @returns {'up' | 'down' | null}
+ */
+function arrowDirection(event) {
+  const { key, code } = event;
+  if (key === 'ArrowUp' || key === 'Up' || code === 'ArrowUp') return 'up';
+  if (key === 'ArrowDown' || key === 'Down' || code === 'ArrowDown') return 'down';
+  return null;
 }
 
 function isCaretAtStart(el) {
@@ -392,25 +494,37 @@ function isCaretAtStart(el) {
 
 /**
  * @param {{ runStructural?: (mutate: () => boolean | void) => boolean | void }} [options]
+ * @param {HTMLElement | null} [outlineRoot]
  */
-function createKeydownHandler(options = {}) {
+function createKeydownHandler(options = {}, outlineRoot = null) {
   const runStructural = options.runStructural ?? ((mutate) => mutate());
 
   return function handleKeydown(event) {
-    const item = itemFromEventTarget(event.target);
-    if (!item || !event.target.classList?.contains('text')) return;
-    const outlineRoot = item.closest('[data-outline-root]');
-    if (isReadOnly(outlineRoot)) {
+    const text = textLineFromEvent(event);
+    if (!text) return;
+    const item = itemFromEventTarget(text);
+    if (!item) return;
+    const root = item.closest('[data-outline-root]');
+    if (!root) return;
+    if (outlineRoot && root !== outlineRoot) return;
+
+    const arrowDir = arrowDirection(event);
+
+    if (isReadOnly(root)) {
       if (event.key === 'Enter' || event.key === 'Tab' || event.key === 'Backspace') {
         event.preventDefault();
       }
-      // Still allow same-level arrow navigation while read-only.
-      if (event.key === 'ArrowUp') {
-        if (focusSameLevelSibling(item, 'up')) event.preventDefault();
-        return;
-      }
-      if (event.key === 'ArrowDown') {
-        if (focusSameLevelSibling(item, 'down')) event.preventDefault();
+      if (arrowDir) {
+        if (event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
+          // Option/Alt+↑/↓: same-level (Shift+arrows stay native selection).
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          if (!focusSameLevelSibling(item, arrowDir)) {
+            focusAdjacentItem(item, arrowDir);
+          }
+        } else if (!event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
+          if (focusAdjacentItem(item, arrowDir)) event.preventDefault();
+        }
         return;
       }
       return;
@@ -421,7 +535,7 @@ function createKeydownHandler(options = {}) {
       !event.ctrlKey &&
       !event.altKey &&
       event.key.length === 1 &&
-      tryInsertSuitShortcut(event.target, event.key)
+      tryInsertSuitShortcut(text, event.key)
     ) {
       event.preventDefault();
       return;
@@ -443,19 +557,25 @@ function createKeydownHandler(options = {}) {
       return;
     }
 
-    if (event.key === 'Backspace' && getItemText(item) === '' && isCaretAtStart(event.target)) {
+    if (event.key === 'Backspace' && getItemText(item) === '' && isCaretAtStart(text)) {
       event.preventDefault();
       removeItem(item);
       return;
     }
 
-    if (event.key === 'ArrowUp') {
-      if (focusSameLevelSibling(item, 'up')) event.preventDefault();
-      return;
-    }
-
-    if (event.key === 'ArrowDown') {
-      if (focusSameLevelSibling(item, 'down')) event.preventDefault();
+    if (arrowDir) {
+      if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+      if (event.altKey) {
+        // Option/Alt+↑/↓ for same-level — contenteditable uses Shift+↓ for selection,
+        // so Shift is left alone. Prefer same-depth; if none, fall through to adjacent.
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!focusSameLevelSibling(item, arrowDir)) {
+          focusAdjacentItem(item, arrowDir);
+        }
+        return;
+      }
+      if (focusAdjacentItem(item, arrowDir)) event.preventDefault();
       return;
     }
 
@@ -499,7 +619,9 @@ export function mountOutliner(root, options = {}) {
   }
 
   if (options.bindEvents !== false) {
-    root.addEventListener('keydown', createKeydownHandler(options));
+    // Document capture: handle Option+arrows before the editing host.
+    const onKeyDown = createKeydownHandler(options, root);
+    document.addEventListener('keydown', onKeyDown, true);
     root.addEventListener('click', (event) => {
       rememberItem(event);
       handleClick(event);
@@ -519,6 +641,7 @@ export function mountOutliner(root, options = {}) {
     demoteFollowingSiblings,
     toggleItem,
     focusSameLevelSibling,
+    focusAdjacentItem,
     getActiveItem: () => {
       const el = document.activeElement;
       const fromFocus = el?.closest?.('[data-item]');
