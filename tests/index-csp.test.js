@@ -50,6 +50,17 @@ describe('index.html CSP-safe entry', () => {
     }
   });
 
+  it('suit tip shows red hearts and diamonds without explaining the color in prose', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    const tip = html.match(
+      /class="text" contenteditable="true">(!c !d !h !s[\s\S]*?)<\/div>/,
+    )?.[1];
+    assert.ok(tip, 'expected !c !d !h !s tip');
+    assert.match(tip, /<span class="suit suit-red">♦<\/span>/);
+    assert.match(tip, /<span class="suit suit-red">♥<\/span>/);
+    assert.doesNotMatch(tip, /red for hearts/i);
+  });
+
   it('has no Add line toolbar button (Enter adds a line)', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     assert.doesNotMatch(html, /id="btn-add"/);
