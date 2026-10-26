@@ -488,3 +488,54 @@ ol.outline ol {
     margin-left: 0.7rem;
   }
 }
+
+@media print {
+  html {
+    background: none;
+  }
+
+  body {
+    min-height: 0;
+    color: #000;
+  }
+
+  .chrome {
+    display: none !important;
+  }
+
+  main {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  ol.outline {
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  ol.outline ol {
+    border-left: 0;
+  }
+
+  .row:hover,
+  .row:focus-within {
+    background: none;
+  }
+
+  .toggle {
+    display: none;
+  }
+
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Print collapsed branches too — the paper copy should be complete. */
+  [data-item] > ol[hidden] {
+    display: block !important;
+  }
+}
