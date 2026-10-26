@@ -168,12 +168,17 @@ export function removeItem(item) {
     return item;
   }
 
-  const focusTarget =
+  // Prefer the line above: previous sibling, else parent (so Backspace after
+  // Enter-as-first-child returns to the parent, not the following sibling).
+  const prev =
     item.previousElementSibling?.matches?.('[data-item]')
       ? item.previousElementSibling
-      : item.nextElementSibling?.matches?.('[data-item]')
-        ? item.nextElementSibling
-        : parentItem;
+      : null;
+  const next =
+    item.nextElementSibling?.matches?.('[data-item]')
+      ? item.nextElementSibling
+      : null;
+  const focusTarget = prev || parentItem || next;
 
   item.remove();
   if (parentItem) {

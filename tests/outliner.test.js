@@ -201,6 +201,43 @@ describe('WYSIWYG HTML outliner', () => {
     assert.equal(getItemText(document.activeElement.closest('[data-item]')), '');
   });
 
+  it('Backspace on an empty first child returns focus to the end of the parent', () => {
+    const alpha = items[0];
+    const alphaText = alpha.querySelector('.text');
+    alphaText.focus();
+    alphaText.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    const created = document.activeElement.closest('[data-item]');
+    assert.equal(getItemText(created), '');
+    assert.equal(created.previousElementSibling, null);
+
+    document.activeElement.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Backspace',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+
+    assert.equal(document.activeElement.closest('[data-item]'), alpha);
+    assert.equal(getItemText(alpha), 'Alpha');
+    // Caret at end of the parent (where Enter started).
+    const sel = window.getSelection();
+    assert.ok(sel.rangeCount);
+    const range = sel.getRangeAt(0);
+    assert.equal(range.collapsed, true);
+    const pre = range.cloneRange();
+    pre.selectNodeContents(alphaText);
+    pre.setEnd(range.startContainer, range.startOffset);
+    assert.equal(pre.toString(), 'Alpha');
+    assert.equal(directFirstChild(alpha)?.querySelector('.text')?.textContent, 'Beta');
+  });
+
   it('removes an item and keeps siblings intact', () => {
     removeItem(items[3]); // Delta
     assert.deepEqual(getItemTexts(root), ['Alpha', 'Beta', 'Gamma', 'Epsilon']);
