@@ -11,6 +11,7 @@ A browser-based WYSIWYG outliner built on nested HTML lists. Edit text in place,
 - Indent / outdent (`Tab` / `Shift+Tab`); toolbar Promote lifts children up, Demote gathers following siblings
 - OPML 2.0 save and open (including expansion state)
 - Optional **Sign in with Google** + **Save / Open from cloud** (GCP App Engine API)
+- Bridge deal lines (PBN / `[Deal "…"]`) render a compass diagram with suit symbols
 
 **This repository** ([tameware/outliner](https://github.com/tameware/outliner)) is the canonical open-source project. It has **no** tie to any particular cloud account: the committed `config.js` is `null`, and GitHub Pages is a local-only demo.
 
@@ -55,6 +56,7 @@ Uses Node’s built-in test runner and [jsdom](https://github.com/jsdom/jsdom).
 | --- | --- |
 | `index.html` | Demo page and toolbar |
 | `outliner.js` | Outline behavior and OPML import/export |
+| `deal-diagram.js` | PBN deal detection and compass diagrams |
 | `styles.css` | Layout and outline numbering |
 | `cloud.js` / `cloud-ui.js` | Optional cloud API client and UI |
 | `auth-firebase.js` | Google sign-in via Firebase Auth |

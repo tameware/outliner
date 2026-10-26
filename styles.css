@@ -490,6 +490,51 @@ ol.outline ol {
   color: #c41e3a;
 }
 
+.deal-diagram-row {
+  display: block;
+  padding: 0.35rem 0.25rem 0.5rem;
+  grid-template-columns: none;
+}
+
+.deal-diagram {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  user-select: text;
+}
+
+.deal-hand {
+  white-space: pre;
+}
+
+.deal-suit {
+  min-height: 1.15em;
+}
+
+.deal-mid {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 2.5rem;
+  width: 100%;
+  max-width: 22rem;
+}
+
+.deal-west,
+.deal-east {
+  flex: 0 0 auto;
+}
+
+.deal-north,
+.deal-south {
+  text-align: left;
+}
+
 @media (max-width: 640px) {
   .chrome,
   main {

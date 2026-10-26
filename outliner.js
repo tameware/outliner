@@ -5,6 +5,11 @@
  */
 
 import { tryInsertSuitShortcut } from './suit-shortcuts.js';
+import {
+  bindDealDiagrams,
+  isDealDiagramItem,
+  syncAllDealDiagrams,
+} from './deal-diagram.js';
 
 function childList(item) {
   return item.querySelector(':scope > ol');
@@ -339,7 +344,7 @@ export function demoteFollowingSiblings(item) {
 export function serializeOutline(root) {
   function walk(list) {
     return [...list.children]
-      .filter((el) => el.matches('[data-item]'))
+      .filter((el) => el.matches('[data-item]') && !isDealDiagramItem(el))
       .map((item) => {
         const nested = childList(item);
         return {
@@ -633,6 +638,7 @@ export function mountOutliner(root, options = {}) {
     });
     root.addEventListener('focusin', rememberItem);
     root.addEventListener('mouseup', rememberItem);
+    bindDealDiagrams(root);
   }
 
   return {
@@ -676,7 +682,9 @@ function escapeXml(value) {
 }
 
 function directItems(list) {
-  return [...list.children].filter((el) => el.matches('[data-item]'));
+  return [...list.children].filter(
+    (el) => el.matches('[data-item]') && !isDealDiagramItem(el),
+  );
 }
 
 function collectOutlineNodes(root) {
@@ -824,6 +832,7 @@ export function loadOutline(root, tree) {
     items.forEach((node) => root.appendChild(renderItem(node)));
   }
   syncTree(root);
+  syncAllDealDiagrams(root);
   if (isReadOnly(root)) setReadOnly(root, true);
   return root;
 }
