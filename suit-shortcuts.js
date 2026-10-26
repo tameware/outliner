@@ -88,8 +88,43 @@ function placeCaretAfter(node) {
 }
 
 /**
+ * Delete the single character immediately before a collapsed caret.
+ * @param {Range} range
+ * @returns {boolean}
+ */
+function deleteCharBeforeCaret(range) {
+  const { startContainer, startOffset } = range;
+  if (startContainer.nodeType === Node.TEXT_NODE && startOffset > 0) {
+    /** @type {Text} */ (startContainer).deleteData(startOffset - 1, 1);
+    range.setStart(startContainer, startOffset - 1);
+    range.collapse(true);
+    return true;
+  }
+  // Caret at the start of a node — previous sibling may end with "!".
+  let node = startContainer;
+  if (node.nodeType === Node.TEXT_NODE && startOffset === 0) {
+    node = node.previousSibling;
+  } else if (node.nodeType === Node.ELEMENT_NODE && startOffset > 0) {
+    node = node.childNodes[startOffset - 1];
+  } else {
+    node = node.previousSibling;
+  }
+  while (node && node.nodeType === Node.ELEMENT_NODE) {
+    node = node.lastChild;
+  }
+  if (node?.nodeType === Node.TEXT_NODE && node.length > 0) {
+    /** @type {Text} */ (node).deleteData(node.length - 1, 1);
+    range.setStart(node, node.length);
+    range.collapse(true);
+    return true;
+  }
+  return false;
+}
+
+/**
  * Replace a preceding "!" plus the typed suit letter with the Unicode glyph.
  * Hearts and diamonds are wrapped in `.suit-red` for red display.
+ * Existing red-suit spans on the line are left intact.
  * @param {HTMLElement} textEl
  * @param {string} key
  * @returns {boolean}
@@ -103,18 +138,14 @@ export function tryInsertSuitShortcut(textEl, key) {
   if (!sel?.rangeCount) return false;
   const range = sel.getRangeAt(0);
   if (!range.collapsed) return false;
+  if (!textEl.contains(range.startContainer) && range.startContainer !== textEl) {
+    return false;
+  }
 
-  const afterRange = range.cloneRange();
-  afterRange.selectNodeContents(textEl);
-  afterRange.setStart(range.startContainer, range.startOffset);
-  const after = afterRange.toString();
+  if (!deleteCharBeforeCaret(range)) return false;
 
-  const prefix = before.slice(0, -1);
-  textEl.replaceChildren();
-  if (prefix) textEl.appendChild(document.createTextNode(prefix));
   const suitNode = createSuitNode(glyph);
-  textEl.appendChild(suitNode);
-  if (after) textEl.appendChild(document.createTextNode(after));
+  range.insertNode(suitNode);
   placeCaretAfter(suitNode);
   return true;
 }

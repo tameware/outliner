@@ -77,6 +77,24 @@ describe('suit shortcuts', () => {
       assert.equal(text.querySelector('.suit-red').textContent, SUIT_GLYPHS.diamonds);
     });
 
+    it('keeps every heart and diamond on the line wrapped in red', () => {
+      assert.equal(tryInsertSuitShortcut(text, 'h'), true);
+      text.appendChild(document.createTextNode(' vs !'));
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      assert.equal(tryInsertSuitShortcut(text, 'd'), true);
+      assert.equal(
+        text.textContent,
+        `AK${SUIT_GLYPHS.hearts} vs ${SUIT_GLYPHS.diamonds}`,
+      );
+      const reds = [...text.querySelectorAll('.suit-red')].map((el) => el.textContent);
+      assert.deepEqual(reds, [SUIT_GLYPHS.hearts, SUIT_GLYPHS.diamonds]);
+    });
+
     it('is triggered from keydown on a text line', () => {
       const event = new window.KeyboardEvent('keydown', {
         key: 's',
