@@ -1,0 +1,12 @@
+#!/bin/sh
+# If prepare-commit-msg staged a version bump too late for the tree, amend once.
+set -e
+if [ "${SKIP_OUTLINER_CHANGELOG_AMEND:-}" = "1" ]; then
+  exit 0
+fi
+cd "$(git rev-parse --show-toplevel)"
+if git diff --cached --quiet -- outliner-menu.js changelog.html package.json package-lock.json 2>/dev/null; then
+  exit 0
+fi
+SKIP_OUTLINER_CHANGELOG=1 SKIP_OUTLINER_CHANGELOG_AMEND=1 \
+  git commit --amend --no-edit --no-verify
