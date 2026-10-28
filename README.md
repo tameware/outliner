@@ -50,12 +50,31 @@ npm test
 
 Uses Node’s built-in test runner and [jsdom](https://github.com/jsdom/jsdom).
 
+## Change Log / version bumps
+
+Enable repo hooks once per clone:
+
+```bash
+make hooks
+```
+
+Each normal commit then:
+
+1. Bumps the display version after the decimal (`1.0` → `1.1`) and `package.json` (`1.0.0` → `1.1.0`)
+2. Sets `OUTLINER_UPDATED` to today’s date
+3. Prepends the commit subject to `changelog.html`
+
+Skip once with `SKIP_OUTLINER_CHANGELOG=1`. Amends, merges, and squashes do not bump.
+
 ## Project layout
 
 | File | Role |
 | --- | --- |
 | `index.html` | Demo page and toolbar |
 | `privacy.html` | Privacy policy (also for Google OAuth consent) |
+| `changelog.html` | Version history (Outliner → Change Log); auto-updated on commit |
+| `scripts/changelog-release.js` | Bumps `major.minor` and prepends a Change Log entry |
+| `.githooks/` | `prepare-commit-msg` runs the release script (`make hooks`) |
 | `logo.png` | App icon (120×120); upload in Google Auth Platform branding |
 | `outliner.js` | Outline behavior and OPML import/export |
 | `deal-diagram.js` | PBN deal detection and compass diagrams |

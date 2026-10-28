@@ -2,6 +2,7 @@
 export const READONLY_TOOLBAR_IDS = [
   'menu-about',
   'menu-version',
+  'menu-changelog',
   'menu-open-source',
   'menu-report-issues',
   'menu-export',

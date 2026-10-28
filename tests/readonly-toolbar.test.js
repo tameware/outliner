@@ -12,6 +12,7 @@ describe('read-only toolbar', () => {
           <div class="menu-panel">
             <button type="button" role="menuitem" id="menu-about">About</button>
             <button type="button" role="menuitem" id="menu-version">Version</button>
+            <button type="button" role="menuitem" id="menu-changelog">Change Log</button>
             <button type="button" role="menuitem" id="menu-open-source">Open-Source Repository</button>
             <button type="button" role="menuitem" id="menu-report-issues">Report issues</button>
           </div>
@@ -53,6 +54,7 @@ describe('read-only toolbar', () => {
     assert.deepEqual(enabled, [
       'menu-about',
       'menu-version',
+      'menu-changelog',
       'menu-open-source',
       'menu-report-issues',
       'menu-export',

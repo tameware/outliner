@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import {
   OUTLINER_ABOUT_TEXT,
+  OUTLINER_CHANGELOG_URL,
   OUTLINER_ISSUES_MAILTO,
   OUTLINER_REPO_URL,
   OUTLINER_UPDATED,
@@ -24,6 +25,7 @@ function setupDom() {
         <div class="menu-panel" role="menu">
           <button type="button" role="menuitem" id="menu-about">About</button>
           <button type="button" role="menuitem" id="menu-version">Version</button>
+          <button type="button" role="menuitem" id="menu-changelog">Change Log</button>
           <button type="button" role="menuitem" id="menu-open-source">Open-Source Repository</button>
           <button type="button" role="menuitem" id="menu-report-issues">Report issues</button>
         </div>
@@ -57,13 +59,14 @@ describe('Outliner menu', () => {
   it('exports one-decimal version, update date, and known repo/mailto targets', () => {
     const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
     const majorMinor = pkg.version.split('.').slice(0, 2).join('.');
-    assert.equal(OUTLINER_VERSION, '1.0');
+    assert.match(OUTLINER_VERSION, /^\d+\.\d+$/);
     assert.equal(OUTLINER_VERSION, majorMinor);
     assert.match(OUTLINER_UPDATED, /^\d{4}-\d{2}-\d{2}$/);
     assert.equal(
       outlinerVersionLabel(),
       `${OUTLINER_VERSION} (updated ${OUTLINER_UPDATED})`,
     );
+    assert.equal(OUTLINER_CHANGELOG_URL, 'changelog.html');
     assert.equal(OUTLINER_REPO_URL, 'https://github.com/tameware/outliner');
     assert.equal(OUTLINER_ISSUES_MAILTO, 'mailto:outliner@tameware.com');
     assert.match(OUTLINER_ABOUT_TEXT, /Tameware Outliner/i);
@@ -74,7 +77,16 @@ describe('Outliner menu', () => {
     document.getElementById('menu-about').click();
     document.getElementById('menu-version').click();
     assert.deepEqual(alerts, [OUTLINER_ABOUT_TEXT, outlinerVersionLabel()]);
-    assert.match(alerts[1], /^1\.0 \(updated \d{4}-\d{2}-\d{2}\)$/);
+    assert.match(
+      alerts[1],
+      new RegExp(`^${OUTLINER_VERSION.replace('.', '\\.')} \\(updated \\d{4}-\\d{2}-\\d{2}\\)$`),
+    );
+  });
+
+  it('opens the Change Log page', () => {
+    mountOutlinerMenu(document);
+    document.getElementById('menu-changelog').click();
+    assert.deepEqual(opened, [OUTLINER_CHANGELOG_URL]);
   });
 
   it('opens the GitHub repository URL', () => {
@@ -89,7 +101,7 @@ describe('Outliner menu', () => {
     assert.deepEqual(opened, [OUTLINER_ISSUES_MAILTO]);
   });
 
-  it('places Outliner left of File in index.html with the four items', () => {
+  it('places Outliner left of File in index.html with Change Log after Version', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     const outlinerAt = html.indexOf('data-menu="outliner"');
     const fileAt = html.indexOf('data-menu="file"');
@@ -99,8 +111,10 @@ describe('Outliner menu', () => {
     const panel = html.slice(outlinerAt, fileAt);
     assert.match(panel, /id="menu-about"[^>]*>\s*About\s*</);
     assert.match(panel, /id="menu-version"[^>]*>\s*Version\s*</);
+    assert.match(panel, /id="menu-changelog"[^>]*>\s*Change Log\s*</);
     assert.match(panel, /id="menu-open-source"[^>]*>\s*Open-Source Repository\s*</);
     assert.match(panel, /id="menu-report-issues"[^>]*>\s*Report issues\s*</);
+    assert.ok(panel.indexOf('menu-version') < panel.indexOf('menu-changelog'));
   });
 
   it('wires mountOutlinerMenu from app.js', () => {

@@ -1,0 +1,25 @@
+#!/bin/sh
+# On each normal commit: bump major.minor, refresh OUTLINER_UPDATED, prepend Change Log.
+# Skip amends/merges/squashes. Set SKIP_OUTLINER_CHANGELOG=1 to opt out once.
+set -e
+MSG_FILE="$1"
+SOURCE="${2:-}"
+
+case "$SOURCE" in
+  merge|squash|commit) exit 0 ;;
+esac
+
+if [ "${SKIP_OUTLINER_CHANGELOG:-}" = "1" ]; then
+  exit 0
+fi
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+node scripts/changelog-release.js --message-file "$MSG_FILE"
+
+git add \
+  outliner-menu.js \
+  package.json \
+  package-lock.json \
+  changelog.html
