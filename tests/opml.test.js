@@ -87,6 +87,17 @@ describe('OPML save and restore', () => {
     assert.match(xml, /<expansionState>1<\/expansionState>/);
   });
 
+  it('can omit expansionState for content-only snapshots used by dirty tracking', () => {
+    const before = toOpml(root, { title: 'T', includeExpansionState: false });
+    assert.match(before, /<expansionState><\/expansionState>/);
+    const fullBefore = toOpml(root, { title: 'T' });
+    assert.notEqual(fullBefore, before);
+    toggleItem(root.querySelector('[data-item]'));
+    const after = toOpml(root, { title: 'T', includeExpansionState: false });
+    assert.equal(after, before);
+    assert.notEqual(toOpml(root, { title: 'T' }), fullBefore);
+  });
+
   it('parses OPML back into a tree preserving hierarchy and text', () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
       <opml version="2.0">

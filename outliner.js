@@ -838,7 +838,10 @@ function outlineElementsXml(list, indent) {
 /** Serialize the live outline DOM to an OPML 2.0 document string. */
 export function toOpml(root, options = {}) {
   const title = escapeXml(options.title ?? 'Outline');
-  const expansionState = buildExpansionState(root);
+  const expansionState =
+    options.includeExpansionState === false
+      ? ''
+      : buildExpansionState(root);
   const body = outlineElementsXml(root, 2);
   return (
     `<?xml version="1.0" encoding="UTF-8"?>\n` +

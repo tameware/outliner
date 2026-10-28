@@ -30,4 +30,23 @@ describe('dirty tracker', () => {
     dirty.markClean();
     assert.equal(dirty.getBaseline(), 'dirty-opml');
   });
+
+  it('compares content snapshots while revert baseline can include expansion', () => {
+    let content = 'body-a';
+    let full = 'full-a-expanded';
+    const dirty = createDirtyTracker({
+      getContentSnapshot: () => content,
+      getRevertSnapshot: () => full,
+    });
+    assert.equal(dirty.isDirty(), false);
+    assert.equal(dirty.getBaseline(), 'full-a-expanded');
+    full = 'full-a-collapsed';
+    assert.equal(dirty.isDirty(), false);
+    content = 'body-b';
+    full = 'full-b';
+    assert.equal(dirty.isDirty(), true);
+    dirty.markClean();
+    assert.equal(dirty.isDirty(), false);
+    assert.equal(dirty.getBaseline(), 'full-b');
+  });
 });

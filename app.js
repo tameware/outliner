@@ -88,7 +88,12 @@ let cloudUi = null;
 let cloudSaveAvailable = false;
 
 const dirty = createDirtyTracker({
-  getSnapshot: () => toOpml(root, { title: document.title || 'Outline' }),
+  getContentSnapshot: () =>
+    toOpml(root, {
+      title: document.title || 'Outline',
+      includeExpansionState: false,
+    }),
+  getRevertSnapshot: () => toOpml(root, { title: document.title || 'Outline' }),
 });
 const askUnsavedChanges = mountUnsavedChangesDialog(
   document.getElementById('unsaved-dialog'),
