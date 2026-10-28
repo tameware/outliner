@@ -90,16 +90,38 @@ export function outlineIdFromLocation(locationLike) {
 }
 
 /**
+ * Opaque read-only share token (`?view=<token>`). Ignores legacy `view=1`.
+ * @param {{ search?: string, hash?: string }} locationLike
+ * @returns {string | null}
+ */
+export function viewTokenFromLocation(locationLike) {
+  const params = new URLSearchParams(locationLike.search || '');
+  const view = params.get('view');
+  if (!view || !view.trim() || view.trim() === '1') return null;
+  return view.trim();
+}
+
+/**
+ * Opaque editable share token (`?edit=<token>`).
+ * @param {{ search?: string, hash?: string }} locationLike
+ * @returns {string | null}
+ */
+export function editTokenFromLocation(locationLike) {
+  const params = new URLSearchParams(locationLike.search || '');
+  const edit = params.get('edit');
+  return edit && edit.trim() ? edit.trim() : null;
+}
+
+/**
+ * Owner deep link after open/save (`?id=`). Clears share tokens.
  * @param {{ pathname?: string, search?: string, hash?: string }} locationLike
  * @param {string | null} id
- * @param {{ readOnly?: boolean }} [options]
  */
-export function locationWithOutlineId(locationLike, id, options = {}) {
+export function locationWithOutlineId(locationLike, id) {
   const params = new URLSearchParams(locationLike.search || '');
   if (id) params.set('id', id);
   else params.delete('id');
-  if (options.readOnly) params.set('view', '1');
-  else params.delete('view');
+  params.delete('view');
   params.delete('edit');
   const qs = params.toString();
   const path = locationLike.pathname || '/';
@@ -108,18 +130,18 @@ export function locationWithOutlineId(locationLike, id, options = {}) {
 }
 
 /**
- * Read-only share deep link (`?view=1` with an outline id).
+ * Read-only share deep link (`?view=<opaque token>`).
  * @param {{ search?: string, hash?: string }} locationLike
  */
 export function isReadOnlyViewFromLocation(locationLike) {
-  const params = new URLSearchParams(locationLike.search || '');
-  return params.get('view') === '1';
+  return Boolean(viewTokenFromLocation(locationLike));
 }
 
 /**
- * Editable share deep link (`?id=` without `view=1`) — always overwrite that file.
+ * Editable share deep link (`?edit=<opaque token>`).
+ * Bare `?id=` is an owner bookmark, not a guest edit share.
  * @param {{ search?: string, hash?: string }} locationLike
  */
 export function isEditableShareFromLocation(locationLike) {
-  return Boolean(outlineIdFromLocation(locationLike)) && !isReadOnlyViewFromLocation(locationLike);
+  return Boolean(editTokenFromLocation(locationLike));
 }

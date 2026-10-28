@@ -368,8 +368,8 @@ describe('cloud UI', () => {
     outlineId = 'existing-1';
     const written = mockClipboard();
     cloud.createShareLink = async () => ({
-      token: 'file-1',
-      urlPath: '/outliner/?id=file-1&view=1',
+      token: 'view-opaque',
+      urlPath: '/outliner/?view=view-opaque',
     });
     mountCloudUi({ auth, cloud, outline, configured: true });
     document.getElementById('btn-cloud-share').click();
@@ -377,7 +377,8 @@ describe('cloud UI', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     assert.equal(written.length, 1);
-    assert.match(written[0], /id=file-1.*view=1/);
+    assert.match(written[0], /[?&]view=view-opaque/);
+    assert.doesNotMatch(written[0], /[?&]id=/);
     assert.match(document.getElementById('cloud-status').textContent, /read-only link copied/i);
   });
 
@@ -385,8 +386,8 @@ describe('cloud UI', () => {
     outlineId = 'existing-1';
     const written = mockClipboard();
     cloud.createEditShareLink = async () => ({
-      token: 'file-1',
-      urlPath: '/outliner/?id=file-1',
+      token: 'edit-opaque',
+      urlPath: '/outliner/?edit=edit-opaque',
     });
     mountCloudUi({ auth, cloud, outline, configured: true });
     document.getElementById('btn-cloud-share-edit').click();
@@ -394,7 +395,8 @@ describe('cloud UI', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     assert.equal(written.length, 1);
-    assert.match(written[0], /id=file-1/);
+    assert.match(written[0], /[?&]edit=edit-opaque/);
+    assert.doesNotMatch(written[0], /[?&]id=/);
     assert.doesNotMatch(written[0], /view=/);
     assert.match(document.getElementById('cloud-status').textContent, /editable link copied/i);
   });

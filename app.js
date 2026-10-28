@@ -21,6 +21,8 @@ import {
   locationWithOutlineId,
   isReadOnlyViewFromLocation,
   isEditableShareFromLocation,
+  viewTokenFromLocation,
+  editTokenFromLocation,
 } from './cloud.js';
 import { createDriveCloudClient } from './drive-cloud.js';
 import { mountCloudUi } from './cloud-ui.js';
@@ -75,6 +77,8 @@ outlineHistory.bindShortcuts(root);
 let currentOutlineId = outlineIdFromLocation(window.location);
 let currentRevision = null;
 let leaseToken = null;
+const viewShareToken = viewTokenFromLocation(window.location);
+const editShareToken = editTokenFromLocation(window.location);
 const readOnlyShare = isReadOnlyViewFromLocation(window.location);
 const editShareMode = isEditableShareFromLocation(window.location);
 /** @type {{ saveCurrent: () => Promise<boolean> } | null} */
@@ -115,9 +119,9 @@ dirty.markClean();
 
 function syncUrl(id) {
   currentOutlineId = id;
-  const next = locationWithOutlineId(window.location, id, {
-    readOnly: readOnlyShare,
-  });
+  // Owner bookmarks use ?id= only; keep opaque ?view= / ?edit= share URLs intact.
+  if (viewShareToken || editShareToken) return;
+  const next = locationWithOutlineId(window.location, id);
   window.history.replaceState(null, '', next);
 }
 
@@ -272,6 +276,11 @@ async function initCloud() {
     cloud = createDriveCloudClient({
       getAccessToken: () => auth.getAccessToken(),
       driveWriterServiceAccount: driveWriterServiceAccountFromConfig(cloudConfig),
+      shareAccess: editShareToken
+        ? { mode: 'edit', token: editShareToken }
+        : viewShareToken
+          ? { mode: 'view', token: viewShareToken }
+          : null,
     });
   }
 
@@ -332,17 +341,20 @@ async function initCloud() {
     applyReadOnlyToolbar(document.querySelector('.menubar'));
   }
 
-  if (configured && cloud && currentOutlineId) {
+  const deepLinkKey = editShareToken || viewShareToken || currentOutlineId;
+  if (configured && cloud && deepLinkKey) {
     // Eager load (public anyone-with-link or existing token). Also retry when
     // auth later delivers a signed-in user — do not depend only on a change event.
     bindDeepLinkOutlineLoad({
       auth,
       cloud,
-      getOutlineId: () => currentOutlineId,
+      getOutlineId: () =>
+        editShareToken || viewShareToken || currentOutlineId,
       applyOutline: async (got) => {
         const tree = parseOpml(got.opml);
         loadOutline(root, tree);
         if (got.title || tree.title) document.title = got.title || tree.title;
+        if (got.fileId) currentOutlineId = got.fileId;
         currentRevision = got.revision ?? null;
         leaseToken = null;
         dirty.markClean();

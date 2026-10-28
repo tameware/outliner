@@ -242,9 +242,10 @@ describe('Drive cloud client', () => {
     assert.deepEqual(JSON.parse(calls[0].body), { trashed: true });
   });
 
-  it('creates read-only and editable share urlPaths', async () => {
+  it('creates distinct opaque view/edit share links via the mint API', async () => {
     fetchMock.mock.mockImplementation(async (url, init) => {
-      if (String(url).includes('/permissions') && init?.method === 'POST') {
+      const href = String(url);
+      if (href.includes('/permissions') && init?.method === 'POST') {
         const body = JSON.parse(init.body);
         assert.equal(body.type, 'anyone');
         return new Response(JSON.stringify({ id: 'perm' }), {
@@ -252,12 +253,37 @@ describe('Drive cloud client', () => {
           headers: { 'Content-Type': 'application/json' },
         });
       }
+      if (href.endsWith('/share') && init?.method === 'POST') {
+        const body = JSON.parse(init.body);
+        assert.equal(body.fileId, 'file-9');
+        assert.match(init.headers.Authorization, /Bearer access-1/);
+        if (body.mode === 'view') {
+          return new Response(
+            JSON.stringify({
+              token: 'view-opaque',
+              urlPath: '/outliner/?view=view-opaque',
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            token: 'edit-opaque',
+            urlPath: '/outliner/?edit=edit-opaque',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
       return new Response('{}', { status: 200 });
     });
     const view = await client().createShareLink('file-9');
-    assert.equal(view.urlPath, '/outliner/?id=file-9&view=1');
     const edit = await client().createEditShareLink('file-9');
-    assert.equal(edit.urlPath, '/outliner/?id=file-9');
+    assert.equal(view.urlPath, '/outliner/?view=view-opaque');
+    assert.equal(edit.urlPath, '/outliner/?edit=edit-opaque');
+    assert.notEqual(view.token, edit.token);
+    assert.doesNotMatch(view.urlPath, /file-9/);
+    assert.doesNotMatch(edit.urlPath, /file-9/);
+    assert.doesNotMatch(edit.urlPath, /view=/);
     const roles = fetchMock.mock.calls
       .filter((c) => String(c.arguments[0]).includes('/permissions'))
       .map((c) => JSON.parse(c.arguments[1].body).role);
@@ -273,6 +299,12 @@ describe('Drive cloud client', () => {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
+      }
+      if (String(url).endsWith('/share') && init?.method === 'POST') {
+        return new Response(
+          JSON.stringify({ token: 'edit-opaque', urlPath: '/outliner/?edit=edit-opaque' }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
       }
       return new Response('{}', { status: 200 });
     });
@@ -293,21 +325,29 @@ describe('Drive cloud client', () => {
     ]);
   });
 
-  it('saves via same-origin PUT when unsigned', async () => {
+  it('saves via opaque edit-token PUT when using shareAccess', async () => {
     tokens[0] = null;
     const calls = [];
     fetchMock.mock.mockImplementation(async (url, init) => {
       calls.push({ url: String(url), method: init?.method || 'GET', body: init?.body });
-      return new Response('', { status: 200 });
+      return new Response('', {
+        status: 200,
+        headers: { 'X-Outliner-File-Id': 'file-9' },
+      });
     });
-    const saved = await client().saveOutline('file-9', {
+    const guest = createDriveCloudClient({
+      getAccessToken: async () => null,
+      fetch: fetchMock,
+      shareAccess: { mode: 'edit', token: 'edit-opaque' },
+    });
+    const saved = await guest.saveOutline('ignored', {
       opml: '<?xml version="1.0"?><opml></opml>',
       revision: null,
     });
     assert.equal(saved.id, 'file-9');
     assert.equal(calls.length, 1);
     assert.equal(calls[0].method, 'PUT');
-    assert.equal(calls[0].url, '/api/outliner/drive/file-9');
+    assert.equal(calls[0].url, '/api/outliner/drive/edit/edit-opaque');
     assert.match(String(calls[0].body), /<opml/);
   });
 

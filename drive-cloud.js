@@ -19,6 +19,8 @@ const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
  * @param {string} [options.urlPathPrefix] prefix for share links (default /outliner/)
  * @param {string} [options.publicOutlineBase] same-origin proxy for anyone-with-link OPML
  * @param {string} [options.driveWriterServiceAccount] SA email granted on editable shares
+ * @param {{ mode: 'view' | 'edit', token: string } | null} [options.shareAccess]
+ *   When set, anonymous get/save use opaque view/edit proxy paths (not raw file ids).
  */
 export function createDriveCloudClient({
   getAccessToken,
@@ -26,6 +28,7 @@ export function createDriveCloudClient({
   urlPathPrefix = '/outliner/',
   publicOutlineBase = '/api/outliner/drive/',
   driveWriterServiceAccount = '',
+  shareAccess = null,
 }) {
   /** @type {string | null} */
   let folderId = null;
@@ -33,6 +36,10 @@ export function createDriveCloudClient({
     ? publicOutlineBase
     : `${publicOutlineBase}/`;
   const writerSa = String(driveWriterServiceAccount || '').trim();
+  const share =
+    shareAccess?.token && (shareAccess.mode === 'view' || shareAccess.mode === 'edit')
+      ? { mode: shareAccess.mode, token: String(shareAccess.token) }
+      : null;
 
   async function authHeader() {
     const token = await getAccessToken();
@@ -130,9 +137,49 @@ export function createDriveCloudClient({
     });
   }
 
-  function shareUrlPath(fileId, { readOnly }) {
+  function shareUrlPath(mode, token) {
     const prefix = urlPathPrefix.endsWith('/') ? urlPathPrefix : `${urlPathPrefix}/`;
-    return readOnly ? `${prefix}?id=${encodeURIComponent(fileId)}&view=1` : `${prefix}?id=${encodeURIComponent(fileId)}`;
+    const q = mode === 'view' ? 'view' : 'edit';
+    return `${prefix}?${q}=${encodeURIComponent(token)}`;
+  }
+
+  /**
+   * @param {'view' | 'edit'} mode
+   * @param {string} fileId
+   */
+  async function mintShareLink(mode, fileId) {
+    const access = await getAccessToken();
+    if (!access) throw new CloudApiError('Not signed in', 401);
+    let response;
+    try {
+      response = await fetchFn(`${publicBase}share`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${access}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileId, mode }),
+      });
+    } catch (error) {
+      throw new CloudApiError(error?.message || 'Failed to fetch', 0, error);
+    }
+    if (!response.ok) {
+      let detail = response.statusText;
+      try {
+        const body = await response.json();
+        detail = body?.error || detail;
+      } catch {
+        /* ignore */
+      }
+      throw new CloudApiError(String(detail || `HTTP ${response.status}`), response.status);
+    }
+    const data = await response.json();
+    const token = String(data.token || '');
+    if (!token) throw new CloudApiError('Share mint returned no token', 502);
+    return {
+      token,
+      urlPath: data.urlPath || shareUrlPath(mode, token),
+    };
   }
 
   /**
@@ -140,7 +187,9 @@ export function createDriveCloudClient({
    * @param {string} id
    */
   async function getOutlinePublic(id) {
-    const url = `${publicBase}${encodeURIComponent(id)}`;
+    const url = share
+      ? `${publicBase}${share.mode}/${encodeURIComponent(share.token)}`
+      : `${publicBase}${encodeURIComponent(id)}`;
     let response;
     try {
       response = await fetchFn(url, { redirect: 'follow' });
@@ -158,7 +207,8 @@ export function createDriveCloudClient({
     if (!trimmed || trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
       throw new CloudApiError('Sign in required to open this outline', 401);
     }
-    return { opml, revision: null, title: null };
+    const fileId = response.headers.get('X-Outliner-File-Id') || id;
+    return { opml, revision: null, title: null, fileId };
   }
 
   /**
@@ -201,6 +251,9 @@ export function createDriveCloudClient({
      * @returns {Promise<{ opml: string, revision: string | null, title?: string | null }>}
      */
     async getOutline(id) {
+      if (share) {
+        return getOutlinePublic(id);
+      }
       const token = await getAccessToken();
       if (!token) {
         return getOutlinePublic(id);
@@ -245,6 +298,12 @@ export function createDriveCloudClient({
     },
 
     async saveOutline(id, { opml, revision, title }) {
+      if (share?.mode === 'view') {
+        throw new CloudApiError('Read-only share', 403);
+      }
+      if (share?.mode === 'edit') {
+        return saveOutlinePublic(id, opml);
+      }
       const token = await getAccessToken();
       if (!token) {
         return saveOutlinePublic(id, opml);
@@ -280,18 +339,21 @@ export function createDriveCloudClient({
 
     async createShareLink(id) {
       await ensureAnyonePermission(id, 'reader');
-      return { token: id, urlPath: shareUrlPath(id, { readOnly: true }) };
+      return mintShareLink('view', id);
     },
 
     async createEditShareLink(id) {
       await ensureAnyonePermission(id, 'writer');
       await ensureWriterServiceAccount(id);
-      return { token: id, urlPath: shareUrlPath(id, { readOnly: false }) };
+      return mintShareLink('edit', id);
     },
   };
 
   async function saveOutlinePublic(id, opml) {
-    const url = `${publicBase}${encodeURIComponent(id)}`;
+    const url =
+      share?.mode === 'edit'
+        ? `${publicBase}edit/${encodeURIComponent(share.token)}`
+        : `${publicBase}${encodeURIComponent(id)}`;
     let response;
     try {
       response = await fetchFn(url, {
@@ -308,7 +370,8 @@ export function createDriveCloudClient({
         response.status,
       );
     }
-    return { id, revision: null };
+    const fileId = response.headers.get('X-Outliner-File-Id') || id;
+    return { id: fileId, revision: null };
   }
 
   async function saveOutlineAuthed(id, { opml, revision, title }) {

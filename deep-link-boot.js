@@ -1,10 +1,18 @@
-import { outlineIdFromLocation } from './cloud.js';
+import {
+  outlineIdFromLocation,
+  viewTokenFromLocation,
+  editTokenFromLocation,
+} from './cloud.js';
 
 /**
  * @param {{ search?: string, hash?: string }} locationLike
  */
 export function hasRemoteOutlineParams(locationLike) {
-  return Boolean(outlineIdFromLocation(locationLike));
+  return Boolean(
+    outlineIdFromLocation(locationLike) ||
+      viewTokenFromLocation(locationLike) ||
+      editTokenFromLocation(locationLike),
+  );
 }
 
 /**

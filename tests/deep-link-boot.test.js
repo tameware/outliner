@@ -14,6 +14,8 @@ describe('deep-link boot', () => {
     assert.equal(hasRemoteOutlineParams({ search: '?id=abc' }), true);
     assert.equal(hasRemoteOutlineParams({ search: '?id=a&view=1' }), true);
     assert.equal(hasRemoteOutlineParams({ search: '?view=1' }), false);
+    assert.equal(hasRemoteOutlineParams({ search: '?view=opaque-view' }), true);
+    assert.equal(hasRemoteOutlineParams({ search: '?edit=opaque-edit' }), true);
   });
 
   it('clears the default outline when id is present', () => {

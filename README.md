@@ -84,12 +84,13 @@ cp config.example.js config.local.js
 
 Scope: `https://www.googleapis.com/auth/drive.file`. Outlines are stored as `.opml` files under a Drive folder named **Tameware Outliner** (created on first save).
 
-Share links use Drive “anyone with the link” permissions plus outliner deep links:
+Share links use Drive “anyone with the link” permissions plus **opaque** outliner tokens (minted by the host). View and edit tokens use different secrets/salts, so one cannot be turned into the other:
 
 | Link | Meaning |
 | --- | --- |
-| `?id=<fileId>` | Editable — saves update the **same** Drive file (via host write proxy) |
-| `?id=<fileId>&view=1` | Read-only in the app |
+| `?view=<token>` | Read-only in the app |
+| `?edit=<token>` | Editable guest — saves update the **same** Drive file (via host write proxy) |
+| `?id=<fileId>` | Owner bookmark after Open/Save (signed-in); not a guest share link |
 
 Editable shares grant “anyone with the link can edit” plus an optional `driveWriterServiceAccount` so the host can PUT updates without widening OAuth beyond `drive.file`.
 

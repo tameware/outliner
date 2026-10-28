@@ -6,6 +6,8 @@ import {
   locationWithOutlineId,
   isReadOnlyViewFromLocation,
   isEditableShareFromLocation,
+  viewTokenFromLocation,
+  editTokenFromLocation,
   driveWriterServiceAccountFromConfig,
 } from '../cloud.js';
 
@@ -49,38 +51,33 @@ describe('outline id in URL', () => {
     assert.equal(outlineIdFromLocation({ search: '', hash: '' }), null);
   });
 
-  it('builds a URL that carries the outline id', () => {
+  it('builds a URL that carries the outline id and clears share tokens', () => {
     const href = locationWithOutlineId(
-      { pathname: '/outliner/', search: '?view=1&edit=e', hash: '' },
+      { pathname: '/outliner/', search: '?view=vt&edit=et', hash: '' },
       'xyz',
     );
     assert.equal(href, '/outliner/?id=xyz');
   });
-
-  it('builds a read-only share URL with view=1', () => {
-    assert.equal(
-      locationWithOutlineId(
-        { pathname: '/outliner/', search: '', hash: '' },
-        'xyz',
-        { readOnly: true },
-      ),
-      '/outliner/?id=xyz&view=1',
-    );
-  });
 });
 
-describe('read-only view flag', () => {
-  it('detects view=1', () => {
-    assert.equal(isReadOnlyViewFromLocation({ search: '?id=a&view=1' }), true);
+describe('share tokens in URL', () => {
+  it('reads opaque view and edit tokens', () => {
+    assert.equal(viewTokenFromLocation({ search: '?view=vtov' }), 'vtov');
+    assert.equal(editTokenFromLocation({ search: '?edit=etok' }), 'etok');
+    assert.equal(viewTokenFromLocation({ search: '?view=1&id=a' }), null);
+    assert.equal(editTokenFromLocation({ search: '?id=a' }), null);
+  });
+
+  it('treats ?view=TOKEN as read-only and ?edit=TOKEN as editable', () => {
+    assert.equal(isReadOnlyViewFromLocation({ search: '?view=vtov' }), true);
     assert.equal(isReadOnlyViewFromLocation({ search: '?id=a' }), false);
-    assert.equal(isReadOnlyViewFromLocation({ search: '?view=share-tok' }), false);
+    assert.equal(isEditableShareFromLocation({ search: '?edit=etok' }), true);
+    assert.equal(isEditableShareFromLocation({ search: '?id=a' }), false);
+    assert.equal(isEditableShareFromLocation({ search: '?view=vtov' }), false);
   });
-});
 
-describe('editable share flag', () => {
-  it('is true for ?id= without view=1', () => {
-    assert.equal(isEditableShareFromLocation({ search: '?id=a' }), true);
-    assert.equal(isEditableShareFromLocation({ search: '?id=a&view=1' }), false);
-    assert.equal(isEditableShareFromLocation({ search: '' }), false);
+  it('does not treat owner ?id= links as editable guest shares', () => {
+    assert.equal(isEditableShareFromLocation({ search: '?id=file-9' }), false);
+    assert.equal(isReadOnlyViewFromLocation({ search: '?id=file-9&view=1' }), false);
   });
 });
