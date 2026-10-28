@@ -6,7 +6,7 @@
  */
 
 /**
- * @typedef {{ googleClientId: string }} CloudConfig
+ * @typedef {{ googleClientId?: string, clientId?: string }} CloudConfig
  */
 
 export class CloudApiError extends Error {
@@ -23,11 +23,20 @@ export class CloudApiError extends Error {
   }
 }
 
+/**
+ * Prefer `googleClientId`; accept legacy `clientId` alias.
+ * @param {CloudConfig | null | undefined} config
+ * @returns {string}
+ */
+export function googleClientIdFromConfig(config) {
+  if (!config || typeof config !== 'object') return '';
+  const id = config.googleClientId || config.clientId;
+  return typeof id === 'string' ? id.trim() : '';
+}
+
 /** @param {CloudConfig | null | undefined} config */
 export function isCloudConfigured(config) {
-  return Boolean(
-    config && typeof config.googleClientId === 'string' && config.googleClientId.trim(),
-  );
+  return Boolean(googleClientIdFromConfig(config));
 }
 
 /**

@@ -14,6 +14,7 @@ import {
 } from './outliner.js';
 import {
   isCloudConfigured,
+  googleClientIdFromConfig,
   loadCloudConfig,
   outlineIdFromLocation,
   locationWithOutlineId,
@@ -260,7 +261,7 @@ async function initCloud() {
   let cloud = null;
 
   if (configured) {
-    auth = createGoogleAuth({ clientId: cloudConfig.googleClientId });
+    auth = createGoogleAuth({ clientId: googleClientIdFromConfig(cloudConfig) });
     cloud = createDriveCloudClient({
       getAccessToken: () => auth.getAccessToken(),
     });

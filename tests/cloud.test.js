@@ -17,6 +17,15 @@ describe('cloud config', () => {
       true,
     );
   });
+
+  it('accepts clientId as an alias for googleClientId', () => {
+    assert.equal(
+      isCloudConfigured({
+        clientId: 'abc.apps.googleusercontent.com',
+      }),
+      true,
+    );
+  });
 });
 
 describe('outline id in URL', () => {
