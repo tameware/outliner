@@ -79,13 +79,15 @@ describe('index.html CSP-safe entry', () => {
     assert.match(appJs, /blankOutlineForDeepLink/);
   });
 
-  it('provides Outliner, File, Edit, and View dropdown menus', () => {
+  it('provides Outliner, File, Edit, View, and Cloud dropdown menus', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     assert.match(html, /data-menu="outliner"/);
     assert.match(html, /data-menu="file"/);
     assert.match(html, /data-menu="edit"/);
     assert.match(html, /data-menu="view"/);
+    assert.match(html, /data-menu="cloud"/);
     assert.ok(html.indexOf('data-menu="outliner"') < html.indexOf('data-menu="file"'));
+    assert.ok(html.indexOf('data-menu="view"') < html.indexOf('data-menu="cloud"'));
     assert.match(html, /class="menu-label"/);
     assert.doesNotMatch(html, /<details/);
     assert.match(html, /id="menu-save"/);
@@ -93,6 +95,11 @@ describe('index.html CSP-safe entry', () => {
     assert.match(html, /id="menu-revert"/);
     assert.match(html, /id="menu-import"/);
     assert.match(html, /id="menu-export"/);
+    assert.match(html, /id="menu-cloud-auth"/);
+    assert.match(html, /id="menu-cloud-share"/);
+    assert.match(html, /id="menu-cloud-share-edit"/);
+    assert.doesNotMatch(html, /id="btn-sign-in"/);
+    assert.doesNotMatch(html, /id="btn-cloud-share"/);
   });
 
   it('links to a privacy policy page', () => {

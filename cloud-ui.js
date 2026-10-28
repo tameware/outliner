@@ -22,15 +22,15 @@ export function mountCloudUi({
   editShareMode = false,
 }) {
   const bar = document.querySelector('[data-cloud-bar]');
-  const btnSignIn = document.getElementById('btn-sign-in');
-  const btnSignOut = document.getElementById('btn-sign-out');
+  const cloudMenu = document.querySelector('[data-menu="cloud"]');
+  const btnAuth = document.getElementById('menu-cloud-auth');
   const userEl = document.getElementById('cloud-user');
   const btnSave = document.getElementById('menu-save');
   const btnSaveAs = document.getElementById('menu-save-as');
   const btnOpen = document.getElementById('menu-open');
   const btnDelete = document.getElementById('menu-delete');
-  const btnShare = document.getElementById('btn-cloud-share');
-  const btnShareEdit = document.getElementById('btn-cloud-share-edit');
+  const btnShare = document.getElementById('menu-cloud-share');
+  const btnShareEdit = document.getElementById('menu-cloud-share-edit');
   const saveDialog = document.getElementById('cloud-save-dialog');
   const saveForm = document.getElementById('cloud-save-form');
   const saveNameInput = document.getElementById('cloud-save-name');
@@ -54,6 +54,7 @@ export function mountCloudUi({
 
   if (!configured) {
     bar.hidden = true;
+    if (cloudMenu) cloudMenu.hidden = true;
     return { destroy() {}, async saveCurrent() { return false; } };
   }
 
@@ -72,8 +73,12 @@ export function mountCloudUi({
   function syncAuthUi() {
     const signedIn = Boolean(user);
     const hideOwnerChrome = readOnlyView || editShareMode;
-    if (btnSignIn) btnSignIn.hidden = signedIn || hideOwnerChrome;
-    if (btnSignOut) btnSignOut.hidden = !signedIn || hideOwnerChrome;
+    if (cloudMenu) cloudMenu.hidden = hideOwnerChrome;
+    if (btnAuth) {
+      btnAuth.hidden = false;
+      btnAuth.disabled = busy;
+      btnAuth.textContent = signedIn ? 'Sign out' : 'Sign in with Google';
+    }
     if (userEl) {
       userEl.hidden = !signedIn || hideOwnerChrome;
       userEl.textContent = signedIn
@@ -100,11 +105,11 @@ export function mountCloudUi({
       btnDelete.disabled = !canMutate || editShareMode;
     }
     if (btnShare) {
-      btnShare.hidden = hideOwnerChrome;
+      btnShare.hidden = false;
       btnShare.disabled = !canMutate || editShareMode;
     }
     if (btnShareEdit) {
-      btnShareEdit.hidden = hideOwnerChrome;
+      btnShareEdit.hidden = false;
       btnShareEdit.disabled = !canMutate || editShareMode;
     }
   }
@@ -434,11 +439,9 @@ export function mountCloudUi({
     resolveSaveDialog(false);
   }
 
-  btnSignIn?.addEventListener('click', () => {
-    void onSignIn();
-  });
-  btnSignOut?.addEventListener('click', () => {
-    void onSignOut();
+  btnAuth?.addEventListener('click', () => {
+    if (user) void onSignOut();
+    else void onSignIn();
   });
   btnSave?.addEventListener('click', () => {
     void onSave();

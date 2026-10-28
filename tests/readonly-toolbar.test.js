@@ -38,6 +38,13 @@ describe('read-only toolbar', () => {
             <button type="button" role="menuitem" id="menu-collapse-all">Collapse All</button>
           </div>
         </div>
+        <div class="menu" data-menu="cloud">
+          <button type="button" class="menu-label">Cloud</button>
+          <div class="menu-panel">
+            <button type="button" role="menuitem" id="menu-cloud-auth">Sign in with Google</button>
+            <button type="button" role="menuitem" id="menu-cloud-share">Copy read-only link</button>
+          </div>
+        </div>
       </nav>
     </body>`);
     const toolbar = dom.window.document.querySelector('.menubar');
@@ -47,6 +54,7 @@ describe('read-only toolbar', () => {
       .filter((menu) => !menu.hidden)
       .map((menu) => menu.getAttribute('data-menu'));
     assert.deepEqual(visibleMenus, ['outliner', 'file', 'edit', 'view']);
+    assert.equal(toolbar.querySelector('[data-menu="cloud"]').hidden, true);
 
     const enabled = [...toolbar.querySelectorAll('[role="menuitem"]')]
       .filter((btn) => !btn.disabled)

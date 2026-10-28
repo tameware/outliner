@@ -72,14 +72,34 @@
           <button type="button" role="menuitem" id="menu-collapse-all">Collapse All</button>
         </div>
       </div>
+      <div class="menu" data-menu="cloud" hidden>
+        <button type="button" class="menu-label" aria-haspopup="menu" aria-expanded="false">Cloud</button>
+        <div class="menu-panel" role="menu" hidden>
+          <button type="button" role="menuitem" id="menu-cloud-auth">Sign in with Google</button>
+          <button
+            type="button"
+            role="menuitem"
+            id="menu-cloud-share"
+            disabled
+            title="Copy a read-only link to this outline"
+          >
+            Copy read-only link
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            id="menu-cloud-share-edit"
+            disabled
+            title="Copy a link that allows editing via Google Drive sharing"
+          >
+            Copy editable link
+          </button>
+        </div>
+      </div>
       <input type="file" id="file-open" accept=".opml,application/xml,text/xml,text/x-opml" hidden />
     </nav>
     <div class="cloud-bar" data-cloud-bar hidden>
-      <button type="button" id="btn-sign-in">Sign in with Google</button>
-      <button type="button" id="btn-sign-out" hidden>Sign out</button>
       <span id="cloud-user" class="cloud-user" hidden></span>
-      <button type="button" id="btn-cloud-share" disabled title="Copy a read-only link to this outline">Copy read-only link</button>
-      <button type="button" id="btn-cloud-share-edit" disabled title="Copy a link that allows editing via Google Drive sharing">Copy editable link</button>
       <p id="cloud-status" class="cloud-status" role="status"></p>
     </div>
     <dialog id="cloud-save-dialog" class="cloud-dialog">
@@ -240,13 +260,13 @@
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">File → Open… / Save / Save As… / Delete… — Google Drive outlines after Sign in with Google</div>
+                  <div class="text" contenteditable="true">File → Open… / Save / Save As… / Delete… — Google Drive outlines after Cloud → Sign in with Google</div>
                 </div>
               </li>
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">Copy read-only or editable link — distinct opaque share URLs (not interchangeable)</div>
+                  <div class="text" contenteditable="true">Cloud → Copy read-only / editable link — distinct opaque share URLs (not interchangeable)</div>
                 </div>
               </li>
             </ol>

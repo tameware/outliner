@@ -6,17 +6,21 @@ import { mountCloudUi } from '../cloud-ui.js';
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><html><body>
     <nav class="menubar">
+      <div class="menu" data-menu="cloud" hidden>
+        <button type="button" class="menu-label">Cloud</button>
+        <div class="menu-panel" role="menu">
+          <button type="button" role="menuitem" id="menu-cloud-auth">Sign in with Google</button>
+          <button type="button" role="menuitem" id="menu-cloud-share" disabled>Copy read-only link</button>
+          <button type="button" role="menuitem" id="menu-cloud-share-edit" disabled>Copy editable link</button>
+        </div>
+      </div>
       <button type="button" id="menu-open" disabled>Open…</button>
       <button type="button" id="menu-save" disabled>Save…</button>
       <button type="button" id="menu-save-as" disabled>Save As…</button>
       <button type="button" id="menu-delete" disabled>Delete…</button>
     </nav>
     <div class="cloud-bar" data-cloud-bar hidden>
-      <button type="button" id="btn-sign-in">Sign in</button>
-      <button type="button" id="btn-sign-out" hidden>Sign out</button>
       <span id="cloud-user" hidden></span>
-      <button type="button" id="btn-cloud-share" disabled>Copy read-only link</button>
-      <button type="button" id="btn-cloud-share-edit" disabled>Copy editable link</button>
       <dialog id="cloud-save-dialog">
         <form method="dialog" id="cloud-save-form">
           <h2>Save to cloud</h2>
@@ -143,7 +147,7 @@ describe('cloud UI', () => {
     };
   });
 
-  it('shows the cloud bar when configured and enables save after sign-in', async () => {
+  it('shows Cloud menu and status bar when configured; auth item becomes Sign out', async () => {
     signedInUser = null;
     const ui = mountCloudUi({
       auth,
@@ -152,19 +156,24 @@ describe('cloud UI', () => {
       configured: true,
     });
     const bar = document.querySelector('[data-cloud-bar]');
+    const cloudMenu = document.querySelector('[data-menu="cloud"]');
     assert.equal(bar.hidden, false);
+    assert.equal(cloudMenu.hidden, false);
     assert.equal(document.getElementById('menu-save').disabled, true);
+    const authItem = document.getElementById('menu-cloud-auth');
+    assert.equal(authItem.textContent, 'Sign in with Google');
 
-    document.getElementById('btn-sign-in').click();
+    authItem.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(document.getElementById('menu-save').disabled, false);
     assert.equal(document.getElementById('menu-save').textContent, 'Save…');
+    assert.equal(authItem.textContent, 'Sign out');
     assert.equal(document.getElementById('cloud-user').hidden, false);
     assert.match(document.getElementById('cloud-user').textContent, /Ada/);
     ui.destroy();
   });
 
-  it('keeps the cloud bar hidden when not configured', () => {
+  it('keeps Cloud menu and status bar hidden when not configured', () => {
     mountCloudUi({
       auth,
       cloud,
@@ -172,6 +181,7 @@ describe('cloud UI', () => {
       configured: false,
     });
     assert.equal(document.querySelector('[data-cloud-bar]').hidden, true);
+    assert.equal(document.querySelector('[data-menu="cloud"]').hidden, true);
   });
 
   it('asks for a name before saving a new outline to the cloud', async () => {
@@ -372,7 +382,7 @@ describe('cloud UI', () => {
       urlPath: '/outliner/?view=view-opaque',
     });
     mountCloudUi({ auth, cloud, outline, configured: true });
-    document.getElementById('btn-cloud-share').click();
+    document.getElementById('menu-cloud-share').click();
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
 
@@ -390,7 +400,7 @@ describe('cloud UI', () => {
       urlPath: '/outliner/?edit=edit-opaque',
     });
     mountCloudUi({ auth, cloud, outline, configured: true });
-    document.getElementById('btn-cloud-share-edit').click();
+    document.getElementById('menu-cloud-share-edit').click();
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
 
@@ -401,7 +411,7 @@ describe('cloud UI', () => {
     assert.match(document.getElementById('cloud-status').textContent, /editable link copied/i);
   });
 
-  it('in editShareMode enables Save without sign-in and hides share/open chrome', async () => {
+  it('in editShareMode enables Save without sign-in and hides Cloud menu chrome', async () => {
     signedInUser = null;
     outlineId = 'shared-edit-1';
     mountCloudUi({
@@ -411,9 +421,7 @@ describe('cloud UI', () => {
       configured: true,
       editShareMode: true,
     });
-    assert.equal(document.getElementById('btn-sign-in').hidden, true);
-    assert.equal(document.getElementById('btn-cloud-share').hidden, true);
-    assert.equal(document.getElementById('btn-cloud-share-edit').hidden, true);
+    assert.equal(document.querySelector('[data-menu="cloud"]').hidden, true);
     assert.equal(document.getElementById('menu-open').hidden, true);
     assert.equal(document.getElementById('menu-delete').hidden, true);
     assert.equal(document.getElementById('menu-save-as').hidden, true);

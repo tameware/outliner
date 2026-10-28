@@ -227,48 +227,21 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.45rem 0.75rem;
   margin: 0 0 0.75rem;
-  padding: 0.55rem 0.65rem;
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.4);
+  min-height: 1.1em;
 }
 
 .cloud-bar[hidden] {
   display: none;
 }
 
-.cloud-bar button {
-  appearance: none;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--ink);
-  border-radius: 6px;
-  padding: 0.4rem 0.7rem;
-  font: inherit;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.cloud-bar button:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.cloud-bar button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 .cloud-user {
   font-size: 0.85rem;
   color: var(--muted);
-  margin-right: 0.25rem;
 }
 
 .cloud-status {
-  flex: 1 1 100%;
   margin: 0;
   min-height: 1.1em;
   font-size: 0.8rem;
