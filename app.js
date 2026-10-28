@@ -27,7 +27,8 @@ import { mountCloudUi } from './cloud-ui.js';
 import { createGoogleAuth, createNullAuth } from './auth-google.js';
 import { applyReadOnlyToolbar } from './readonly-toolbar.js';
 import { createOutlineHistory } from './clear-outline-ui.js';
-import { matchPromoteDemoteShortcut } from './promote-demote-keys.js';
+import { handlePromoteDemoteShortcut } from './promote-demote-keys.js';
+import { systemBeep } from './system-beep.js';
 import { mountIndentOutdentMenu } from './indent-outdent-menu.js';
 import { blankOutlineForDeepLink } from './deep-link-boot.js';
 import {
@@ -154,20 +155,21 @@ mountIndentOutdentMenu({
 
 document.getElementById('menu-promote').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
-  runPromoteDemote('promote');
+  if (!runPromoteDemote('promote')) systemBeep();
 });
 document.getElementById('menu-demote').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
-  runPromoteDemote('demote');
+  if (!runPromoteDemote('demote')) systemBeep();
 });
 
 document.addEventListener(
   'keydown',
   (event) => {
-    if (root.dataset.readonly === 'true') return;
-    const action = matchPromoteDemoteShortcut(event);
-    if (!action) return;
-    if (runPromoteDemote(action)) event.preventDefault();
+    handlePromoteDemoteShortcut(event, {
+      run: runPromoteDemote,
+      beep: systemBeep,
+      isReadOnly: () => root.dataset.readonly === 'true',
+    });
   },
   true,
 );
