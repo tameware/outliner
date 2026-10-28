@@ -37,12 +37,6 @@ export function mountCloudUi({
   const openDialog = document.getElementById('cloud-open-dialog');
   const listEl = document.getElementById('cloud-outline-list');
   const btnCancel = document.getElementById('btn-cloud-open-cancel');
-  const shareDialog = document.getElementById('cloud-share-dialog');
-  const shareHeading = document.getElementById('cloud-share-heading');
-  const shareHint = document.getElementById('cloud-share-hint');
-  const shareUrlInput = document.getElementById('cloud-share-url');
-  const btnShareCopy = document.getElementById('btn-cloud-share-copy');
-  const btnShareClose = document.getElementById('btn-cloud-share-close');
   const statusEl = document.getElementById('cloud-status');
 
   /** @type {'save' | 'save-as'} */
@@ -326,39 +320,15 @@ export function mountCloudUi({
     }
   }
 
-  /** @type {'view' | 'edit'} */
-  let shareDialogKind = 'view';
-
-  function configureShareDialog(kind) {
-    shareDialogKind = kind;
-    if (kind === 'edit') {
-      if (shareHeading) shareHeading.textContent = 'Editable link';
-      if (shareHint) {
-        shareHint.textContent =
-          'Anyone with this link can open the outline in Tameware Outliner and edit it (via Google Drive sharing). Treat it like a password.';
-      }
-    } else {
-      if (shareHeading) shareHeading.textContent = 'Read-only link';
-      if (shareHint) {
-        shareHint.textContent =
-          'Anyone with this link can open the outline in Tameware Outliner to view it (via Google Drive sharing).';
-      }
-    }
-  }
-
-  async function presentShareLink(kind, result, copiedLabel, readyLabel) {
-    configureShareDialog(kind);
+  async function copyShareLink(result, copiedLabel) {
     const href = absoluteShareUrl(result.urlPath);
-    if (shareUrlInput) shareUrlInput.value = href;
     try {
-      await navigator.clipboard?.writeText?.(href);
+      await navigator.clipboard.writeText(href);
       setStatus(copiedLabel);
     } catch {
-      setStatus(readyLabel);
+      window.prompt('Copy this link:', href);
+      setStatus(copiedLabel.replace(/copied$/i, 'ready'));
     }
-    openDialogEl(shareDialog);
-    shareUrlInput?.focus?.();
-    shareUrlInput?.select?.();
   }
 
   async function onShare() {
@@ -367,15 +337,12 @@ export function mountCloudUi({
       window.alert('Save this outline to Google Drive before creating a read-only link.');
       return;
     }
-    await withBusy('Creating link…', async () => {
-      const result = await cloud.createShareLink(id);
-      await presentShareLink(
-        'view',
-        result,
-        'Read-only link copied',
-        'Read-only link ready',
-      );
+    /** @type {{ urlPath: string } | undefined} */
+    let result;
+    const ok = await withBusy('Creating link…', async () => {
+      result = await cloud.createShareLink(id);
     });
+    if (ok && result) await copyShareLink(result, 'Read-only link copied');
   }
 
   async function onShareEdit() {
@@ -384,28 +351,12 @@ export function mountCloudUi({
       window.alert('Save this outline to Google Drive before creating an editable link.');
       return;
     }
-    await withBusy('Creating link…', async () => {
-      const result = await cloud.createEditShareLink(id);
-      await presentShareLink(
-        'edit',
-        result,
-        'Editable link copied',
-        'Editable link ready',
-      );
+    /** @type {{ urlPath: string } | undefined} */
+    let result;
+    const ok = await withBusy('Creating link…', async () => {
+      result = await cloud.createEditShareLink(id);
     });
-  }
-
-  async function onShareCopy() {
-    const href = shareUrlInput?.value;
-    if (!href) return;
-    const label =
-      shareDialogKind === 'edit' ? 'Editable link copied' : 'Read-only link copied';
-    try {
-      await navigator.clipboard.writeText(href);
-      setStatus(label);
-    } catch {
-      shareUrlInput?.select?.();
-    }
+    if (ok && result) await copyShareLink(result, 'Editable link copied');
   }
 
   function onCancelOpen() {
@@ -440,10 +391,6 @@ export function mountCloudUi({
   });
   btnCancel?.addEventListener('click', onCancelOpen);
   btnSaveCancel?.addEventListener('click', onCancelSave);
-  btnShareCopy?.addEventListener('click', () => {
-    void onShareCopy();
-  });
-  btnShareClose?.addEventListener('click', () => closeDialog(shareDialog));
   saveForm?.addEventListener('submit', (event) => {
     event.preventDefault();
     const name = saveNameInput?.value?.trim();
