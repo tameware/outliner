@@ -218,7 +218,8 @@ export function mountCloudUi({
         }
         const created = await cloud.createOutline({ title: name, opml });
         id = created.id;
-        const revision = created.revision ?? 1;
+        // Drive v3 often omits ETag; revision is optional (last-write-wins).
+        const revision = created.revision ?? null;
         outline.setOutlineId?.(id);
         outline.setRevision?.(revision);
         outline.setLeaseToken?.(null);
@@ -230,13 +231,15 @@ export function mountCloudUi({
 
       let revision = outline.getRevision?.();
 
+      // Best-effort refresh when missing; never block save — Drive has no reliable etag.
       if (revision == null && cloud.getOutline) {
-        const got = await cloud.getOutline(id);
-        revision = typeof got === 'string' ? null : got.revision;
-        outline.setRevision?.(revision);
-      }
-      if (revision == null) {
-        throw new Error('Missing outline revision; reopen from Google Drive and try again');
+        try {
+          const got = await cloud.getOutline(id);
+          revision = typeof got === 'string' ? null : got.revision;
+          outline.setRevision?.(revision);
+        } catch {
+          /* save without If-Match */
+        }
       }
 
       let leaseToken = null;

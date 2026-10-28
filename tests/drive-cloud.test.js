@@ -94,9 +94,12 @@ describe('Drive cloud client', () => {
         assert.match(String(init.body), /folder-1/);
         assert.match(String(init.body), /<opml/);
         assert.equal(init.headers.Authorization, 'Bearer access-1');
-        return new Response(JSON.stringify({ id: 'file-9', etag: '"etag-1"' }), {
+        // Drive v3 has no File.etag field — revision comes from the ETag header.
+        assert.match(String(url), /fields=id(?:&|$)/);
+        assert.doesNotMatch(String(url), /etag/);
+        return new Response(JSON.stringify({ id: 'file-9' }), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ETag: '"etag-1"' },
         });
       }
       return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -117,7 +120,9 @@ describe('Drive cloud client', () => {
           headers: { 'Content-Type': 'application/xml', ETag: '"e2"' },
         });
       }
-      return new Response(JSON.stringify({ name: 'Demo.opml', etag: '"e2"' }), {
+      assert.match(String(url), /fields=name(?:&|$)/);
+      assert.doesNotMatch(String(url), /etag/);
+      return new Response(JSON.stringify({ name: 'Demo.opml' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', ETag: '"e2"' },
       });
@@ -148,13 +153,51 @@ describe('Drive cloud client', () => {
     assert.equal(urls.length, 1);
   });
 
+  it('creates and saves with null revision when Drive omits ETag', async () => {
+    fetchMock.mock.mockImplementation(async (url, init) => {
+      if (String(url).includes('vnd.google-apps.folder')) {
+        return new Response(
+          JSON.stringify({ files: [{ id: 'folder-1', name: APP_FOLDER_NAME }] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (String(url).includes('/upload/') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'file-9' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (String(url).includes('/upload/') && init?.method === 'PATCH') {
+        assert.equal(init.headers['If-Match'], undefined);
+        return new Response(JSON.stringify({ id: 'file-9' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const created = await client().createOutline({
+      title: 'Demo',
+      opml: '<?xml version="1.0"?><opml></opml>',
+    });
+    assert.equal(created.id, 'file-9');
+    assert.equal(created.revision, null);
+    const saved = await client().saveOutline('file-9', {
+      opml: '<opml></opml>',
+      revision: null,
+    });
+    assert.equal(saved.revision, null);
+  });
+
   it('saves with If-Match etag', async () => {
     fetchMock.mock.mockImplementation(async (url, init) => {
       if (String(url).includes('/upload/') && init?.method === 'PATCH') {
         assert.equal(init.headers['If-Match'], '"e2"');
-        return new Response(JSON.stringify({ id: 'file-9', etag: '"e3"' }), {
+        assert.match(String(url), /fields=id(?:&|$)/);
+        assert.doesNotMatch(String(url), /etag/);
+        return new Response(JSON.stringify({ id: 'file-9' }), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ETag: '"e3"' },
         });
       }
       return new Response('{}', { status: 200 });

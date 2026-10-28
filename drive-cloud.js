@@ -132,15 +132,16 @@ export function createDriveCloudClient({
    * @param {string} id
    */
   async function getOutlineAuthed(id) {
+    // Drive v3 File has no etag field; HTTP ETag is optional (often absent).
     const metaRes = await driveFetch(
-      `${DRIVE_FILES}/${encodeURIComponent(id)}?fields=name,etag`,
+      `${DRIVE_FILES}/${encodeURIComponent(id)}?fields=name`,
     );
     const meta = await metaRes.json();
     const media = await driveFetch(
       `${DRIVE_FILES}/${encodeURIComponent(id)}?alt=media`,
     );
     const opml = await media.text();
-    const etag = meta.etag || media.headers.get('ETag') || metaRes.headers.get('ETag');
+    const etag = media.headers.get('ETag') || metaRes.headers.get('ETag');
     return {
       opml,
       revision: etag || null,
@@ -199,7 +200,7 @@ export function createDriveCloudClient({
         `${opml}\r\n` +
         `--${boundary}--`;
       const response = await driveFetch(
-        `${DRIVE_UPLOAD}?uploadType=multipart&fields=id,etag`,
+        `${DRIVE_UPLOAD}?uploadType=multipart&fields=id`,
         {
           method: 'POST',
           headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
@@ -207,7 +208,7 @@ export function createDriveCloudClient({
         },
       );
       const data = await response.json();
-      return { id: data.id, revision: data.etag || null };
+      return { id: data.id, revision: response.headers.get('ETag') || null };
     },
 
     async saveOutline(id, { opml, revision, title }) {
@@ -221,7 +222,7 @@ export function createDriveCloudClient({
       const headers = { 'Content-Type': OPML_MIME };
       if (revision != null && revision !== '') headers['If-Match'] = String(revision);
       const response = await driveFetch(
-        `${DRIVE_UPLOAD}/${encodeURIComponent(id)}?uploadType=media&fields=id,etag`,
+        `${DRIVE_UPLOAD}/${encodeURIComponent(id)}?uploadType=media&fields=id`,
         {
           method: 'PATCH',
           headers,
@@ -229,7 +230,7 @@ export function createDriveCloudClient({
         },
       );
       const data = await response.json();
-      return { id: data.id || id, revision: data.etag || null };
+      return { id: data.id || id, revision: response.headers.get('ETag') || null };
     },
 
     async acquireLock() {

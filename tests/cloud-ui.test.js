@@ -204,7 +204,7 @@ describe('cloud UI', () => {
     assert.deepEqual(labels, ['Bridge notes', 'Shopping']);
   });
 
-  it('stores server revision when opening so a later save can send If-Match', async () => {
+  it('stores server revision when opening when Drive provides one', async () => {
     let revision = null;
     outline.setRevision = (rev) => {
       revision = rev;
@@ -268,6 +268,26 @@ describe('cloud UI', () => {
     assert.equal(savedCalls[0].id, 'existing-1');
     assert.deepEqual(lockCalls, ['existing-1']);
     assert.equal(savedCalls[0].leaseToken, 'fresh-lease');
+  });
+
+  it('Save works without a revision (Drive v3 often has no ETag)', async () => {
+    outlineId = 'existing-1';
+    outline.getTitle = () => 'Same name';
+    outline.getRevision = () => null;
+    cloud.getOutline = async () => ({
+      opml: '<?xml version="1.0"?><opml version="2.0"><body></body></opml>',
+      revision: null,
+    });
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(savedCalls.length, 1);
+    assert.equal(savedCalls[0].id, 'existing-1');
+    assert.equal(savedCalls[0].revision, null);
+    assert.equal(document.getElementById('cloud-status').textContent, '');
   });
 
   function mockClipboard() {
