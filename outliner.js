@@ -196,6 +196,112 @@ export function removeItem(item) {
 }
 
 /**
+ * Place a collapsed caret at a UTF-16 offset within a contenteditable line.
+ * @param {HTMLElement | null | undefined} el
+ * @param {number} offset
+ */
+function setCaretAtTextOffset(el, offset) {
+  if (!el) return;
+  el.focus();
+  const sel = window.getSelection?.();
+  if (!sel) return;
+  /** @type {Text[]} */
+  const texts = [];
+  function collect(node) {
+    if (node.nodeType === Node.TEXT_NODE) texts.push(/** @type {Text} */ (node));
+    else {
+      for (const child of node.childNodes) collect(child);
+    }
+  }
+  collect(el);
+  let remaining = Math.max(0, offset);
+  for (const text of texts) {
+    const len = text.length;
+    if (remaining <= len) {
+      const range = document.createRange();
+      range.setStart(text, remaining);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return;
+    }
+    remaining -= len;
+  }
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+/**
+ * Previous visible outline line in document order, or null.
+ * @param {HTMLElement} item
+ * @param {HTMLElement} root
+ */
+function previousVisibleItem(item, root) {
+  const visible = visibleOutlineItems(root);
+  const idx = visible.indexOf(item);
+  if (idx <= 0) return null;
+  return visible[idx - 1];
+}
+
+/**
+ * Merge `item` into the previous visible line: append text, reparent children,
+ * remove `item`, and leave the caret at the join point.
+ * Empty-line Backspace is the special case where appended text is empty.
+ * @param {HTMLElement} item
+ * @returns {boolean}
+ */
+export function mergeWithPreviousLine(item) {
+  const root = item.closest('[data-outline-root]');
+  if (!root) return false;
+
+  const prev = previousVisibleItem(item, root);
+  if (!prev) {
+    if (getItemText(item) === '') {
+      removeItem(item);
+      return true;
+    }
+    return false;
+  }
+
+  const prevEl = textEl(prev);
+  const curEl = textEl(item);
+  const joinAt = prevEl?.textContent?.length ?? 0;
+  if (prevEl) {
+    prevEl.textContent = `${prevEl.textContent || ''}${curEl?.textContent || ''}`;
+  }
+
+  const kids = directChildItems(item);
+  const parentItem = item.parentElement?.closest('[data-item]');
+  if (parentItem === prev) {
+    for (const kid of kids) {
+      item.before(kid);
+      syncItemMeta(kid);
+    }
+  } else if (kids.length) {
+    const list = ensureChildList(prev);
+    for (const kid of kids) {
+      list.appendChild(kid);
+      syncItemMeta(kid);
+    }
+    prev.dataset.state = 'expanded';
+    list.hidden = false;
+  }
+
+  item.remove();
+  if (parentItem) {
+    pruneEmptyLists(parentItem);
+    syncItemMeta(parentItem);
+  }
+  syncItemMeta(prev);
+  syncTree(root);
+  setCaretAtTextOffset(prevEl, joinAt);
+  return true;
+}
+
+/**
  * Run a DOM mutation without stealing focus or moving the caret on `item`'s text.
  * Moving nodes can blur in some engines; restore the prior caret instead of jumping to the end.
  * @template T
@@ -567,9 +673,9 @@ function createKeydownHandler(options = {}, outlineRoot = null) {
       return;
     }
 
-    if (event.key === 'Backspace' && getItemText(item) === '' && isCaretAtStart(text)) {
+    if (event.key === 'Backspace' && isCaretAtStart(text)) {
       event.preventDefault();
-      removeItem(item);
+      runStructural(() => mergeWithPreviousLine(item));
       return;
     }
 

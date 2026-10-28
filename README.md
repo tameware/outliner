@@ -38,7 +38,7 @@ Or open `index.html` via any static file server. Modules need HTTP(S), not `file
 | `Shift+Tab` | Promote (outdent) |
 | `↑` / `↓` | Previous / next visible line |
 | `⌥↑` / `⌥↓` (Option/Alt) | Previous / next same-level line |
-| `Backspace` on empty line | Delete line |
+| `Backspace` at start of line | Merge with the line above (empty line removes it) |
 | Click ▸ / ▾ | Collapse / expand |
 
 ## Tests

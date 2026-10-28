@@ -11,6 +11,7 @@ import {
   addItemAfter,
   addItemBelow,
   removeItem,
+  mergeWithPreviousLine,
   demoteItem,
   promoteItem,
   promoteChildren,
@@ -22,6 +23,26 @@ import {
   focusSameLevelSibling,
   focusAdjacentItem,
 } from '../outliner.js';
+
+function placeCaretAtStart(textEl) {
+  textEl.focus();
+  const range = document.createRange();
+  range.selectNodeContents(textEl);
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function caretOffsetIn(textEl) {
+  const sel = window.getSelection();
+  if (!sel?.rangeCount) return -1;
+  const range = sel.getRangeAt(0);
+  const pre = range.cloneRange();
+  pre.selectNodeContents(textEl);
+  pre.setEnd(range.startContainer, range.startOffset);
+  return pre.toString().length;
+}
 
 function setupDom(html) {
   const dom = new JSDOM(`<!DOCTYPE html><html><body>${html}</body></html>`, {
@@ -236,6 +257,53 @@ describe('WYSIWYG HTML outliner', () => {
     pre.setEnd(range.startContainer, range.startOffset);
     assert.equal(pre.toString(), 'Alpha');
     assert.equal(directFirstChild(alpha)?.querySelector('.text')?.textContent, 'Beta');
+  });
+
+  it('mergeWithPreviousLine appends text into the previous visible line and places the caret at the join', () => {
+    const delta = items[3];
+    const gamma = items[2];
+    assert.equal(getItemText(delta), 'Delta');
+    assert.equal(getItemText(gamma), 'Gamma');
+    assert.equal(mergeWithPreviousLine(delta), true);
+    assert.equal(getItemText(gamma), 'GammaDelta');
+    assert.equal(root.querySelectorAll('[data-item]').length, 4);
+    assert.equal(document.activeElement.closest('[data-item]'), gamma);
+    assert.equal(caretOffsetIn(gamma.querySelector('.text')), 'Gamma'.length);
+  });
+
+  it('mergeWithPreviousLine into a parent reparents the merged line’s children', () => {
+    const alpha = items[0];
+    const beta = items[1];
+    assert.equal(mergeWithPreviousLine(beta), true);
+    assert.equal(getItemText(alpha), 'AlphaBeta');
+    const kids = [...(childListOf(alpha)?.querySelectorAll(':scope > [data-item]') || [])].map(
+      getItemText,
+    );
+    assert.deepEqual(kids, ['Gamma', 'Delta']);
+    assert.equal(caretOffsetIn(alpha.querySelector('.text')), 'Alpha'.length);
+  });
+
+  it('Backspace at the start of a non-empty line merges with the line above', () => {
+    const epsilon = items[4];
+    const epsilonText = epsilon.querySelector('.text');
+    placeCaretAtStart(epsilonText);
+    const event = new window.KeyboardEvent('keydown', {
+      key: 'Backspace',
+      bubbles: true,
+      cancelable: true,
+    });
+    epsilonText.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(getItemText(items[3]), 'DeltaEpsilon');
+    assert.equal(
+      [...root.querySelectorAll('[data-item]')].map(getItemText).includes('Epsilon'),
+      false,
+    );
+  });
+
+  it('mergeWithPreviousLine is a no-op at the first top-level line with text', () => {
+    assert.equal(mergeWithPreviousLine(items[0]), false);
+    assert.equal(getItemText(items[0]), 'Alpha');
   });
 
   it('removes an item and keeps siblings intact', () => {
