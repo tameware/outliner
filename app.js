@@ -282,6 +282,7 @@ async function initCloud() {
     async releaseLock() {},
     async createShareLink() { return { token: '', urlPath: '' }; },
     async createEditShareLink() { return { token: '', urlPath: '' }; },
+    async deleteOutline() {},
   };
 
   cloudSaveAvailable = configured;

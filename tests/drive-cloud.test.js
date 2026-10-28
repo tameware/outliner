@@ -226,6 +226,22 @@ describe('Drive cloud client', () => {
     assert.equal(saved.revision, '"e3"');
   });
 
+  it('trashes an outline via files.update', async () => {
+    const calls = [];
+    fetchMock.mock.mockImplementation(async (url, init) => {
+      calls.push({ url: String(url), method: init?.method || 'GET', body: init?.body });
+      return new Response(JSON.stringify({ id: 'file-9', trashed: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    await client().deleteOutline('file-9');
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].url, /\/files\/file-9/);
+    assert.equal(calls[0].method, 'PATCH');
+    assert.deepEqual(JSON.parse(calls[0].body), { trashed: true });
+  });
+
   it('creates read-only and editable share urlPaths', async () => {
     fetchMock.mock.mockImplementation(async (url, init) => {
       if (String(url).includes('/permissions') && init?.method === 'POST') {

@@ -9,6 +9,7 @@ function setupDom() {
       <button type="button" id="menu-open" disabled>Open…</button>
       <button type="button" id="menu-save" disabled>Save…</button>
       <button type="button" id="menu-save-as" disabled>Save As…</button>
+      <button type="button" id="menu-delete" disabled>Delete…</button>
     </nav>
     <div class="cloud-bar" data-cloud-bar hidden>
       <button type="button" id="btn-sign-in">Sign in</button>
@@ -28,6 +29,10 @@ function setupDom() {
         <ul id="cloud-outline-list"></ul>
         <button type="button" id="btn-cloud-open-cancel">Cancel</button>
       </dialog>
+      <dialog id="cloud-delete-dialog">
+        <ul id="cloud-delete-list"></ul>
+        <button type="button" id="btn-cloud-delete-cancel">Cancel</button>
+      </dialog>
       <p id="cloud-status" role="status"></p>
     </div>
     <ol data-outline-root></ol>
@@ -36,7 +41,7 @@ function setupDom() {
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.HTMLDialogElement = dom.window.HTMLDialogElement;
-  for (const id of ['cloud-save-dialog', 'cloud-open-dialog']) {
+  for (const id of ['cloud-save-dialog', 'cloud-open-dialog', 'cloud-delete-dialog']) {
     const el = document.getElementById(id);
     el.showModal = () => {
       el.setAttribute('open', '');
@@ -56,14 +61,19 @@ describe('cloud UI', () => {
   let signedInUser;
   let createdCalls;
   let savedCalls;
+  let deletedCalls;
   let outlineId;
+  let syncUrlCalls;
 
   beforeEach(() => {
     dom = setupDom();
     signedInUser = { uid: 'u1', displayName: 'Ada', email: 'ada@example.com' };
     createdCalls = [];
     savedCalls = [];
+    deletedCalls = [];
+    syncUrlCalls = [];
     outlineId = null;
+    window.confirm = () => true;
     const listeners = [];
     auth = {
       onAuthStateChanged(cb) {
@@ -106,6 +116,9 @@ describe('cloud UI', () => {
         token: 'share-tok',
         urlPath: `/outliner/?view=share-tok&from=${id}`,
       }),
+      deleteOutline: async (id) => {
+        deletedCalls.push(id);
+      },
     };
     outline = {
       root: document.querySelector('[data-outline-root]'),
@@ -124,7 +137,9 @@ describe('cloud UI', () => {
       setRevision: () => {},
       getLeaseToken: () => null,
       setLeaseToken: () => {},
-      syncUrl: () => {},
+      syncUrl: (id) => {
+        syncUrlCalls.push(id);
+      },
     };
   });
 
@@ -195,6 +210,54 @@ describe('cloud UI', () => {
       (b) => b.textContent,
     );
     assert.deepEqual(labels, ['Bridge notes', 'Shopping']);
+  });
+
+  it('lists saved outlines when deleting and trashes the chosen file after confirm', async () => {
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-delete').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const dialog = document.getElementById('cloud-delete-dialog');
+    assert.ok(dialog.hasAttribute('open'));
+    const labels = [...document.querySelectorAll('#cloud-delete-list button')].map(
+      (b) => b.textContent,
+    );
+    assert.deepEqual(labels, ['Bridge notes', 'Shopping']);
+
+    document.querySelector('#cloud-delete-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.deepEqual(deletedCalls, ['o1']);
+    assert.equal(dialog.hasAttribute('open'), false);
+    assert.match(document.getElementById('cloud-status').textContent, /deleted/i);
+  });
+
+  it('does not delete when the user cancels the confirm', async () => {
+    window.confirm = () => false;
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-delete').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-delete-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.deepEqual(deletedCalls, []);
+    assert.ok(document.getElementById('cloud-delete-dialog').hasAttribute('open'));
+  });
+
+  it('clears the current outline id when deleting the open file', async () => {
+    outlineId = 'o1';
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-delete').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-delete-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(outlineId, null);
+    assert.ok(syncUrlCalls.includes(null));
   });
 
   it('stores server revision when opening when Drive provides one', async () => {
@@ -350,6 +413,7 @@ describe('cloud UI', () => {
     assert.equal(document.getElementById('btn-cloud-share').hidden, true);
     assert.equal(document.getElementById('btn-cloud-share-edit').hidden, true);
     assert.equal(document.getElementById('menu-open').hidden, true);
+    assert.equal(document.getElementById('menu-delete').hidden, true);
     assert.equal(document.getElementById('menu-save-as').hidden, true);
     assert.equal(document.getElementById('menu-save').disabled, false);
     assert.equal(document.getElementById('menu-save').hidden, false);

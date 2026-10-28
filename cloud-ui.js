@@ -28,6 +28,7 @@ export function mountCloudUi({
   const btnSave = document.getElementById('menu-save');
   const btnSaveAs = document.getElementById('menu-save-as');
   const btnOpen = document.getElementById('menu-open');
+  const btnDelete = document.getElementById('menu-delete');
   const btnShare = document.getElementById('btn-cloud-share');
   const btnShareEdit = document.getElementById('btn-cloud-share-edit');
   const saveDialog = document.getElementById('cloud-save-dialog');
@@ -37,6 +38,9 @@ export function mountCloudUi({
   const openDialog = document.getElementById('cloud-open-dialog');
   const listEl = document.getElementById('cloud-outline-list');
   const btnCancel = document.getElementById('btn-cloud-open-cancel');
+  const deleteDialog = document.getElementById('cloud-delete-dialog');
+  const deleteListEl = document.getElementById('cloud-delete-list');
+  const btnDeleteCancel = document.getElementById('btn-cloud-delete-cancel');
   const statusEl = document.getElementById('cloud-status');
 
   /** @type {'save' | 'save-as'} */
@@ -90,6 +94,10 @@ export function mountCloudUi({
     if (btnOpen) {
       btnOpen.hidden = hideOwnerChrome;
       btnOpen.disabled = !canMutate || editShareMode;
+    }
+    if (btnDelete) {
+      btnDelete.hidden = hideOwnerChrome;
+      btnDelete.disabled = !canMutate || editShareMode;
     }
     if (btnShare) {
       btnShare.hidden = hideOwnerChrome;
@@ -257,35 +265,89 @@ export function mountCloudUi({
     return ok;
   }
 
+  function sortedOutlines(outlines) {
+    return [...outlines].sort((a, b) =>
+      String(a.title || a.id).localeCompare(String(b.title || b.id), undefined, {
+        sensitivity: 'base',
+      }),
+    );
+  }
+
+  /**
+   * @param {HTMLElement | null} list
+   * @param {Array<{ id: string, title?: string }>} outlines
+   * @param {(item: { id: string, title?: string }) => void} onPick
+   * @param {string} emptyMessage
+   */
+  function fillOutlinePicker(list, outlines, onPick, emptyMessage) {
+    if (!list) return;
+    list.replaceChildren();
+    const sorted = sortedOutlines(outlines);
+    if (!sorted.length) {
+      const empty = document.createElement('li');
+      empty.textContent = emptyMessage;
+      list.appendChild(empty);
+      return;
+    }
+    for (const item of sorted) {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = item.title || item.id;
+      btn.addEventListener('click', () => onPick(item));
+      li.appendChild(btn);
+      list.appendChild(li);
+    }
+  }
+
   async function onOpen() {
     await withBusy('Loading list…', async () => {
       const outlines = await cloud.listOutlines();
-      if (!listEl) return;
-      listEl.replaceChildren();
-      const sorted = [...outlines].sort((a, b) =>
-        String(a.title || a.id).localeCompare(String(b.title || b.id), undefined, {
-          sensitivity: 'base',
-        }),
+      fillOutlinePicker(
+        listEl,
+        outlines,
+        (item) => {
+          void openOutline(item.id, item.title);
+        },
+        'No outlines yet. Save to Google Drive to create one.',
       );
-      if (!sorted.length) {
-        const empty = document.createElement('li');
-        empty.textContent = 'No outlines yet. Save to Google Drive to create one.';
-        listEl.appendChild(empty);
-      } else {
-        for (const item of sorted) {
-          const li = document.createElement('li');
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.textContent = item.title || item.id;
-          btn.addEventListener('click', () => {
-            void openOutline(item.id, item.title);
-          });
-          li.appendChild(btn);
-          listEl.appendChild(li);
-        }
-      }
       openDialogEl(openDialog);
     });
+  }
+
+  async function onDeleteMenu() {
+    await withBusy('Loading list…', async () => {
+      const outlines = await cloud.listOutlines();
+      fillOutlinePicker(
+        deleteListEl,
+        outlines,
+        (item) => {
+          void deleteOutline(item.id, item.title);
+        },
+        'No outlines to delete.',
+      );
+      openDialogEl(deleteDialog);
+    });
+  }
+
+  async function deleteOutline(id, listedTitle) {
+    const label = listedTitle || id;
+    const okConfirm = window.confirm(
+      `Delete “${label}”? It will move to Google Drive trash.`,
+    );
+    if (!okConfirm) return;
+    const ok = await withBusy('Deleting…', async () => {
+      await cloud.deleteOutline(id);
+      if (outline.getOutlineId?.() === id) {
+        outline.setOutlineId?.(null);
+        outline.setRevision?.(null);
+        outline.setLeaseToken?.(null);
+        if (outline.syncUrl) outline.syncUrl(null);
+        syncSaveLabel();
+      }
+      closeDialog(deleteDialog);
+    });
+    if (ok) setStatus(`Deleted “${label}”`);
   }
 
   async function openOutline(id, listedTitle) {
@@ -363,6 +425,10 @@ export function mountCloudUi({
     closeDialog(openDialog);
   }
 
+  function onCancelDelete() {
+    closeDialog(deleteDialog);
+  }
+
   function onCancelSave() {
     closeDialog(saveDialog);
     resolveSaveDialog(false);
@@ -383,6 +449,9 @@ export function mountCloudUi({
   btnOpen?.addEventListener('click', () => {
     void onOpen();
   });
+  btnDelete?.addEventListener('click', () => {
+    void onDeleteMenu();
+  });
   btnShare?.addEventListener('click', () => {
     void onShare();
   });
@@ -390,6 +459,7 @@ export function mountCloudUi({
     void onShareEdit();
   });
   btnCancel?.addEventListener('click', onCancelOpen);
+  btnDeleteCancel?.addEventListener('click', onCancelDelete);
   btnSaveCancel?.addEventListener('click', onCancelSave);
   saveForm?.addEventListener('submit', (event) => {
     event.preventDefault();

@@ -266,6 +266,18 @@ export function createDriveCloudClient({
 
     async releaseLock() {},
 
+    /**
+     * Move an outline to Google Drive trash.
+     * @param {string} id
+     */
+    async deleteOutline(id) {
+      await driveFetch(`${DRIVE_FILES}/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trashed: true }),
+      });
+    },
+
     async createShareLink(id) {
       await ensureAnyonePermission(id, 'reader');
       return { token: id, urlPath: shareUrlPath(id, { readOnly: true }) };
