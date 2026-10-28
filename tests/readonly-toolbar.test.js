@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 import { applyReadOnlyToolbar } from '../readonly-toolbar.js';
 
 describe('read-only toolbar', () => {
-  it('keeps File, Edit, and View visible and only enables Expand/Collapse', () => {
+  it('keeps File, Edit, and View visible and enables Export plus Expand/Collapse', () => {
     const dom = new JSDOM(`<!DOCTYPE html><body>
       <nav class="menubar">
         <div class="menu" data-menu="file" hidden>
@@ -41,6 +41,10 @@ describe('read-only toolbar', () => {
     const enabled = [...toolbar.querySelectorAll('[role="menuitem"]')]
       .filter((btn) => !btn.disabled)
       .map((btn) => btn.id);
-    assert.deepEqual(enabled, ['menu-expand-all', 'menu-collapse-all']);
+    assert.deepEqual(enabled, [
+      'menu-export',
+      'menu-expand-all',
+      'menu-collapse-all',
+    ]);
   });
 });

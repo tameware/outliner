@@ -190,7 +190,6 @@ document.getElementById('menu-clear').addEventListener('click', () => {
 const fileInput = document.getElementById('file-open');
 
 document.getElementById('menu-export').addEventListener('click', () => {
-  if (root.dataset.readonly === 'true') return;
   const title = document.title || 'Outline';
   downloadOpml(root, { title, filename: 'outline.opml' });
 });

@@ -1,5 +1,9 @@
 /** Menuitem ids kept enabled in read-only / shared view. */
-export const READONLY_TOOLBAR_IDS = ['menu-expand-all', 'menu-collapse-all'];
+export const READONLY_TOOLBAR_IDS = [
+  'menu-export',
+  'menu-expand-all',
+  'menu-collapse-all',
+];
 
 /**
  * Keep File / Edit / View labels visible; disable editing actions.
