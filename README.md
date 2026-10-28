@@ -86,6 +86,7 @@ Skip once with `SKIP_OUTLINER_CHANGELOG=1`. Amends, merges, and squashes do not 
 | `config.js` | Committed cloud defaults (`null` = local-only) |
 | `config.local.js` | Gitignored overrides (`googleClientId`) |
 | `config.example.js` | Template for `config.local.js` |
+| `host/` | Optional Flask kit: Drive share proxy + token mint ([host/README.md](host/README.md)) |
 | `tests/` | Unit tests |
 
 ## Cloud save (optional)
