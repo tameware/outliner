@@ -92,4 +92,13 @@ describe('index.html CSP-safe entry', () => {
     assert.match(html, /id="menu-import"/);
     assert.match(html, /id="menu-export"/);
   });
+
+  it('links to a privacy policy page', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    assert.match(html, /href="privacy\.html"/);
+    const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
+    assert.match(privacy, /Privacy Policy/i);
+    assert.match(privacy, /Google Drive/i);
+    assert.match(privacy, /drive\.file/);
+  });
 });

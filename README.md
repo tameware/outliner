@@ -55,6 +55,8 @@ Uses Node’s built-in test runner and [jsdom](https://github.com/jsdom/jsdom).
 | File | Role |
 | --- | --- |
 | `index.html` | Demo page and toolbar |
+| `privacy.html` | Privacy policy (also for Google OAuth consent) |
+| `logo.png` | App icon (120×120); upload in Google Auth Platform branding |
 | `outliner.js` | Outline behavior and OPML import/export |
 | `deal-diagram.js` | PBN deal detection and compass diagrams |
 | `styles.css` | Layout and outline numbering |
