@@ -38,6 +38,7 @@ import {
   isSoftDeepLinkLoadError,
 } from './deep-link-load.js';
 import { mountMenubar } from './menubar.js';
+import { mountOutlinerMenu } from './outliner-menu.js';
 import { applyMenuShortcuts } from './menu-shortcuts.js';
 import { createDirtyTracker } from './dirty-tracker.js';
 import {
@@ -52,6 +53,7 @@ import {
 const rootEl = document.querySelector('[data-outline-root]');
 const menubar = document.querySelector('.menubar');
 mountMenubar(menubar);
+mountOutlinerMenu(document);
 applyMenuShortcuts(document);
 
 const outlineHistory = createOutlineHistory({

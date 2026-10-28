@@ -79,11 +79,13 @@ describe('index.html CSP-safe entry', () => {
     assert.match(appJs, /blankOutlineForDeepLink/);
   });
 
-  it('provides File, Edit, and View dropdown menus', () => {
+  it('provides Outliner, File, Edit, and View dropdown menus', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
+    assert.match(html, /data-menu="outliner"/);
     assert.match(html, /data-menu="file"/);
     assert.match(html, /data-menu="edit"/);
     assert.match(html, /data-menu="view"/);
+    assert.ok(html.indexOf('data-menu="outliner"') < html.indexOf('data-menu="file"'));
     assert.match(html, /class="menu-label"/);
     assert.doesNotMatch(html, /<details/);
     assert.match(html, /id="menu-save"/);

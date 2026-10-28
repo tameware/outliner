@@ -4,9 +4,18 @@ import { JSDOM } from 'jsdom';
 import { applyReadOnlyToolbar } from '../readonly-toolbar.js';
 
 describe('read-only toolbar', () => {
-  it('keeps File, Edit, and View visible and enables Export plus Expand/Collapse', () => {
+  it('keeps Outliner, File, Edit, and View visible and enables info plus Export/Expand/Collapse', () => {
     const dom = new JSDOM(`<!DOCTYPE html><body>
       <nav class="menubar">
+        <div class="menu" data-menu="outliner" hidden>
+          <button type="button" class="menu-label">Outliner</button>
+          <div class="menu-panel">
+            <button type="button" role="menuitem" id="menu-about">About</button>
+            <button type="button" role="menuitem" id="menu-version">Version</button>
+            <button type="button" role="menuitem" id="menu-open-source">Open-Source Repository</button>
+            <button type="button" role="menuitem" id="menu-report-issues">Report issues</button>
+          </div>
+        </div>
         <div class="menu" data-menu="file" hidden>
           <button type="button" class="menu-label">File</button>
           <div class="menu-panel">
@@ -36,12 +45,16 @@ describe('read-only toolbar', () => {
     const visibleMenus = [...toolbar.querySelectorAll('.menu')]
       .filter((menu) => !menu.hidden)
       .map((menu) => menu.getAttribute('data-menu'));
-    assert.deepEqual(visibleMenus, ['file', 'edit', 'view']);
+    assert.deepEqual(visibleMenus, ['outliner', 'file', 'edit', 'view']);
 
     const enabled = [...toolbar.querySelectorAll('[role="menuitem"]')]
       .filter((btn) => !btn.disabled)
       .map((btn) => btn.id);
     assert.deepEqual(enabled, [
+      'menu-about',
+      'menu-version',
+      'menu-open-source',
+      'menu-report-issues',
       'menu-export',
       'menu-expand-all',
       'menu-collapse-all',

@@ -1,12 +1,16 @@
 /** Menuitem ids kept enabled in read-only / shared view. */
 export const READONLY_TOOLBAR_IDS = [
+  'menu-about',
+  'menu-version',
+  'menu-open-source',
+  'menu-report-issues',
   'menu-export',
   'menu-expand-all',
   'menu-collapse-all',
 ];
 
 /**
- * Keep File / Edit / View labels visible; disable editing actions.
+ * Keep Outliner / File / Edit / View labels visible; disable editing actions.
  * @param {ParentNode | null | undefined} toolbar
  */
 export function applyReadOnlyToolbar(toolbar) {
