@@ -8,7 +8,9 @@ import {
   OUTLINER_ABOUT_TEXT,
   OUTLINER_ISSUES_MAILTO,
   OUTLINER_REPO_URL,
+  OUTLINER_UPDATED,
   OUTLINER_VERSION,
+  outlinerVersionLabel,
   mountOutlinerMenu,
 } from '../outliner-menu.js';
 
@@ -52,19 +54,27 @@ describe('Outliner menu', () => {
     };
   });
 
-  it('exports version matching package.json and known repo/mailto targets', () => {
+  it('exports one-decimal version, update date, and known repo/mailto targets', () => {
     const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-    assert.equal(OUTLINER_VERSION, pkg.version);
+    const majorMinor = pkg.version.split('.').slice(0, 2).join('.');
+    assert.equal(OUTLINER_VERSION, '1.0');
+    assert.equal(OUTLINER_VERSION, majorMinor);
+    assert.match(OUTLINER_UPDATED, /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(
+      outlinerVersionLabel(),
+      `${OUTLINER_VERSION} (updated ${OUTLINER_UPDATED})`,
+    );
     assert.equal(OUTLINER_REPO_URL, 'https://github.com/tameware/outliner');
     assert.equal(OUTLINER_ISSUES_MAILTO, 'mailto:outliner@tameware.com');
     assert.match(OUTLINER_ABOUT_TEXT, /Tameware Outliner/i);
   });
 
-  it('shows About text and Version on click', () => {
+  it('shows About text and Version (with update date) on click', () => {
     mountOutlinerMenu(document);
     document.getElementById('menu-about').click();
     document.getElementById('menu-version').click();
-    assert.deepEqual(alerts, [OUTLINER_ABOUT_TEXT, OUTLINER_VERSION]);
+    assert.deepEqual(alerts, [OUTLINER_ABOUT_TEXT, outlinerVersionLabel()]);
+    assert.match(alerts[1], /^1\.0 \(updated \d{4}-\d{2}-\d{2}\)$/);
   });
 
   it('opens the GitHub repository URL', () => {

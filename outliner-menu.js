@@ -1,6 +1,10 @@
 /** Product / help menu for the Outliner app chrome. */
 
-export const OUTLINER_VERSION = '1.0.0';
+/** Display version: major.minor only. */
+export const OUTLINER_VERSION = '1.0';
+
+/** ISO date the shipped code was last updated (bump when shipping meaningful changes). */
+export const OUTLINER_UPDATED = '2026-10-28';
 
 export const OUTLINER_REPO_URL = 'https://github.com/tameware/outliner';
 
@@ -8,6 +12,11 @@ export const OUTLINER_ISSUES_MAILTO = 'mailto:outliner@tameware.com';
 
 export const OUTLINER_ABOUT_TEXT =
   'Tameware Outliner is a WYSIWYG HTML outliner with expand/collapse editing, OPML import/export, and optional Google Drive sync.';
+
+/** @returns {string} */
+export function outlinerVersionLabel() {
+  return `${OUTLINER_VERSION} (updated ${OUTLINER_UPDATED})`;
+}
 
 /**
  * @param {ParentNode | null | undefined} root
@@ -28,7 +37,7 @@ export function mountOutlinerMenu(root, deps = {}) {
   const report = root.querySelector('#menu-report-issues');
 
   about?.addEventListener('click', () => alertFn(OUTLINER_ABOUT_TEXT));
-  version?.addEventListener('click', () => alertFn(OUTLINER_VERSION));
+  version?.addEventListener('click', () => alertFn(outlinerVersionLabel()));
   openSource?.addEventListener('click', () => openFn(OUTLINER_REPO_URL));
   report?.addEventListener('click', () => openFn(OUTLINER_ISSUES_MAILTO));
 }
