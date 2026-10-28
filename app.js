@@ -27,6 +27,7 @@ import { createOutlineHistory } from './clear-outline-ui.js';
 import { matchPromoteDemoteShortcut } from './promote-demote-keys.js';
 import { mountIndentOutdentMenu } from './indent-outdent-menu.js';
 import { blankOutlineForDeepLink } from './deep-link-boot.js';
+import { bindDeepLinkOutlineLoad } from './deep-link-load.js';
 import { mountMenubar } from './menubar.js';
 import { applyMenuShortcuts } from './menu-shortcuts.js';
 import { createDirtyTracker } from './dirty-tracker.js';
@@ -321,10 +322,13 @@ async function initCloud() {
   }
 
   if (configured && cloud && currentOutlineId) {
-    auth.onAuthStateChanged(async (user) => {
-      if (!user || !currentOutlineId) return;
-      try {
-        const got = await cloud.getOutline(currentOutlineId);
+    // Eager load (public anyone-with-link or existing token). Also retry when
+    // auth later delivers a signed-in user — do not depend only on a change event.
+    bindDeepLinkOutlineLoad({
+      auth,
+      cloud,
+      getOutlineId: () => currentOutlineId,
+      applyOutline: async (got) => {
         const tree = parseOpml(got.opml);
         loadOutline(root, tree);
         if (got.title || tree.title) document.title = got.title || tree.title;
@@ -337,12 +341,15 @@ async function initCloud() {
         }
         const item = root.querySelector('[data-item]');
         if (item) focusItem(item);
-      } catch (error) {
+      },
+      onError: (error) => {
         console.warn('Could not load outline from Google Drive', error);
+        // Anonymous 401 is expected until sign-in; auth retry will try again.
+        if (error?.status === 401) return;
         window.alert(
           'Could not open outline from Google Drive: ' + (error?.message || error),
         );
-      }
+      },
     });
   }
 }

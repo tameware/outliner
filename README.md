@@ -61,6 +61,7 @@ Uses Node’s built-in test runner and [jsdom](https://github.com/jsdom/jsdom).
 | `deal-diagram.js` | PBN deal detection and compass diagrams |
 | `styles.css` | Layout and outline numbering |
 | `cloud.js` / `cloud-ui.js` | Config helpers, deep links, and cloud UI |
+| `deep-link-load.js` | Eager `?id=` outline load (+ auth retry) |
 | `drive-cloud.js` | Google Drive outline storage client |
 | `auth-google.js` | Google Identity Services sign-in (Drive scope) |
 | `config.js` | Committed cloud defaults (`null` = local-only) |

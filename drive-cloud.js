@@ -107,6 +107,47 @@ export function createDriveCloudClient({
     return readOnly ? `${prefix}?id=${encodeURIComponent(fileId)}&view=1` : `${prefix}?id=${encodeURIComponent(fileId)}`;
   }
 
+  /**
+   * Anyone-with-the-link files can be fetched without OAuth (small OPML payloads).
+   * @param {string} id
+   */
+  async function getOutlinePublic(id) {
+    const url = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`;
+    const response = await fetchFn(url, { redirect: 'follow' });
+    if (!response.ok) {
+      throw new CloudApiError(
+        `Could not download shared outline (HTTP ${response.status})`,
+        response.status,
+      );
+    }
+    const opml = await response.text();
+    const trimmed = opml.trimStart();
+    if (!trimmed || trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
+      throw new CloudApiError('Sign in required to open this outline', 401);
+    }
+    return { opml, revision: null, title: null };
+  }
+
+  /**
+   * @param {string} id
+   */
+  async function getOutlineAuthed(id) {
+    const metaRes = await driveFetch(
+      `${DRIVE_FILES}/${encodeURIComponent(id)}?fields=name,etag`,
+    );
+    const meta = await metaRes.json();
+    const media = await driveFetch(
+      `${DRIVE_FILES}/${encodeURIComponent(id)}?alt=media`,
+    );
+    const opml = await media.text();
+    const etag = meta.etag || media.headers.get('ETag') || metaRes.headers.get('ETag');
+    return {
+      opml,
+      revision: etag || null,
+      title: titleFromName(meta.name),
+    };
+  }
+
   return {
     async listOutlines() {
       const parent = await ensureAppFolder();
@@ -126,20 +167,19 @@ export function createDriveCloudClient({
      * @returns {Promise<{ opml: string, revision: string | null, title?: string | null }>}
      */
     async getOutline(id) {
-      const metaRes = await driveFetch(
-        `${DRIVE_FILES}/${encodeURIComponent(id)}?fields=name,etag`,
-      );
-      const meta = await metaRes.json();
-      const media = await driveFetch(
-        `${DRIVE_FILES}/${encodeURIComponent(id)}?alt=media`,
-      );
-      const opml = await media.text();
-      const etag = meta.etag || media.headers.get('ETag') || metaRes.headers.get('ETag');
-      return {
-        opml,
-        revision: etag || null,
-        title: titleFromName(meta.name),
-      };
+      const token = await getAccessToken();
+      if (!token) {
+        return getOutlinePublic(id);
+      }
+      try {
+        return await getOutlineAuthed(id);
+      } catch (error) {
+        // drive.file may not see another user's "anyone with the link" file.
+        if (error instanceof CloudApiError && (error.status === 403 || error.status === 404)) {
+          return getOutlinePublic(id);
+        }
+        throw error;
+      }
     },
 
     async createOutline({ title, opml }) {
