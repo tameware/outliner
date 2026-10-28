@@ -4,6 +4,24 @@
  */
 
 /**
+ * Soft errors: wait for sign-in / retry instead of alerting the user.
+ * @param {unknown} error
+ */
+export function isSoftDeepLinkLoadError(error) {
+  const status = error && typeof error === 'object' ? error.status : undefined;
+  if (status === 401 || status === 0) return true;
+  const message = String(
+    (error && typeof error === 'object' && 'message' in error && error.message) ||
+      error ||
+      '',
+  );
+  if (!status && /Failed to fetch|NetworkError|Load failed/i.test(message)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * @param {object} options
  * @param {{ onAuthStateChanged?: Function }} options.auth
  * @param {{ getOutline: (id: string) => Promise<{ opml: string, revision?: string | null, title?: string | null }> }} options.cloud

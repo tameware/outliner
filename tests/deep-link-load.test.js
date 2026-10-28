@@ -1,6 +1,19 @@
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { bindDeepLinkOutlineLoad } from '../deep-link-load.js';
+import {
+  bindDeepLinkOutlineLoad,
+  isSoftDeepLinkLoadError,
+} from '../deep-link-load.js';
+
+describe('isSoftDeepLinkLoadError', () => {
+  it('treats 401 and network Failed to fetch as soft', () => {
+    assert.equal(isSoftDeepLinkLoadError({ status: 401, message: 'Nope' }), true);
+    assert.equal(isSoftDeepLinkLoadError({ status: 0, message: 'Failed to fetch' }), true);
+    assert.equal(isSoftDeepLinkLoadError(new Error('Failed to fetch')), true);
+    assert.equal(isSoftDeepLinkLoadError({ status: 403, message: 'forbidden' }), false);
+    assert.equal(isSoftDeepLinkLoadError({ status: 502, message: 'bad gateway' }), false);
+  });
+});
 
 describe('bindDeepLinkOutlineLoad', () => {
   it('loads the outline immediately without waiting for an auth change', async () => {

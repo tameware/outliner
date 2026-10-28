@@ -28,7 +28,10 @@ import { createOutlineHistory } from './clear-outline-ui.js';
 import { matchPromoteDemoteShortcut } from './promote-demote-keys.js';
 import { mountIndentOutdentMenu } from './indent-outdent-menu.js';
 import { blankOutlineForDeepLink } from './deep-link-boot.js';
-import { bindDeepLinkOutlineLoad } from './deep-link-load.js';
+import {
+  bindDeepLinkOutlineLoad,
+  isSoftDeepLinkLoadError,
+} from './deep-link-load.js';
 import { mountMenubar } from './menubar.js';
 import { applyMenuShortcuts } from './menu-shortcuts.js';
 import { createDirtyTracker } from './dirty-tracker.js';
@@ -345,8 +348,8 @@ async function initCloud() {
       },
       onError: (error) => {
         console.warn('Could not load outline from Google Drive', error);
-        // Anonymous 401 is expected until sign-in; auth retry will try again.
-        if (error?.status === 401) return;
+        // 401 / Failed to fetch: wait for proxy success or sign-in retry.
+        if (isSoftDeepLinkLoadError(error)) return;
         window.alert(
           'Could not open outline from Google Drive: ' + (error?.message || error),
         );

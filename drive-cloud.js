@@ -17,14 +17,19 @@ const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
  * @param {() => Promise<string | null | undefined>} options.getAccessToken
  * @param {typeof fetch} [options.fetch]
  * @param {string} [options.urlPathPrefix] prefix for share links (default /outliner/)
+ * @param {string} [options.publicOutlineBase] same-origin proxy for anyone-with-link OPML
  */
 export function createDriveCloudClient({
   getAccessToken,
   fetch: fetchFn = globalThis.fetch,
   urlPathPrefix = '/outliner/',
+  publicOutlineBase = '/api/outliner/drive/',
 }) {
   /** @type {string | null} */
   let folderId = null;
+  const publicBase = publicOutlineBase.endsWith('/')
+    ? publicOutlineBase
+    : `${publicOutlineBase}/`;
 
   async function authHeader() {
     const token = await getAccessToken();
@@ -108,12 +113,17 @@ export function createDriveCloudClient({
   }
 
   /**
-   * Anyone-with-the-link files can be fetched without OAuth (small OPML payloads).
+   * Anyone-with-the-link files via same-origin proxy (avoids Drive CORS/CSP).
    * @param {string} id
    */
   async function getOutlinePublic(id) {
-    const url = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`;
-    const response = await fetchFn(url, { redirect: 'follow' });
+    const url = `${publicBase}${encodeURIComponent(id)}`;
+    let response;
+    try {
+      response = await fetchFn(url, { redirect: 'follow' });
+    } catch (error) {
+      throw new CloudApiError(error?.message || 'Failed to fetch', 0, error);
+    }
     if (!response.ok) {
       throw new CloudApiError(
         `Could not download shared outline (HTTP ${response.status})`,

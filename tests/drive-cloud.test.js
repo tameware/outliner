@@ -133,15 +133,12 @@ describe('Drive cloud client', () => {
     assert.equal(got.title, 'Demo');
   });
 
-  it('loads a publicly shared outline without an access token', async () => {
+  it('loads a publicly shared outline without an access token via same-origin proxy', async () => {
     tokens[0] = null;
     const urls = [];
     fetchMock.mock.mockImplementation(async (url) => {
       urls.push(String(url));
-      assert.equal(
-        String(url),
-        'https://drive.google.com/uc?export=download&id=file-public',
-      );
+      assert.equal(String(url), '/api/outliner/drive/file-public');
       return new Response(
         '<?xml version="1.0"?><opml version="2.0"><body></body></opml>',
         { status: 200, headers: { 'Content-Type': 'application/xml' } },
@@ -151,6 +148,25 @@ describe('Drive cloud client', () => {
     assert.match(got.opml, /<opml/);
     assert.equal(got.revision, null);
     assert.equal(urls.length, 1);
+  });
+
+  it('uses a custom publicOutlineBase for anonymous downloads', async () => {
+    tokens[0] = null;
+    const urls = [];
+    fetchMock.mock.mockImplementation(async (url) => {
+      urls.push(String(url));
+      return new Response(
+        '<?xml version="1.0"?><opml version="2.0"><body></body></opml>',
+        { status: 200, headers: { 'Content-Type': 'application/xml' } },
+      );
+    });
+    const custom = createDriveCloudClient({
+      getAccessToken: async () => null,
+      fetch: fetchMock,
+      publicOutlineBase: 'https://example.test/proxy/',
+    });
+    await custom.getOutline('abc123');
+    assert.deepEqual(urls, ['https://example.test/proxy/abc123']);
   });
 
   it('creates and saves with null revision when Drive omits ETag', async () => {
