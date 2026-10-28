@@ -88,8 +88,10 @@ Share links use Drive “anyone with the link” permissions plus outliner deep 
 
 | Link | Meaning |
 | --- | --- |
-| `?id=<fileId>` | Editable (recipient signs in with Google) |
+| `?id=<fileId>` | Editable — saves update the **same** Drive file (via host write proxy) |
 | `?id=<fileId>&view=1` | Read-only in the app |
+
+Editable shares grant “anyone with the link can edit” plus an optional `driveWriterServiceAccount` so the host can PUT updates without widening OAuth beyond `drive.file`.
 
 With the default committed config, the cloud bar stays hidden (including on GitHub Pages).
 

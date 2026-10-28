@@ -6,8 +6,23 @@
  */
 
 /**
- * @typedef {{ googleClientId?: string, clientId?: string }} CloudConfig
+ * @typedef {{
+ *   googleClientId?: string,
+ *   clientId?: string,
+ *   driveWriterServiceAccount?: string,
+ * }} CloudConfig
  */
+
+/**
+ * Service account email used for editable share-link writes via the proxy.
+ * @param {CloudConfig | null | undefined} config
+ * @returns {string}
+ */
+export function driveWriterServiceAccountFromConfig(config) {
+  if (!config || typeof config !== 'object') return '';
+  const email = config.driveWriterServiceAccount;
+  return typeof email === 'string' ? email.trim() : '';
+}
 
 export class CloudApiError extends Error {
   /**
@@ -99,4 +114,12 @@ export function locationWithOutlineId(locationLike, id, options = {}) {
 export function isReadOnlyViewFromLocation(locationLike) {
   const params = new URLSearchParams(locationLike.search || '');
   return params.get('view') === '1';
+}
+
+/**
+ * Editable share deep link (`?id=` without `view=1`) — always overwrite that file.
+ * @param {{ search?: string, hash?: string }} locationLike
+ */
+export function isEditableShareFromLocation(locationLike) {
+  return Boolean(outlineIdFromLocation(locationLike)) && !isReadOnlyViewFromLocation(locationLike);
 }

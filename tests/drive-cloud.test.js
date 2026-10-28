@@ -248,6 +248,79 @@ describe('Drive cloud client', () => {
     assert.deepEqual(roles, ['reader', 'writer']);
   });
 
+  it('grants the writer service account on editable share links', async () => {
+    const bodies = [];
+    fetchMock.mock.mockImplementation(async (url, init) => {
+      if (String(url).includes('/permissions') && init?.method === 'POST') {
+        bodies.push(JSON.parse(init.body));
+        return new Response(JSON.stringify({ id: 'perm' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const withSa = createDriveCloudClient({
+      getAccessToken: async () => tokens[0],
+      fetch: fetchMock,
+      driveWriterServiceAccount: 'sa@appspot.gserviceaccount.com',
+    });
+    await withSa.createEditShareLink('file-9');
+    assert.deepEqual(bodies, [
+      { type: 'anyone', role: 'writer', allowFileDiscovery: false },
+      {
+        type: 'user',
+        role: 'writer',
+        emailAddress: 'sa@appspot.gserviceaccount.com',
+        sendNotificationEmail: false,
+      },
+    ]);
+  });
+
+  it('saves via same-origin PUT when unsigned', async () => {
+    tokens[0] = null;
+    const calls = [];
+    fetchMock.mock.mockImplementation(async (url, init) => {
+      calls.push({ url: String(url), method: init?.method || 'GET', body: init?.body });
+      return new Response('', { status: 200 });
+    });
+    const saved = await client().saveOutline('file-9', {
+      opml: '<?xml version="1.0"?><opml></opml>',
+      revision: null,
+    });
+    assert.equal(saved.id, 'file-9');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, 'PUT');
+    assert.equal(calls[0].url, '/api/outliner/drive/file-9');
+    assert.match(String(calls[0].body), /<opml/);
+  });
+
+  it('falls back to public PUT when authed save is forbidden', async () => {
+    const calls = [];
+    fetchMock.mock.mockImplementation(async (url, init) => {
+      const href = String(url);
+      const method = init?.method || 'GET';
+      calls.push({ url: href, method });
+      if (href.includes('/upload/') || href.includes('/drive/v3/files/file-9')) {
+        return new Response(JSON.stringify({ error: { message: 'forbidden' } }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (method === 'PUT' && href.includes('/api/outliner/drive/')) {
+        return new Response('', { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const saved = await client().saveOutline('file-9', {
+      opml: '<?xml version="1.0"?><opml></opml>',
+      revision: null,
+      title: 'Demo',
+    });
+    assert.equal(saved.id, 'file-9');
+    assert.ok(calls.some((c) => c.method === 'PUT' && c.url.includes('/api/outliner/drive/')));
+  });
+
   it('throws CloudApiError on non-OK responses', async () => {
     fetchMock.mock.mockImplementation(async () => {
       return new Response(JSON.stringify({ error: { message: 'forbidden' } }), {

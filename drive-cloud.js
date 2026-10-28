@@ -18,18 +18,21 @@ const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
  * @param {typeof fetch} [options.fetch]
  * @param {string} [options.urlPathPrefix] prefix for share links (default /outliner/)
  * @param {string} [options.publicOutlineBase] same-origin proxy for anyone-with-link OPML
+ * @param {string} [options.driveWriterServiceAccount] SA email granted on editable shares
  */
 export function createDriveCloudClient({
   getAccessToken,
   fetch: fetchFn = globalThis.fetch,
   urlPathPrefix = '/outliner/',
   publicOutlineBase = '/api/outliner/drive/',
+  driveWriterServiceAccount = '',
 }) {
   /** @type {string | null} */
   let folderId = null;
   const publicBase = publicOutlineBase.endsWith('/')
     ? publicOutlineBase
     : `${publicOutlineBase}/`;
+  const writerSa = String(driveWriterServiceAccount || '').trim();
 
   async function authHeader() {
     const token = await getAccessToken();
@@ -95,15 +98,35 @@ export function createDriveCloudClient({
     return folderId;
   }
 
+  async function postPermission(fileId, body) {
+    try {
+      await driveFetch(`${DRIVE_FILES}/${encodeURIComponent(fileId)}/permissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      // Already shared with this principal.
+      if (error instanceof CloudApiError && error.status === 409) return;
+      throw error;
+    }
+  }
+
   async function ensureAnyonePermission(fileId, role) {
-    await driveFetch(`${DRIVE_FILES}/${encodeURIComponent(fileId)}/permissions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'anyone',
-        role,
-        allowFileDiscovery: false,
-      }),
+    await postPermission(fileId, {
+      type: 'anyone',
+      role,
+      allowFileDiscovery: false,
+    });
+  }
+
+  async function ensureWriterServiceAccount(fileId) {
+    if (!writerSa) return;
+    await postPermission(fileId, {
+      type: 'user',
+      role: 'writer',
+      emailAddress: writerSa,
+      sendNotificationEmail: false,
     });
   }
 
@@ -222,25 +245,19 @@ export function createDriveCloudClient({
     },
 
     async saveOutline(id, { opml, revision, title }) {
-      if (title) {
-        await driveFetch(`${DRIVE_FILES}/${encodeURIComponent(id)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: fileNameForTitle(title) }),
-        });
+      const token = await getAccessToken();
+      if (!token) {
+        return saveOutlinePublic(id, opml);
       }
-      const headers = { 'Content-Type': OPML_MIME };
-      if (revision != null && revision !== '') headers['If-Match'] = String(revision);
-      const response = await driveFetch(
-        `${DRIVE_UPLOAD}/${encodeURIComponent(id)}?uploadType=media&fields=id`,
-        {
-          method: 'PATCH',
-          headers,
-          body: opml,
-        },
-      );
-      const data = await response.json();
-      return { id: data.id || id, revision: response.headers.get('ETag') || null };
+      try {
+        return await saveOutlineAuthed(id, { opml, revision, title });
+      } catch (error) {
+        // drive.file cannot write another user's shared file — use SA proxy.
+        if (error instanceof CloudApiError && (error.status === 403 || error.status === 404)) {
+          return saveOutlinePublic(id, opml);
+        }
+        throw error;
+      }
     },
 
     async acquireLock() {
@@ -256,7 +273,51 @@ export function createDriveCloudClient({
 
     async createEditShareLink(id) {
       await ensureAnyonePermission(id, 'writer');
+      await ensureWriterServiceAccount(id);
       return { token: id, urlPath: shareUrlPath(id, { readOnly: false }) };
     },
   };
+
+  async function saveOutlinePublic(id, opml) {
+    const url = `${publicBase}${encodeURIComponent(id)}`;
+    let response;
+    try {
+      response = await fetchFn(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': OPML_MIME },
+        body: opml,
+      });
+    } catch (error) {
+      throw new CloudApiError(error?.message || 'Failed to fetch', 0, error);
+    }
+    if (!response.ok) {
+      throw new CloudApiError(
+        `Could not save shared outline (HTTP ${response.status})`,
+        response.status,
+      );
+    }
+    return { id, revision: null };
+  }
+
+  async function saveOutlineAuthed(id, { opml, revision, title }) {
+    if (title) {
+      await driveFetch(`${DRIVE_FILES}/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: fileNameForTitle(title) }),
+      });
+    }
+    const headers = { 'Content-Type': OPML_MIME };
+    if (revision != null && revision !== '') headers['If-Match'] = String(revision);
+    const response = await driveFetch(
+      `${DRIVE_UPLOAD}/${encodeURIComponent(id)}?uploadType=media&fields=id`,
+      {
+        method: 'PATCH',
+        headers,
+        body: opml,
+      },
+    );
+    const data = await response.json();
+    return { id: data.id || id, revision: response.headers.get('ETag') || null };
+  }
 }

@@ -14,4 +14,7 @@
  */
 export default {
   googleClientId: 'YOUR_CLIENT_ID.apps.googleusercontent.com',
+  // App Engine (or other) SA email granted writer on editable share links so
+  // /api/outliner/drive/<id> PUT can update the original file.
+  driveWriterServiceAccount: 'your-project@appspot.gserviceaccount.com',
 };

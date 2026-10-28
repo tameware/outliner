@@ -15,10 +15,12 @@ import {
 import {
   isCloudConfigured,
   googleClientIdFromConfig,
+  driveWriterServiceAccountFromConfig,
   loadCloudConfig,
   outlineIdFromLocation,
   locationWithOutlineId,
   isReadOnlyViewFromLocation,
+  isEditableShareFromLocation,
 } from './cloud.js';
 import { createDriveCloudClient } from './drive-cloud.js';
 import { mountCloudUi } from './cloud-ui.js';
@@ -73,6 +75,7 @@ let currentOutlineId = outlineIdFromLocation(window.location);
 let currentRevision = null;
 let leaseToken = null;
 const readOnlyShare = isReadOnlyViewFromLocation(window.location);
+const editShareMode = isEditableShareFromLocation(window.location);
 /** @type {{ saveCurrent: () => Promise<boolean> } | null} */
 let cloudUi = null;
 let cloudSaveAvailable = false;
@@ -266,6 +269,7 @@ async function initCloud() {
     auth = createGoogleAuth({ clientId: googleClientIdFromConfig(cloudConfig) });
     cloud = createDriveCloudClient({
       getAccessToken: () => auth.getAccessToken(),
+      driveWriterServiceAccount: driveWriterServiceAccountFromConfig(cloudConfig),
     });
   }
 
@@ -284,6 +288,7 @@ async function initCloud() {
   cloudUi = mountCloudUi({
     configured,
     readOnlyView: readOnlyShare,
+    editShareMode,
     auth,
     cloud: cloud || nullCloud,
     outline: {

@@ -355,6 +355,29 @@ describe('cloud UI', () => {
     assert.equal(document.getElementById('menu-save').hidden, false);
   });
 
+  it('in editShareMode Save overwrites the same outline id even if the title changed', async () => {
+    signedInUser = null;
+    outlineId = 'shared-edit-1';
+    outline.getTitle = () => 'Old title';
+    outline.getRevision = () => null;
+    mountCloudUi({
+      auth,
+      cloud,
+      outline,
+      configured: true,
+      editShareMode: true,
+    });
+    // Title differs from previous — must not create a new owner outline.
+    outline.getTitle = () => 'Renamed by guest';
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(createdCalls.length, 0);
+    assert.equal(savedCalls.length, 1);
+    assert.equal(savedCalls[0].id, 'shared-edit-1');
+    assert.equal(outlineId, 'shared-edit-1');
+  });
+
   it('asks beforeReplace before opening a listed outline and aborts when denied', async () => {
     const loads = [];
     outline.loadOutline = () => {

@@ -5,6 +5,8 @@ import {
   outlineIdFromLocation,
   locationWithOutlineId,
   isReadOnlyViewFromLocation,
+  isEditableShareFromLocation,
+  driveWriterServiceAccountFromConfig,
 } from '../cloud.js';
 
 describe('cloud config', () => {
@@ -24,6 +26,16 @@ describe('cloud config', () => {
         clientId: 'abc.apps.googleusercontent.com',
       }),
       true,
+    );
+  });
+
+  it('reads driveWriterServiceAccount from config', () => {
+    assert.equal(driveWriterServiceAccountFromConfig(null), '');
+    assert.equal(
+      driveWriterServiceAccountFromConfig({
+        driveWriterServiceAccount: ' sa@appspot.gserviceaccount.com ',
+      }),
+      'sa@appspot.gserviceaccount.com',
     );
   });
 });
@@ -62,5 +74,13 @@ describe('read-only view flag', () => {
     assert.equal(isReadOnlyViewFromLocation({ search: '?id=a&view=1' }), true);
     assert.equal(isReadOnlyViewFromLocation({ search: '?id=a' }), false);
     assert.equal(isReadOnlyViewFromLocation({ search: '?view=share-tok' }), false);
+  });
+});
+
+describe('editable share flag', () => {
+  it('is true for ?id= without view=1', () => {
+    assert.equal(isEditableShareFromLocation({ search: '?id=a' }), true);
+    assert.equal(isEditableShareFromLocation({ search: '?id=a&view=1' }), false);
+    assert.equal(isEditableShareFromLocation({ search: '' }), false);
   });
 });
