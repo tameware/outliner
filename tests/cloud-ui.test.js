@@ -292,8 +292,8 @@ describe('cloud UI', () => {
     outlineId = 'existing-1';
     const written = mockClipboard();
     cloud.createShareLink = async () => ({
-      token: 'share-tok',
-      urlPath: '/outliner/?view=share-tok',
+      token: 'file-1',
+      urlPath: '/outliner/?id=file-1&view=1',
     });
     mountCloudUi({ auth, cloud, outline, configured: true });
     document.getElementById('btn-cloud-share').click();
@@ -302,18 +302,18 @@ describe('cloud UI', () => {
 
     const dialog = document.getElementById('cloud-share-dialog');
     assert.ok(dialog.hasAttribute('open'));
-    assert.match(document.getElementById('cloud-share-url').value, /view=share-tok/);
+    assert.match(document.getElementById('cloud-share-url').value, /id=file-1.*view=1/);
     assert.match(document.getElementById('cloud-share-heading').textContent, /read-only/i);
     assert.equal(written.length, 1);
-    assert.match(written[0], /view=share-tok/);
+    assert.match(written[0], /id=file-1/);
   });
 
   it('creates an editable share link for the current saved outline', async () => {
     outlineId = 'existing-1';
     const written = mockClipboard();
     cloud.createEditShareLink = async () => ({
-      token: 'edit-tok',
-      urlPath: '/outliner/?edit=edit-tok',
+      token: 'file-1',
+      urlPath: '/outliner/?id=file-1',
     });
     mountCloudUi({ auth, cloud, outline, configured: true });
     document.getElementById('btn-cloud-share-edit').click();
@@ -321,11 +321,12 @@ describe('cloud UI', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     assert.ok(document.getElementById('cloud-share-dialog').hasAttribute('open'));
-    assert.match(document.getElementById('cloud-share-url').value, /edit=edit-tok/);
+    assert.match(document.getElementById('cloud-share-url').value, /id=file-1/);
+    assert.doesNotMatch(document.getElementById('cloud-share-url').value, /view=/);
     assert.match(document.getElementById('cloud-share-heading').textContent, /editable/i);
     assert.match(document.getElementById('cloud-share-hint').textContent, /edit/i);
     assert.equal(written.length, 1);
-    assert.match(written[0], /edit=edit-tok/);
+    assert.match(written[0], /id=file-1/);
   });
 
   it('in editShareMode enables Save without sign-in and hides share/open chrome', async () => {

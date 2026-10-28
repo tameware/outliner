@@ -8,16 +8,15 @@ import {
 import { loadOutline, getItemTexts } from '../outliner.js';
 
 describe('deep-link boot', () => {
-  it('detects id, view, and edit query params', () => {
+  it('detects outline id query params', () => {
     assert.equal(hasRemoteOutlineParams({ search: '' }), false);
     assert.equal(hasRemoteOutlineParams({ search: '?foo=1' }), false);
     assert.equal(hasRemoteOutlineParams({ search: '?id=abc' }), true);
-    assert.equal(hasRemoteOutlineParams({ search: '?view=tok' }), true);
-    assert.equal(hasRemoteOutlineParams({ search: '?edit=tok' }), true);
-    assert.equal(hasRemoteOutlineParams({ search: '?id=a&view=b' }), true);
+    assert.equal(hasRemoteOutlineParams({ search: '?id=a&view=1' }), true);
+    assert.equal(hasRemoteOutlineParams({ search: '?view=1' }), false);
   });
 
-  it('clears the default outline when id or view is present', () => {
+  it('clears the default outline when id is present', () => {
     const dom = new JSDOM(`<!DOCTYPE html><body>
       <ol class="outline" data-outline-root>
         <li data-item>
@@ -35,15 +34,6 @@ describe('deep-link boot', () => {
 
     assert.equal(
       blankOutlineForDeepLink(root, { search: '?id=xyz' }, { loadOutline }),
-      true,
-    );
-    assert.deepEqual(getItemTexts(root), ['']);
-
-    loadOutline(root, {
-      items: [{ text: 'Default tip', children: [] }],
-    });
-    assert.equal(
-      blankOutlineForDeepLink(root, { search: '?view=share' }, { loadOutline }),
       true,
     );
     assert.deepEqual(getItemTexts(root), ['']);

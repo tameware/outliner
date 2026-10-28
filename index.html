@@ -68,12 +68,12 @@
       <button type="button" id="btn-sign-out" hidden>Sign out</button>
       <span id="cloud-user" class="cloud-user" hidden></span>
       <button type="button" id="btn-cloud-share" disabled title="Copy a read-only link to this outline">Copy read-only link</button>
-      <button type="button" id="btn-cloud-share-edit" disabled title="Copy a link that allows editing without signing in">Copy editable link</button>
+      <button type="button" id="btn-cloud-share-edit" disabled title="Copy a link that allows editing via Google Drive sharing">Copy editable link</button>
       <p id="cloud-status" class="cloud-status" role="status"></p>
     </div>
     <dialog id="cloud-save-dialog" class="cloud-dialog">
       <form method="dialog" class="cloud-dialog-form" id="cloud-save-form">
-        <h2>Save to cloud</h2>
+        <h2>Save to Google Drive</h2>
         <label class="cloud-save-label" for="cloud-save-name">Name</label>
         <input
           id="cloud-save-name"
@@ -92,7 +92,7 @@
     </dialog>
     <dialog id="cloud-open-dialog" class="cloud-dialog">
       <form method="dialog" class="cloud-dialog-form">
-        <h2>Open from cloud</h2>
+        <h2>Open from Google Drive</h2>
         <ul id="cloud-outline-list" class="cloud-outline-list"></ul>
         <button type="button" id="btn-cloud-open-cancel" value="cancel">Cancel</button>
       </form>
@@ -232,13 +232,13 @@
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">File → Open… / Save / Save As… — cloud outlines after Sign in with Google</div>
+                  <div class="text" contenteditable="true">File → Open… / Save / Save As… — Google Drive outlines after Sign in with Google</div>
                 </div>
               </li>
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">Copy read-only or editable link — share a saved cloud outline (view-only or anyone can edit)</div>
+                  <div class="text" contenteditable="true">Copy read-only or editable link — share a Drive outline (view-only or anyone can edit)</div>
                 </div>
               </li>
             </ol>

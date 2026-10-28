@@ -10,7 +10,7 @@ import { syncCloudSaveMenuLabel } from './menubar.js';
  * @param {boolean} [options.readOnlyView]
  * @param {boolean} [options.editShareMode] guest editing via ?edit= token (no Google sign-in)
  * @param {{ onAuthStateChanged: Function, signInWithGoogle: Function, signOut: Function }} options.auth
- * @param {ReturnType<import('./cloud.js').createCloudClient>} options.cloud
+ * @param {ReturnType<import('./drive-cloud.js').createDriveCloudClient>} options.cloud
  * @param {object} options.outline
  */
 export function mountCloudUi({
@@ -162,7 +162,7 @@ export function mountCloudUi({
     }
     const heading = saveDialog?.querySelector('h2');
     if (heading) {
-      heading.textContent = mode === 'save-as' ? 'Save As' : 'Save to cloud';
+      heading.textContent = mode === 'save-as' ? 'Save As' : 'Save to Google Drive';
     }
     openDialogEl(saveDialog);
     saveNameInput?.focus?.();
@@ -191,7 +191,7 @@ export function mountCloudUi({
   async function saveCurrent() {
     if (readOnlyView) return false;
     if (!user && !editShareMode) {
-      window.alert('Sign in with Google to save to the cloud.');
+      window.alert('Sign in with Google to save to Google Drive.');
       return false;
     }
     return onSave();
@@ -199,7 +199,7 @@ export function mountCloudUi({
 
   async function saveWithName(title, { forceNew = false } = {}) {
     const name = String(title || '').trim() || 'Untitled';
-    const ok = await withBusy('Saving to cloud…', async () => {
+    const ok = await withBusy('Saving to Google Drive…', async () => {
       const previousTitle = String(outline.getTitle?.() || '').trim();
       let id = outline.getOutlineId?.();
       // Edit-link guests always overwrite; renaming must not mint a new owner outline.
@@ -236,7 +236,7 @@ export function mountCloudUi({
         outline.setRevision?.(revision);
       }
       if (revision == null) {
-        throw new Error('Missing outline revision; reopen from cloud and try again');
+        throw new Error('Missing outline revision; reopen from Google Drive and try again');
       }
 
       let leaseToken = null;
@@ -272,7 +272,7 @@ export function mountCloudUi({
       );
       if (!sorted.length) {
         const empty = document.createElement('li');
-        empty.textContent = 'No outlines yet. Save to cloud to create one.';
+        empty.textContent = 'No outlines yet. Save to Google Drive to create one.';
         listEl.appendChild(empty);
       } else {
         for (const item of sorted) {
@@ -332,13 +332,13 @@ export function mountCloudUi({
       if (shareHeading) shareHeading.textContent = 'Editable link';
       if (shareHint) {
         shareHint.textContent =
-          'Anyone with this link can view and edit the outline. Treat it like a password.';
+          'Anyone with this link can open the outline in Tameware Outliner and edit it (via Google Drive sharing). Treat it like a password.';
       }
     } else {
       if (shareHeading) shareHeading.textContent = 'Read-only link';
       if (shareHint) {
         shareHint.textContent =
-          'Anyone with this link can view the outline but not edit it.';
+          'Anyone with this link can open the outline in Tameware Outliner to view it (via Google Drive sharing).';
       }
     }
   }
@@ -361,7 +361,7 @@ export function mountCloudUi({
   async function onShare() {
     const id = outline.getOutlineId?.();
     if (!id) {
-      window.alert('Save this outline to the cloud before creating a read-only link.');
+      window.alert('Save this outline to Google Drive before creating a read-only link.');
       return;
     }
     await withBusy('Creating link…', async () => {
@@ -378,7 +378,7 @@ export function mountCloudUi({
   async function onShareEdit() {
     const id = outline.getOutlineId?.();
     if (!id) {
-      window.alert('Save this outline to the cloud before creating an editable link.');
+      window.alert('Save this outline to Google Drive before creating an editable link.');
       return;
     }
     await withBusy('Creating link…', async () => {

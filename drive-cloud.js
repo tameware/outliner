@@ -1,0 +1,211 @@
+/**
+ * Google Drive-backed outline storage (Tameware Outliner folder).
+ */
+
+import { CloudApiError } from './cloud.js';
+
+export { CloudApiError };
+
+export const APP_FOLDER_NAME = 'Tameware Outliner';
+export const OPML_MIME = 'application/xml';
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
+const DRIVE_FILES = 'https://www.googleapis.com/drive/v3/files';
+const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
+
+/**
+ * @param {object} options
+ * @param {() => Promise<string | null | undefined>} options.getAccessToken
+ * @param {typeof fetch} [options.fetch]
+ * @param {string} [options.urlPathPrefix] prefix for share links (default /outliner/)
+ */
+export function createDriveCloudClient({
+  getAccessToken,
+  fetch: fetchFn = globalThis.fetch,
+  urlPathPrefix = '/outliner/',
+}) {
+  /** @type {string | null} */
+  let folderId = null;
+
+  async function authHeader() {
+    const token = await getAccessToken();
+    if (!token) throw new CloudApiError('Not signed in', 401);
+    return { Authorization: `Bearer ${token}` };
+  }
+
+  async function driveFetch(url, init = {}) {
+    const headers = {
+      ...(await authHeader()),
+      ...(init.headers || {}),
+    };
+    const response = await fetchFn(url, { ...init, headers });
+    if (!response.ok) {
+      let body = null;
+      const text = await response.text();
+      try {
+        body = text ? JSON.parse(text) : null;
+      } catch {
+        body = text;
+      }
+      const detail =
+        (body && typeof body === 'object' && (body.error?.message || body.error || body.message)) ||
+        text ||
+        response.statusText;
+      throw new CloudApiError(String(detail || `HTTP ${response.status}`), response.status, body);
+    }
+    return response;
+  }
+
+  function titleFromName(name) {
+    const n = String(name || 'Untitled');
+    return n.replace(/\.opml$/i, '') || 'Untitled';
+  }
+
+  function fileNameForTitle(title) {
+    const base = String(title || 'Untitled').trim() || 'Untitled';
+    return /\.opml$/i.test(base) ? base : `${base}.opml`;
+  }
+
+  async function ensureAppFolder() {
+    if (folderId) return folderId;
+    const q = encodeURIComponent(
+      `name = '${APP_FOLDER_NAME.replace(/'/g, "\\'")}' and mimeType = '${FOLDER_MIME}' and trashed = false`,
+    );
+    const listUrl = `${DRIVE_FILES}?q=${q}&fields=files(id,name)&pageSize=1`;
+    const listed = await driveFetch(listUrl);
+    const data = await listed.json();
+    if (data.files?.length) {
+      folderId = data.files[0].id;
+      return folderId;
+    }
+    const created = await driveFetch(DRIVE_FILES, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: APP_FOLDER_NAME,
+        mimeType: FOLDER_MIME,
+      }),
+    });
+    const meta = await created.json();
+    folderId = meta.id;
+    return folderId;
+  }
+
+  async function ensureAnyonePermission(fileId, role) {
+    await driveFetch(`${DRIVE_FILES}/${encodeURIComponent(fileId)}/permissions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'anyone',
+        role,
+        allowFileDiscovery: false,
+      }),
+    });
+  }
+
+  function shareUrlPath(fileId, { readOnly }) {
+    const prefix = urlPathPrefix.endsWith('/') ? urlPathPrefix : `${urlPathPrefix}/`;
+    return readOnly ? `${prefix}?id=${encodeURIComponent(fileId)}&view=1` : `${prefix}?id=${encodeURIComponent(fileId)}`;
+  }
+
+  return {
+    async listOutlines() {
+      const parent = await ensureAppFolder();
+      const q = encodeURIComponent(
+        `'${parent}' in parents and trashed = false and (mimeType = '${OPML_MIME}' or mimeType = 'text/xml' or mimeType = 'text/x-opml' or name contains '.opml')`,
+      );
+      const url = `${DRIVE_FILES}?q=${q}&fields=files(id,name)&orderBy=name&pageSize=100`;
+      const response = await driveFetch(url);
+      const data = await response.json();
+      return (data.files || []).map((f) => ({
+        id: f.id,
+        title: titleFromName(f.name),
+      }));
+    },
+
+    /**
+     * @returns {Promise<{ opml: string, revision: string | null, title?: string | null }>}
+     */
+    async getOutline(id) {
+      const metaRes = await driveFetch(
+        `${DRIVE_FILES}/${encodeURIComponent(id)}?fields=name,etag`,
+      );
+      const meta = await metaRes.json();
+      const media = await driveFetch(
+        `${DRIVE_FILES}/${encodeURIComponent(id)}?alt=media`,
+      );
+      const opml = await media.text();
+      const etag = meta.etag || media.headers.get('ETag') || metaRes.headers.get('ETag');
+      return {
+        opml,
+        revision: etag || null,
+        title: titleFromName(meta.name),
+      };
+    },
+
+    async createOutline({ title, opml }) {
+      const parent = await ensureAppFolder();
+      const metadata = {
+        name: fileNameForTitle(title),
+        mimeType: OPML_MIME,
+        parents: [parent],
+      };
+      const boundary = 'outliner_boundary';
+      const body =
+        `--${boundary}\r\n` +
+        `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+        `${JSON.stringify(metadata)}\r\n` +
+        `--${boundary}\r\n` +
+        `Content-Type: ${OPML_MIME}\r\n\r\n` +
+        `${opml}\r\n` +
+        `--${boundary}--`;
+      const response = await driveFetch(
+        `${DRIVE_UPLOAD}?uploadType=multipart&fields=id,etag`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+          body,
+        },
+      );
+      const data = await response.json();
+      return { id: data.id, revision: data.etag || null };
+    },
+
+    async saveOutline(id, { opml, revision, title }) {
+      if (title) {
+        await driveFetch(`${DRIVE_FILES}/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: fileNameForTitle(title) }),
+        });
+      }
+      const headers = { 'Content-Type': OPML_MIME };
+      if (revision != null && revision !== '') headers['If-Match'] = String(revision);
+      const response = await driveFetch(
+        `${DRIVE_UPLOAD}/${encodeURIComponent(id)}?uploadType=media&fields=id,etag`,
+        {
+          method: 'PATCH',
+          headers,
+          body: opml,
+        },
+      );
+      const data = await response.json();
+      return { id: data.id || id, revision: data.etag || null };
+    },
+
+    async acquireLock() {
+      return { token: 'drive', leaseUntil: '' };
+    },
+
+    async releaseLock() {},
+
+    async createShareLink(id) {
+      await ensureAnyonePermission(id, 'reader');
+      return { token: id, urlPath: shareUrlPath(id, { readOnly: true }) };
+    },
+
+    async createEditShareLink(id) {
+      await ensureAnyonePermission(id, 'writer');
+      return { token: id, urlPath: shareUrlPath(id, { readOnly: false }) };
+    },
+  };
+}

@@ -14,15 +14,14 @@ import {
 } from './outliner.js';
 import {
   isCloudConfigured,
-  createCloudClient,
   loadCloudConfig,
   outlineIdFromLocation,
   locationWithOutlineId,
-  viewTokenFromLocation,
-  editTokenFromLocation,
+  isReadOnlyViewFromLocation,
 } from './cloud.js';
+import { createDriveCloudClient } from './drive-cloud.js';
 import { mountCloudUi } from './cloud-ui.js';
-import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
+import { createGoogleAuth, createNullAuth } from './auth-google.js';
 import { applyReadOnlyToolbar } from './readonly-toolbar.js';
 import { createOutlineHistory } from './clear-outline-ui.js';
 import { matchPromoteDemoteShortcut } from './promote-demote-keys.js';
@@ -68,35 +67,10 @@ outlineHistory.bindShortcuts(root);
 let currentOutlineId = outlineIdFromLocation(window.location);
 let currentRevision = null;
 let leaseToken = null;
-const viewToken = viewTokenFromLocation(window.location);
-const editToken = editTokenFromLocation(window.location);
+const readOnlyShare = isReadOnlyViewFromLocation(window.location);
 /** @type {{ saveCurrent: () => Promise<boolean> } | null} */
 let cloudUi = null;
 let cloudSaveAvailable = false;
-
-/**
- * When opened via ?edit=, map owner cloud methods onto edit-token endpoints.
- * @param {ReturnType<typeof createCloudClient>} cloud
- * @param {string} token
- */
-function cloudWithEditToken(cloud, token) {
-  return {
-    ...cloud,
-    async getOutline() {
-      const got = await cloud.getEditableOutline(token);
-      return { opml: got.opml, revision: got.revision };
-    },
-    async saveOutline(_id, args) {
-      return cloud.saveEditableOutline(token, args);
-    },
-    async acquireLock() {
-      return cloud.acquireEditLock(token);
-    },
-    async releaseLock(_id, lease) {
-      return cloud.releaseEditLock(token, lease);
-    },
-  };
-}
 
 const dirty = createDirtyTracker({
   getSnapshot: () => toOpml(root, { title: document.title || 'Outline' }),
@@ -132,7 +106,9 @@ dirty.markClean();
 
 function syncUrl(id) {
   currentOutlineId = id;
-  const next = locationWithOutlineId(window.location, id);
+  const next = locationWithOutlineId(window.location, id, {
+    readOnly: readOnlyShare,
+  });
   window.history.replaceState(null, '', next);
 }
 
@@ -283,62 +259,10 @@ async function initCloud() {
   let cloud = null;
 
   if (configured) {
-    cloud = createCloudClient({
-      apiBase: cloudConfig.apiBase,
-      getIdToken: () => auth.getIdToken(),
+    auth = createGoogleAuth({ clientId: cloudConfig.googleClientId });
+    cloud = createDriveCloudClient({
+      getAccessToken: () => auth.getAccessToken(),
     });
-  }
-
-  if (configured && cloudConfig.firebase && !viewToken && !editToken) {
-    try {
-      const [{ initializeApp }, authMod] = await Promise.all([
-        import('https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js'),
-        import('https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js'),
-      ]);
-      auth = await createFirebaseAuth(cloudConfig.firebase, {
-        app: { initializeApp },
-        auth: authMod,
-      });
-      cloud = createCloudClient({
-        apiBase: cloudConfig.apiBase,
-        getIdToken: () => auth.getIdToken(),
-      });
-    } catch (error) {
-      console.error('Firebase Auth failed to initialize', error);
-    }
-  }
-
-  if (configured && cloud && viewToken) {
-    try {
-      const got = await cloud.getSharedOutline(viewToken);
-      const tree = parseOpml(got.opml);
-      loadOutline(root, tree);
-      setReadOnly(root, true);
-      applyReadOnlyToolbar(document.querySelector('.menubar'));
-      if (got.title) document.title = got.title;
-      dirty.markClean();
-    } catch (error) {
-      console.warn('Could not load shared outline', error);
-      window.alert('Could not open read-only link: ' + (error?.message || error));
-    }
-  }
-
-  if (configured && cloud && editToken && !viewToken) {
-    try {
-      const got = await cloud.getEditableOutline(editToken);
-      const tree = parseOpml(got.opml);
-      loadOutline(root, tree);
-      if (got.id) currentOutlineId = got.id;
-      currentRevision = got.revision ?? null;
-      leaseToken = null;
-      if (got.title) document.title = got.title;
-      dirty.markClean();
-      const item = root.querySelector('[data-item]');
-      if (item) focusItem(item);
-    } catch (error) {
-      console.warn('Could not load editable outline', error);
-      window.alert('Could not open editable link: ' + (error?.message || error));
-    }
   }
 
   const nullCloud = {
@@ -350,27 +274,14 @@ async function initCloud() {
     async releaseLock() {},
     async createShareLink() { return { token: '', urlPath: '' }; },
     async createEditShareLink() { return { token: '', urlPath: '' }; },
-    async getSharedOutline() { return { opml: '', title: null }; },
-    async getEditableOutline() {
-      return { opml: '', title: null, revision: null, id: null };
-    },
-    async saveEditableOutline() { return {}; },
-    async acquireEditLock() { return { token: '' }; },
-    async releaseEditLock() {},
   };
-
-  let sessionCloud = cloud || nullCloud;
-  if (cloud && editToken && !viewToken) {
-    sessionCloud = cloudWithEditToken(cloud, editToken);
-  }
 
   cloudSaveAvailable = configured;
   cloudUi = mountCloudUi({
     configured,
-    readOnlyView: Boolean(viewToken),
-    editShareMode: Boolean(editToken) && !viewToken,
+    readOnlyView: readOnlyShare,
     auth,
-    cloud: sessionCloud,
+    cloud: cloud || nullCloud,
     outline: {
       root,
       toOpml: () => toOpml(root, { title: document.title || 'Outline' }),
@@ -398,33 +309,39 @@ async function initCloud() {
       setLeaseToken: (token) => {
         leaseToken = token;
       },
-      syncUrl: editToken
-        ? () => {
-            /* keep ?edit= in the address bar */
-          }
-        : syncUrl,
+      syncUrl: (id) => syncUrl(id),
       beforeReplace,
       markClean: () => dirty.markClean(),
     },
   });
 
-  if (configured && cloud && currentOutlineId && !viewToken && !editToken) {
+  if (readOnlyShare) {
+    setReadOnly(root, true);
+    applyReadOnlyToolbar(document.querySelector('.menubar'));
+  }
+
+  if (configured && cloud && currentOutlineId) {
     auth.onAuthStateChanged(async (user) => {
       if (!user || !currentOutlineId) return;
       try {
         const got = await cloud.getOutline(currentOutlineId);
-        const opml = typeof got === 'string' ? got : got.opml;
-        const tree = parseOpml(opml);
+        const tree = parseOpml(got.opml);
         loadOutline(root, tree);
-        if (tree.title) document.title = tree.title;
-        currentRevision =
-          typeof got === 'string' ? null : (got.revision ?? null);
+        if (got.title || tree.title) document.title = got.title || tree.title;
+        currentRevision = got.revision ?? null;
         leaseToken = null;
         dirty.markClean();
+        if (readOnlyShare) {
+          setReadOnly(root, true);
+          applyReadOnlyToolbar(document.querySelector('.menubar'));
+        }
         const item = root.querySelector('[data-item]');
         if (item) focusItem(item);
       } catch (error) {
-        console.warn('Could not load outline from URL', error);
+        console.warn('Could not load outline from Google Drive', error);
+        window.alert(
+          'Could not open outline from Google Drive: ' + (error?.message || error),
+        );
       }
     });
   }

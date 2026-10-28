@@ -1,24 +1,12 @@
 /**
- * Optional cloud save/restore client for a GCP (or compatible) backend.
+ * Cloud config helpers and outline deep-link URL utilities.
  *
- * Expected API (Bearer Firebase / Google ID token):
- *   GET    /api/outlines
- *   POST   /api/outlines          body: OPML, header X-Outline-Title optional
- *   GET    /api/outlines/:id      body: OPML
- *   PUT    /api/outlines/:id      body: OPML, If-Match: revision
- *   POST   /api/outlines/:id/lock
- *   DELETE /api/outlines/:id/lock header X-Lease-Token
- *   POST   /api/outlines/:id/share
- *   GET    /api/outlines/shared/:token   (no auth; read-only)
- *   POST   /api/outlines/:id/share-edit
- *   GET    /api/outlines/edit/:token     (no auth; editable)
- *   PUT    /api/outlines/edit/:token     (no auth; If-Match + lease)
- *   POST   /api/outlines/edit/:token/lock
- *   DELETE /api/outlines/edit/:token/lock
+ * Storage is Google Drive (see drive-cloud.js). Auth is Google Identity Services
+ * (see auth-google.js). Configured when `googleClientId` is set.
  */
 
 /**
- * @typedef {{ apiBase: string, firebase?: object }} CloudConfig
+ * @typedef {{ googleClientId: string }} CloudConfig
  */
 
 export class CloudApiError extends Error {
@@ -37,7 +25,9 @@ export class CloudApiError extends Error {
 
 /** @param {CloudConfig | null | undefined} config */
 export function isCloudConfigured(config) {
-  return Boolean(config && typeof config.apiBase === 'string' && config.apiBase.trim());
+  return Boolean(
+    config && typeof config.googleClientId === 'string' && config.googleClientId.trim(),
+  );
 }
 
 /**
@@ -65,10 +55,6 @@ export async function loadCloudConfig(importer = (specifier) => import(specifier
   }
 }
 
-function normalizeBase(apiBase) {
-  return String(apiBase).replace(/\/+$/, '');
-}
-
 /**
  * @param {{ search?: string, hash?: string }} locationLike
  * @returns {string | null}
@@ -82,12 +68,14 @@ export function outlineIdFromLocation(locationLike) {
 /**
  * @param {{ pathname?: string, search?: string, hash?: string }} locationLike
  * @param {string | null} id
+ * @param {{ readOnly?: boolean }} [options]
  */
-export function locationWithOutlineId(locationLike, id) {
+export function locationWithOutlineId(locationLike, id, options = {}) {
   const params = new URLSearchParams(locationLike.search || '');
   if (id) params.set('id', id);
   else params.delete('id');
-  params.delete('view');
+  if (options.readOnly) params.set('view', '1');
+  else params.delete('view');
   params.delete('edit');
   const qs = params.toString();
   const path = locationLike.pathname || '/';
@@ -96,292 +84,10 @@ export function locationWithOutlineId(locationLike, id) {
 }
 
 /**
+ * Read-only share deep link (`?view=1` with an outline id).
  * @param {{ search?: string, hash?: string }} locationLike
- * @returns {string | null}
  */
-export function viewTokenFromLocation(locationLike) {
+export function isReadOnlyViewFromLocation(locationLike) {
   const params = new URLSearchParams(locationLike.search || '');
-  const token = params.get('view');
-  return token && token.trim() ? token.trim() : null;
-}
-
-/**
- * @param {{ pathname?: string, search?: string, hash?: string }} locationLike
- * @param {string | null} token
- */
-export function locationWithViewToken(locationLike, token) {
-  const params = new URLSearchParams();
-  if (token) params.set('view', token);
-  const qs = params.toString();
-  const path = locationLike.pathname || '/';
-  const hash = locationLike.hash || '';
-  return qs ? `${path}?${qs}${hash}` : `${path}${hash}`;
-}
-
-/**
- * @param {{ search?: string, hash?: string }} locationLike
- * @returns {string | null}
- */
-export function editTokenFromLocation(locationLike) {
-  const params = new URLSearchParams(locationLike.search || '');
-  const token = params.get('edit');
-  return token && token.trim() ? token.trim() : null;
-}
-
-/**
- * @param {{ pathname?: string, search?: string, hash?: string }} locationLike
- * @param {string | null} token
- */
-export function locationWithEditToken(locationLike, token) {
-  const params = new URLSearchParams();
-  if (token) params.set('edit', token);
-  const qs = params.toString();
-  const path = locationLike.pathname || '/';
-  const hash = locationLike.hash || '';
-  return qs ? `${path}?${qs}${hash}` : `${path}${hash}`;
-}
-
-/**
- * @param {object} options
- * @param {string} options.apiBase
- * @param {() => Promise<string | null | undefined>} options.getIdToken
- * @param {typeof fetch} [options.fetch]
- */
-export function createCloudClient({ apiBase, getIdToken, fetch: fetchFn = globalThis.fetch }) {
-  const base = normalizeBase(apiBase);
-
-  async function authHeaders(extra = {}) {
-    const token = await getIdToken();
-    if (!token) {
-      throw new CloudApiError('Not signed in', 401);
-    }
-    return {
-      Authorization: `Bearer ${token}`,
-      ...extra,
-    };
-  }
-
-  async function request(path, init = {}) {
-    const headers = await authHeaders(init.headers || {});
-    const response = await fetchFn(`${base}${path}`, { ...init, headers });
-    if (!response.ok) {
-      let body = null;
-      const text = await response.text();
-      try {
-        body = text ? JSON.parse(text) : null;
-      } catch {
-        body = text;
-      }
-      const detail =
-        (body && typeof body === 'object' && (body.error || body.message)) ||
-        text ||
-        response.statusText;
-      throw new CloudApiError(String(detail || `HTTP ${response.status}`), response.status, body);
-    }
-    if (response.status === 204) return null;
-    const type = response.headers.get('Content-Type') || '';
-    if (type.includes('json')) return response.json();
-    return response.text();
-  }
-
-  function revisionFromHeaders(response) {
-    const raw =
-      response.headers.get('X-Outline-Revision') ||
-      response.headers.get('ETag') ||
-      '';
-    const n = Number.parseInt(String(raw).replaceAll('"', '').trim(), 10);
-    return Number.isFinite(n) ? n : null;
-  }
-
-  /**
-   * Public fetch without Bearer (shared or editable).
-   * @param {string} path
-   */
-  async function publicOutlineGet(path) {
-    const response = await fetchFn(`${base}${path}`);
-    if (!response.ok) {
-      const text = await response.text();
-      let body = null;
-      try {
-        body = text ? JSON.parse(text) : null;
-      } catch {
-        body = text;
-      }
-      const detail =
-        (body && typeof body === 'object' && (body.error || body.message)) ||
-        text ||
-        response.statusText;
-      throw new CloudApiError(String(detail || `HTTP ${response.status}`), response.status, body);
-    }
-    const opml = await response.text();
-    return { response, opml };
-  }
-
-  /**
-   * Public JSON/empty request without Bearer (edit-token write paths).
-   * @param {string} path
-   * @param {RequestInit} [init]
-   */
-  async function publicRequest(path, init = {}) {
-    const response = await fetchFn(`${base}${path}`, init);
-    if (!response.ok) {
-      const text = await response.text();
-      let body = null;
-      try {
-        body = text ? JSON.parse(text) : null;
-      } catch {
-        body = text;
-      }
-      const detail =
-        (body && typeof body === 'object' && (body.error || body.message)) ||
-        text ||
-        response.statusText;
-      throw new CloudApiError(String(detail || `HTTP ${response.status}`), response.status, body);
-    }
-    if (response.status === 204) return null;
-    const type = response.headers.get('Content-Type') || '';
-    if (type.includes('json')) return response.json();
-    return response.text();
-  }
-
-  return {
-    async listOutlines() {
-      const data = await request('/api/outlines');
-      return data?.outlines ?? data ?? [];
-    },
-
-    /**
-     * @returns {Promise<{ opml: string, revision: number | null }>}
-     */
-    async getOutline(id) {
-      const headers = await authHeaders();
-      const response = await fetchFn(`${base}/api/outlines/${encodeURIComponent(id)}`, {
-        headers,
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        let body = null;
-        try {
-          body = text ? JSON.parse(text) : null;
-        } catch {
-          body = text;
-        }
-        const detail =
-          (body && typeof body === 'object' && (body.error || body.message)) ||
-          text ||
-          response.statusText;
-        throw new CloudApiError(String(detail || `HTTP ${response.status}`), response.status, body);
-      }
-      const opml = await response.text();
-      return { opml, revision: revisionFromHeaders(response) };
-    },
-
-    async createOutline({ title, opml }) {
-      return request('/api/outlines', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/xml',
-          ...(title ? { 'X-Outline-Title': title } : {}),
-        },
-        body: opml,
-      });
-    },
-
-    async saveOutline(id, { opml, revision, leaseToken, title }) {
-      const headers = {
-        'Content-Type': 'application/xml',
-      };
-      if (revision != null) headers['If-Match'] = String(revision);
-      if (leaseToken) headers['X-Lease-Token'] = leaseToken;
-      if (title) headers['X-Outline-Title'] = title;
-      return request(`/api/outlines/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        headers,
-        body: opml,
-      });
-    },
-
-    async acquireLock(id) {
-      return request(`/api/outlines/${encodeURIComponent(id)}/lock`, {
-        method: 'POST',
-      });
-    },
-
-    async releaseLock(id, leaseToken) {
-      return request(`/api/outlines/${encodeURIComponent(id)}/lock`, {
-        method: 'DELETE',
-        headers: leaseToken ? { 'X-Lease-Token': leaseToken } : {},
-      });
-    },
-
-    async createShareLink(id) {
-      return request(`/api/outlines/${encodeURIComponent(id)}/share`, {
-        method: 'POST',
-      });
-    },
-
-    async createEditShareLink(id) {
-      return request(`/api/outlines/${encodeURIComponent(id)}/share-edit`, {
-        method: 'POST',
-      });
-    },
-
-    /**
-     * Public read-only fetch (no Bearer token).
-     * @returns {Promise<{ opml: string, title: string | null, revision: number | null }>}
-     */
-    async getSharedOutline(shareToken) {
-      const { response, opml } = await publicOutlineGet(
-        `/api/outlines/shared/${encodeURIComponent(shareToken)}`,
-      );
-      return {
-        opml,
-        title: response.headers.get('X-Outline-Title'),
-        revision: revisionFromHeaders(response),
-      };
-    },
-
-    /**
-     * Public editable fetch (no Bearer token).
-     * @returns {Promise<{ opml: string, title: string | null, revision: number | null, id: string | null }>}
-     */
-    async getEditableOutline(editToken) {
-      const { response, opml } = await publicOutlineGet(
-        `/api/outlines/edit/${encodeURIComponent(editToken)}`,
-      );
-      return {
-        opml,
-        title: response.headers.get('X-Outline-Title'),
-        revision: revisionFromHeaders(response),
-        id: response.headers.get('X-Outline-Id'),
-      };
-    },
-
-    async saveEditableOutline(editToken, { opml, revision, leaseToken, title }) {
-      const headers = {
-        'Content-Type': 'application/xml',
-      };
-      if (revision != null) headers['If-Match'] = String(revision);
-      if (leaseToken) headers['X-Lease-Token'] = leaseToken;
-      if (title) headers['X-Outline-Title'] = title;
-      return publicRequest(`/api/outlines/edit/${encodeURIComponent(editToken)}`, {
-        method: 'PUT',
-        headers,
-        body: opml,
-      });
-    },
-
-    async acquireEditLock(editToken) {
-      return publicRequest(`/api/outlines/edit/${encodeURIComponent(editToken)}/lock`, {
-        method: 'POST',
-      });
-    },
-
-    async releaseEditLock(editToken, leaseToken) {
-      return publicRequest(`/api/outlines/edit/${encodeURIComponent(editToken)}/lock`, {
-        method: 'DELETE',
-        headers: leaseToken ? { 'X-Lease-Token': leaseToken } : {},
-      });
-    },
-  };
+  return params.get('view') === '1';
 }
