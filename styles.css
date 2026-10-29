@@ -60,6 +60,15 @@ body {
   margin: 0;
 }
 
+.document-title {
+  margin: 0.65rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
 .legal-back {
   margin: 0 0 0.5rem;
   font-size: 0.9rem;

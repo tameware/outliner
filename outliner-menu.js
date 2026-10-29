@@ -1,7 +1,7 @@
 /** Product / help menu for the Outliner app chrome. */
 
 /** Display version: major.minor only. */
-export const OUTLINER_VERSION = '1.16';
+export const OUTLINER_VERSION = '1.17';
 
 /** ISO date the shipped code was last updated (bump when shipping meaningful changes). */
 export const OUTLINER_UPDATED = '2026-10-29';

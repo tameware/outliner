@@ -42,6 +42,7 @@ import {
 import { mountMenubar } from './menubar.js';
 import { mountOutlinerMenu } from './outliner-menu.js';
 import { applyMenuShortcuts } from './menu-shortcuts.js';
+import { syncDocumentTitleDisplay } from './document-title.js';
 import { createDirtyTracker } from './dirty-tracker.js';
 import {
   offerSaveIfDirty,
@@ -54,9 +55,18 @@ import {
 
 const rootEl = document.querySelector('[data-outline-root]');
 const menubar = document.querySelector('.menubar');
+const documentTitleEl = document.getElementById('document-title');
+
+function applyDocumentTitle(title) {
+  const next = String(title ?? '').trim();
+  if (next) document.title = next;
+  syncDocumentTitleDisplay(documentTitleEl);
+}
+
 mountMenubar(menubar);
 mountOutlinerMenu(document);
 applyMenuShortcuts(document);
+syncDocumentTitleDisplay(documentTitleEl);
 
 const outlineHistory = createOutlineHistory({
   getRoot: () => rootEl,
@@ -246,7 +256,7 @@ document.getElementById('menu-revert').addEventListener('click', () => {
     parseOpml,
     loadOutline,
     setTitle: (title) => {
-      if (title) document.title = title;
+      applyDocumentTitle(title);
     },
     run: (mutate) => outlineHistory.run(mutate),
   });
@@ -294,7 +304,7 @@ fileInput.addEventListener('change', async () => {
     }
     loadOutline(root, tree);
     outlineHistory.discard();
-    if (tree.title) document.title = tree.title;
+    if (tree.title) applyDocumentTitle(tree.title);
     dirty.markClean();
     const first = root.querySelector('[data-item]');
     if (first) focusItem(first);
@@ -351,7 +361,7 @@ async function initCloud() {
       loadOutline: (tree) => {
         loadOutline(root, tree);
         outlineHistory.discard();
-        if (tree.title) document.title = tree.title;
+        if (tree.title) applyDocumentTitle(tree.title);
         const item = root.querySelector('[data-item]');
         if (item) focusItem(item);
       },
@@ -364,7 +374,7 @@ async function initCloud() {
       },
       getTitle: () => document.title || 'Outline',
       setTitle: (title) => {
-        if (title) document.title = title;
+        applyDocumentTitle(title);
       },
       getOutlineId: () => currentOutlineId,
       setOutlineId: (id) => {
@@ -402,7 +412,7 @@ async function initCloud() {
       applyOutline: async (got) => {
         const tree = parseOpml(got.opml);
         loadOutline(root, tree);
-        if (got.title || tree.title) document.title = got.title || tree.title;
+        if (got.title || tree.title) applyDocumentTitle(got.title || tree.title);
         if (got.fileId) currentOutlineId = got.fileId;
         currentRevision = got.revision ?? null;
         leaseToken = null;
