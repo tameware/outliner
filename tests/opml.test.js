@@ -153,4 +153,31 @@ describe('OPML save and restore', () => {
       { text: 'Only', children: [] },
     ]);
   });
+
+  it('round-trips red hearts and diamonds through OPML', () => {
+    loadOutline(root, {
+      title: 'Suits',
+      items: [
+        {
+          text: `AK♥ vs ♦`,
+          children: [],
+          expanded: true,
+        },
+      ],
+    });
+    const before = root.querySelector('.text');
+    assert.deepEqual(
+      [...before.querySelectorAll('.suit-red')].map((n) => n.textContent),
+      ['♥', '♦'],
+    );
+
+    const xml = toOpml(root, { title: 'Suits' });
+    loadOutline(root, parseOpml(xml));
+    const after = root.querySelector('.text');
+    assert.equal(after.textContent, 'AK♥ vs ♦');
+    assert.deepEqual(
+      [...after.querySelectorAll('.suit-red')].map((n) => n.textContent),
+      ['♥', '♦'],
+    );
+  });
 });

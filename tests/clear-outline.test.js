@@ -599,4 +599,33 @@ describe('undo/redo preserves focus', () => {
     assert.equal(focusedText(), 'A');
     assert.equal(caretOffset(), 1);
   });
+
+  it('keeps red hearts and diamonds after undoing an inserted line', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'Lead ♥', children: [] },
+        { text: 'Discard ♦', children: [] },
+      ],
+    });
+    const lines = [...root.querySelectorAll('[data-item] .text')];
+    assert.equal(lines[0].querySelector('.suit-red')?.textContent, '♥');
+    assert.equal(lines[1].querySelector('.suit-red')?.textContent, '♦');
+
+    const first = root.querySelector('[data-item]');
+    placeCaret(first.querySelector('.text'), 1);
+    first.querySelector('.text').dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.deepEqual(getItemTexts(root), ['Lead ♥', '', 'Discard ♦']);
+
+    history.undo();
+    assert.deepEqual(getItemTexts(root), ['Lead ♥', 'Discard ♦']);
+    const restored = [...root.querySelectorAll('[data-item] .text')];
+    assert.equal(restored[0].querySelector('.suit-red')?.textContent, '♥');
+    assert.equal(restored[1].querySelector('.suit-red')?.textContent, '♦');
+  });
 });

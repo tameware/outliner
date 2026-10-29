@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom';
 import {
   matchSuitShortcut,
   tryInsertSuitShortcut,
+  fillTextWithSuits,
   SUIT_GLYPHS,
 } from '../suit-shortcuts.js';
 import { mountOutliner, getItemText } from '../outliner.js';
@@ -22,6 +23,34 @@ describe('suit shortcuts', () => {
     assert.equal(matchSuitShortcut('!c', 'c'), null);
     assert.equal(matchSuitShortcut('!', 'x'), null);
     assert.equal(matchSuitShortcut('', 'c'), null);
+  });
+
+  describe('fillTextWithSuits', () => {
+    it('wraps hearts and diamonds in red while leaving black suits as text', () => {
+      const dom = new JSDOM('<!DOCTYPE html><body><div class="text"></div></body>', {
+        url: 'http://localhost/',
+      });
+      globalThis.document = dom.window.document;
+      const el = document.querySelector('.text');
+      const plain = `A${SUIT_GLYPHS.spades}K${SUIT_GLYPHS.hearts} vs ${SUIT_GLYPHS.diamonds}${SUIT_GLYPHS.clubs}`;
+      fillTextWithSuits(el, plain);
+      assert.equal(el.textContent, plain);
+      const reds = [...el.querySelectorAll('.suit-red')].map((n) => n.textContent);
+      assert.deepEqual(reds, [SUIT_GLYPHS.hearts, SUIT_GLYPHS.diamonds]);
+      assert.equal(el.querySelector('.suit-red')?.className, 'suit suit-red');
+    });
+
+    it('clears the element when given empty text', () => {
+      const dom = new JSDOM(
+        `<!DOCTYPE html><body><div class="text"><span class="suit suit-red">${SUIT_GLYPHS.hearts}</span></div></body>`,
+        { url: 'http://localhost/' },
+      );
+      globalThis.document = dom.window.document;
+      const el = document.querySelector('.text');
+      fillTextWithSuits(el, '');
+      assert.equal(el.textContent, '');
+      assert.equal(el.childNodes.length, 0);
+    });
   });
 
   describe('DOM insertion', () => {

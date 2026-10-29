@@ -43,6 +43,34 @@ export function createSuitNode(glyph) {
 }
 
 /**
+ * Replace an element's children with plain text, wrapping ♥/♦ in `.suit-red`.
+ * Used when restoring lines from OPML (undo/load) so red suits stay red.
+ * @param {HTMLElement} el
+ * @param {string} text
+ */
+export function fillTextWithSuits(el, text) {
+  el.replaceChildren();
+  const value = String(text ?? '');
+  if (!value) return;
+
+  let buf = '';
+  const flush = () => {
+    if (!buf) return;
+    el.appendChild(document.createTextNode(buf));
+    buf = '';
+  };
+  for (const ch of value) {
+    if (isRedSuit(ch)) {
+      flush();
+      el.appendChild(createSuitNode(ch));
+    } else {
+      buf += ch;
+    }
+  }
+  flush();
+}
+
+/**
  * @param {string} textBeforeCaret
  * @param {string} key
  * @returns {string | null} glyph to insert, or null if no match

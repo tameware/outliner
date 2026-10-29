@@ -4,7 +4,7 @@
  * Supports expand/collapse, inline editing, add/remove, promote/demote.
  */
 
-import { tryInsertSuitShortcut } from './suit-shortcuts.js';
+import { fillTextWithSuits, tryInsertSuitShortcut } from './suit-shortcuts.js';
 import {
   bindDealDiagrams,
   isDealDiagramItem,
@@ -116,7 +116,7 @@ export function createItem(text = '') {
   textNode.setAttribute('contenteditable', 'true');
   textNode.contentEditable = 'true';
   textNode.spellcheck = true;
-  textNode.textContent = text;
+  fillTextWithSuits(textNode, text);
 
   row.append(btn, textNode);
   li.append(row);
