@@ -100,6 +100,18 @@ describe('OPML save and restore', () => {
     assert.notEqual(toOpml(root, { title: 'T' }), fullBefore);
   });
 
+  it('writes and parses OPML dateModified', () => {
+    const when = new Date('2026-10-29T15:04:05.000Z');
+    const xml = toOpml(root, { title: 'Dated', dateModified: when });
+    assert.match(xml, /<dateModified>Thu, 29 Oct 2026 15:04:05 GMT<\/dateModified>/);
+    const tree = parseOpml(xml);
+    assert.equal(tree.dateModified?.toISOString(), when.toISOString());
+
+    const bare = parseOpml(`<?xml version="1.0"?>
+      <opml version="2.0"><head><title>X</title></head><body><outline text="A"/></body></opml>`);
+    assert.equal(bare.dateModified, null);
+  });
+
   it('parses OPML back into a tree preserving hierarchy and text', () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
       <opml version="2.0">

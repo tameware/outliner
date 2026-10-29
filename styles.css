@@ -60,13 +60,31 @@ body {
   margin: 0;
 }
 
-.document-title {
+.document-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1.25rem;
   margin: 0.65rem 0 0;
+}
+
+.document-title {
+  margin: 0;
   font-family: var(--font-ui);
   font-size: 1.15rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
+}
+
+.document-updated {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .legal-back {

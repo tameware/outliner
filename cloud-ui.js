@@ -224,6 +224,8 @@ export function mountCloudUi({
         (forceNew || (Boolean(id) && name !== previousTitle));
 
       outline.setTitle?.(name);
+      const savedAt = new Date();
+      outline.setUpdatedAt?.(savedAt);
       const opml = outline.toOpml();
 
       if (!id || saveAsNew) {
@@ -396,6 +398,9 @@ export function mountCloudUi({
       const opml = typeof got === 'string' ? got : got.opml;
       const revision = typeof got === 'string' ? null : got.revision;
       const tree = outline.parseOpml(opml);
+      const modifiedTime =
+        typeof got === 'string' ? null : got.modifiedTime || tree.dateModified;
+      outline.setUpdatedAt?.(modifiedTime ?? null);
       outline.loadOutline(tree);
       outline.setOutlineId?.(id);
       outline.setRevision?.(revision ?? tree.revision ?? null);

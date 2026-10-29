@@ -47,7 +47,11 @@ import { clearCloudOutlineBinding } from './cloud-binding.js';
 import { mountMenubar } from './menubar.js';
 import { mountOutlinerMenu } from './outliner-menu.js';
 import { applyMenuShortcuts } from './menu-shortcuts.js';
-import { syncDocumentTitleDisplay } from './document-title.js';
+import {
+  syncDocumentTitleDisplay,
+  syncDocumentUpdatedDisplay,
+  coerceDocumentUpdatedAt,
+} from './document-title.js';
 import {
   focusOutlineItem,
   unfocusOutline,
@@ -75,6 +79,10 @@ import {
 const rootEl = document.querySelector('[data-outline-root]');
 const menubar = document.querySelector('.menubar');
 const documentTitleEl = document.getElementById('document-title');
+const documentUpdatedEl = document.getElementById('document-updated');
+
+/** @type {Date | null} */
+let documentUpdatedAt = null;
 
 function applyDocumentTitle(title) {
   const next = String(title ?? '').trim();
@@ -82,10 +90,19 @@ function applyDocumentTitle(title) {
   syncDocumentTitleDisplay(documentTitleEl);
 }
 
+/**
+ * @param {Date | string | number | null | undefined} date
+ */
+function applyDocumentUpdated(date) {
+  documentUpdatedAt = coerceDocumentUpdatedAt(date);
+  syncDocumentUpdatedDisplay(documentUpdatedEl, documentUpdatedAt);
+}
+
 mountMenubar(menubar);
 mountOutlinerMenu(document);
 applyMenuShortcuts(document);
 syncDocumentTitleDisplay(documentTitleEl);
+syncDocumentUpdatedDisplay(documentUpdatedEl, null);
 
 const outlineHistory = createOutlineHistory({
   getRoot: () => rootEl,
@@ -297,10 +314,11 @@ function syncLocalSaveLabel() {
 syncLocalSaveLabel();
 
 /**
- * @param {{ title?: string, items?: unknown[] }} tree
+ * @param {{ title?: string, items?: unknown[], dateModified?: Date | null }} tree
  * @param {string} [fallbackName]
+ * @param {{ updatedAt?: Date | string | number | null }} [meta]
  */
-function applyOpenedLocalOutline(tree, fallbackName) {
+function applyOpenedLocalOutline(tree, fallbackName, meta = {}) {
   hideOutlineLoading(root);
   // File Open replaces the document — do not overwrite the previously opened Drive file.
   clearCloudOutlineBinding({
@@ -323,6 +341,7 @@ function applyOpenedLocalOutline(tree, fallbackName) {
     const base = String(fallbackName).replace(/\.opml$/i, '').trim();
     if (base) applyDocumentTitle(base);
   }
+  applyDocumentUpdated(meta.updatedAt ?? tree.dateModified ?? null);
   dirty.markClean();
   syncFocusMenus();
   syncRevert();
@@ -351,7 +370,9 @@ async function openLocalOutline() {
       const tree = parseOpml(picked.text);
       localFileHandle = picked.handle;
       syncLocalSaveLabel();
-      applyOpenedLocalOutline(tree, picked.name);
+      applyOpenedLocalOutline(tree, picked.name, {
+        updatedAt: tree.dateModified,
+      });
       return;
     } catch (error) {
       hideOutlineLoading(root);
@@ -375,7 +396,8 @@ async function openLocalOutline() {
  */
 async function saveLocalOutline({ forcePicker = false } = {}) {
   const title = document.title || 'Outline';
-  const opml = toOpml(root, { title });
+  const updatedAt = new Date();
+  const opml = toOpml(root, { title, dateModified: updatedAt });
   const filename = suggestedOpmlFilename(title);
 
   try {
@@ -384,13 +406,15 @@ async function saveLocalOutline({ forcePicker = false } = {}) {
       suggestedName: filename,
       existingHandle: localFileHandle,
       forcePicker,
-      download: () => downloadOpml(root, { title, filename }),
+      download: () =>
+        downloadOpml(root, { title, filename, dateModified: updatedAt }),
     });
     if (!result.ok) return false;
     if (result.handle) {
       localFileHandle = result.handle;
       syncLocalSaveLabel();
     }
+    applyDocumentUpdated(updatedAt);
     dirty.markClean();
     syncRevert();
     return true;
@@ -509,11 +533,17 @@ fileInput.addEventListener('change', async () => {
       return;
     }
     clearLocalFileHandle();
-    applyOpenedLocalOutline(tree, file.name);
+    applyOpenedLocalOutline(tree, file.name, {
+      updatedAt: tree.dateModified ?? file.lastModified,
+    });
   } catch (error) {
     hideOutlineLoading(root);
     window.alert('Could not open OPML file: ' + (error?.message || error));
   }
+});
+
+root.addEventListener('input', () => {
+  applyDocumentUpdated(new Date());
 });
 
 const first = root.querySelector('[data-item]');
@@ -559,7 +589,11 @@ async function initCloud() {
     cloud: cloud || nullCloud,
     outline: {
       root,
-      toOpml: () => toOpml(root, { title: document.title || 'Outline' }),
+      toOpml: () =>
+        toOpml(root, {
+          title: document.title || 'Outline',
+          dateModified: documentUpdatedAt ?? new Date(),
+        }),
       parseOpml,
       beginLoading: () => {
         showOutlineLoading(root, { loadOutline });
@@ -575,9 +609,13 @@ async function initCloud() {
         loadOutline(root, tree);
         outlineHistory.discard();
         if (tree.title) applyDocumentTitle(tree.title);
+        applyDocumentUpdated(tree.dateModified ?? documentUpdatedAt);
         syncFocusMenus();
         const item = root.querySelector('[data-item]');
         if (item) focusItem(item);
+      },
+      setUpdatedAt: (date) => {
+        applyDocumentUpdated(date);
       },
       insertOutline: (tree) => {
         outlineHistory.run(() => {
@@ -629,6 +667,7 @@ async function initCloud() {
         loadOutline(root, tree);
         clearLocalFileHandle();
         if (got.title || tree.title) applyDocumentTitle(got.title || tree.title);
+        applyDocumentUpdated(got.modifiedTime ?? tree.dateModified ?? null);
         // Match Cloud Open: keep currentOutlineId + owner ?id= URL in sync.
         // Share ?view= / ?edit= URLs stay opaque (syncUrl no-ops the history rewrite).
         if (got.fileId) syncUrl(got.fileId);

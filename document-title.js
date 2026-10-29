@@ -24,3 +24,40 @@ export function syncDocumentTitleDisplay(el, title) {
     title !== undefined ? title : typeof document !== 'undefined' ? document.title : '';
   el.textContent = documentTitleLabel(source);
 }
+
+/**
+ * @param {Date | string | number | null | undefined} date
+ * @returns {Date | null}
+ */
+export function coerceDocumentUpdatedAt(date) {
+  if (date == null || date === '') return null;
+  const d = date instanceof Date ? date : new Date(date);
+  return Number.isNaN(+d) ? null : d;
+}
+
+/**
+ * @param {Date | string | number | null | undefined} date
+ * @returns {string}
+ */
+export function formatDocumentUpdatedLabel(date) {
+  const d = coerceDocumentUpdatedAt(date);
+  if (!d) return '';
+  return `Updated ${d.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })}`;
+}
+
+/**
+ * @param {HTMLElement | null | undefined} el
+ * @param {Date | string | number | null | undefined} date
+ */
+export function syncDocumentUpdatedDisplay(el, date) {
+  if (!el) return;
+  const d = coerceDocumentUpdatedAt(date);
+  const label = formatDocumentUpdatedLabel(d);
+  el.textContent = label;
+  el.hidden = !label;
+  if (d) el.setAttribute('datetime', d.toISOString());
+  else el.removeAttribute('datetime');
+}

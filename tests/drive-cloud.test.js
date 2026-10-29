@@ -120,17 +120,24 @@ describe('Drive cloud client', () => {
           headers: { 'Content-Type': 'application/xml', ETag: '"e2"' },
         });
       }
-      assert.match(String(url), /fields=name(?:&|$)/);
+      assert.match(String(url), /fields=name,modifiedTime/);
       assert.doesNotMatch(String(url), /etag/);
-      return new Response(JSON.stringify({ name: 'Demo.opml' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', ETag: '"e2"' },
-      });
+      return new Response(
+        JSON.stringify({
+          name: 'Demo.opml',
+          modifiedTime: '2026-10-29T15:04:05.000Z',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ETag: '"e2"' },
+        },
+      );
     });
     const got = await client().getOutline('file-9');
     assert.match(got.opml, /<opml/);
     assert.equal(got.revision, '"e2"');
     assert.equal(got.title, 'Demo');
+    assert.equal(got.modifiedTime, '2026-10-29T15:04:05.000Z');
   });
 
   it('loads a publicly shared outline without an access token via same-origin proxy', async () => {

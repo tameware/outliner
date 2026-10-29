@@ -208,7 +208,11 @@ export function createDriveCloudClient({
       throw new CloudApiError('Sign in required to open this outline', 401);
     }
     const fileId = response.headers.get('X-Outliner-File-Id') || id;
-    return { opml, revision: null, title: null, fileId };
+    const modifiedTime =
+      response.headers.get('Last-Modified') ||
+      response.headers.get('X-Outliner-Modified') ||
+      null;
+    return { opml, revision: null, title: null, fileId, modifiedTime };
   }
 
   /**
@@ -217,7 +221,7 @@ export function createDriveCloudClient({
   async function getOutlineAuthed(id) {
     // Drive v3 File has no etag field; HTTP ETag is optional (often absent).
     const metaRes = await driveFetch(
-      `${DRIVE_FILES}/${encodeURIComponent(id)}?fields=name`,
+      `${DRIVE_FILES}/${encodeURIComponent(id)}?fields=name,modifiedTime`,
     );
     const meta = await metaRes.json();
     const media = await driveFetch(
@@ -229,6 +233,7 @@ export function createDriveCloudClient({
       opml,
       revision: etag || null,
       title: titleFromName(meta.name),
+      modifiedTime: meta.modifiedTime || null,
     };
   }
 

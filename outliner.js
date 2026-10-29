@@ -843,6 +843,17 @@ function outlineElementsXml(list, indent) {
   return xml;
 }
 
+/**
+ * @param {Date | string | number | null | undefined} date
+ * @returns {string}
+ */
+function opmlDateModified(date) {
+  if (date == null || date === '') return '';
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(+d)) return '';
+  return d.toUTCString();
+}
+
 /** Serialize the live outline DOM to an OPML 2.0 document string. */
 export function toOpml(root, options = {}) {
   const title = escapeXml(options.title ?? 'Outline');
@@ -850,12 +861,17 @@ export function toOpml(root, options = {}) {
     options.includeExpansionState === false
       ? ''
       : buildExpansionState(root);
+  const modified = opmlDateModified(options.dateModified);
+  const dateModifiedLine = modified
+    ? `    <dateModified>${escapeXml(modified)}</dateModified>\n`
+    : '';
   const body = outlineElementsXml(root, 2);
   return (
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<opml version="2.0">\n` +
     `  <head>\n` +
     `    <title>${title}</title>\n` +
+    dateModifiedLine +
     `    <expansionState>${expansionState}</expansionState>\n` +
     `  </head>\n` +
     `  <body>\n` +
@@ -906,6 +922,13 @@ export function parseOpml(xml) {
     throw new Error('Invalid OPML: missing opml root');
   }
   const title = opml.querySelector('head > title')?.textContent ?? 'Outline';
+  const dateModifiedRaw =
+    opml.querySelector('head > dateModified')?.textContent?.trim() || '';
+  const dateModifiedParsed = dateModifiedRaw ? new Date(dateModifiedRaw) : null;
+  const dateModified =
+    dateModifiedParsed && !Number.isNaN(+dateModifiedParsed)
+      ? dateModifiedParsed
+      : null;
   const expansionRaw = opml.querySelector('head > expansionState')?.textContent ?? '';
   // Presence of expansionState means we honor it (empty => all parents collapsed).
   const expansionPresent = Boolean(opml.querySelector('head > expansionState'));
@@ -923,7 +946,7 @@ export function parseOpml(xml) {
   const items = top.map((el) =>
     parseOutlineElement(el, expandedSet, indexRef, expansionPresent),
   );
-  return { title, items };
+  return { title, items, dateModified };
 }
 
 function renderItem(node) {
