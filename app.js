@@ -343,6 +343,13 @@ async function initCloud() {
         const item = root.querySelector('[data-item]');
         if (item) focusItem(item);
       },
+      insertOutline: (tree) => {
+        outlineHistory.run(() => {
+          const after = api.getActiveItem?.() ?? null;
+          return Boolean(insertOutline(root, tree, after));
+        });
+        syncRevert();
+      },
       getTitle: () => document.title || 'Outline',
       setTitle: (title) => {
         if (title) document.title = title;

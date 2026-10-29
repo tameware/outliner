@@ -15,6 +15,7 @@ function setupDom() {
         </div>
       </div>
       <button type="button" id="menu-open" disabled>Open…</button>
+      <button type="button" id="menu-insert" disabled>Insert…</button>
       <button type="button" id="menu-save" disabled>Save…</button>
       <button type="button" id="menu-save-as" disabled>Save As…</button>
       <button type="button" id="menu-delete" disabled>Delete…</button>
@@ -30,6 +31,7 @@ function setupDom() {
         </form>
       </dialog>
       <dialog id="cloud-open-dialog">
+        <h2>Open from Google Drive</h2>
         <ul id="cloud-outline-list"></ul>
         <button type="button" id="btn-cloud-open-cancel">Cancel</button>
       </dialog>
@@ -129,6 +131,7 @@ describe('cloud UI', () => {
       toOpml: () => '<opml></opml>',
       parseOpml: () => ({ title: 'Bridge notes', items: [] }),
       loadOutline: () => {},
+      insertOutline: () => {},
       getTitle: () => 'Untitled outline',
       setTitle: (t) => {
         outline._title = t;
@@ -216,10 +219,63 @@ describe('cloud UI', () => {
 
     const dialog = document.getElementById('cloud-open-dialog');
     assert.ok(dialog.hasAttribute('open'));
+    assert.match(dialog.querySelector('h2').textContent, /Open from Google Drive/);
     const labels = [...document.querySelectorAll('#cloud-outline-list button')].map(
       (b) => b.textContent,
     );
     assert.deepEqual(labels, ['Bridge notes', 'Shopping']);
+  });
+
+  it('enables Insert… with Open when signed in', async () => {
+    signedInUser = null;
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    assert.equal(document.getElementById('menu-insert').disabled, true);
+    document.getElementById('menu-cloud-auth').click();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(document.getElementById('menu-insert').disabled, false);
+    assert.equal(document.getElementById('menu-open').disabled, false);
+  });
+
+  it('lists Drive outlines for Insert… and inserts without replacing the current outline', async () => {
+    outlineId = 'current-1';
+    outline._title = 'Current';
+    outline.getTitle = () => outline._title;
+    const inserts = [];
+    const loads = [];
+    outline.insertOutline = (tree) => {
+      inserts.push(tree);
+    };
+    outline.loadOutline = () => {
+      loads.push(1);
+    };
+    outline.beforeReplace = async () => {
+      throw new Error('Insert must not ask beforeReplace');
+    };
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-insert').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const dialog = document.getElementById('cloud-open-dialog');
+    assert.ok(dialog.hasAttribute('open'));
+    assert.match(dialog.querySelector('h2').textContent, /Insert from Google Drive/);
+    const labels = [...document.querySelectorAll('#cloud-outline-list button')].map(
+      (b) => b.textContent,
+    );
+    assert.deepEqual(labels, ['Bridge notes', 'Shopping']);
+
+    document.querySelector('#cloud-outline-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(inserts.length, 1);
+    assert.equal(loads.length, 0);
+    assert.equal(outlineId, 'current-1');
+    assert.equal(outline._title, 'Current');
+    assert.equal(syncUrlCalls.length, 0);
+    assert.equal(dialog.hasAttribute('open'), false);
+    assert.match(document.getElementById('cloud-status').textContent, /Inserted/);
   });
 
   it('lists saved outlines when deleting and trashes the chosen file after confirm', async () => {
@@ -423,6 +479,7 @@ describe('cloud UI', () => {
     });
     assert.equal(document.querySelector('[data-menu="cloud"]').hidden, true);
     assert.equal(document.getElementById('menu-open').hidden, true);
+    assert.equal(document.getElementById('menu-insert').hidden, true);
     assert.equal(document.getElementById('menu-delete').hidden, true);
     assert.equal(document.getElementById('menu-save-as').hidden, true);
     assert.equal(document.getElementById('menu-save').disabled, false);

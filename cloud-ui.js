@@ -28,6 +28,7 @@ export function mountCloudUi({
   const btnSave = document.getElementById('menu-save');
   const btnSaveAs = document.getElementById('menu-save-as');
   const btnOpen = document.getElementById('menu-open');
+  const btnInsert = document.getElementById('menu-insert');
   const btnDelete = document.getElementById('menu-delete');
   const btnShare = document.getElementById('menu-cloud-share');
   const btnShareEdit = document.getElementById('menu-cloud-share-edit');
@@ -36,6 +37,7 @@ export function mountCloudUi({
   const saveNameInput = document.getElementById('cloud-save-name');
   const btnSaveCancel = document.getElementById('btn-cloud-save-cancel');
   const openDialog = document.getElementById('cloud-open-dialog');
+  const openDialogHeading = openDialog?.querySelector('h2');
   const listEl = document.getElementById('cloud-outline-list');
   const btnCancel = document.getElementById('btn-cloud-open-cancel');
   const deleteDialog = document.getElementById('cloud-delete-dialog');
@@ -45,6 +47,8 @@ export function mountCloudUi({
 
   /** @type {'save' | 'save-as'} */
   let saveDialogMode = 'save';
+  /** @type {'open' | 'insert'} */
+  let outlinePickerMode = 'open';
   /** @type {((ok: boolean) => void) | null} */
   let saveDialogWaiter = null;
 
@@ -99,6 +103,10 @@ export function mountCloudUi({
     if (btnOpen) {
       btnOpen.hidden = hideOwnerChrome;
       btnOpen.disabled = !canMutate || editShareMode;
+    }
+    if (btnInsert) {
+      btnInsert.hidden = hideOwnerChrome;
+      btnInsert.disabled = !canMutate || editShareMode;
     }
     if (btnDelete) {
       btnDelete.hidden = hideOwnerChrome;
@@ -305,19 +313,39 @@ export function mountCloudUi({
     }
   }
 
-  async function onOpen() {
+  /**
+   * @param {'open' | 'insert'} mode
+   */
+  async function showOutlinePicker(mode) {
+    outlinePickerMode = mode;
+    if (openDialogHeading) {
+      openDialogHeading.textContent =
+        mode === 'insert' ? 'Insert from Google Drive' : 'Open from Google Drive';
+    }
     await withBusy('Loading list…', async () => {
       const outlines = await cloud.listOutlines();
       fillOutlinePicker(
         listEl,
         outlines,
         (item) => {
-          void openOutline(item.id, item.title);
+          if (outlinePickerMode === 'insert') {
+            void insertOutlineFromCloud(item.id, item.title);
+          } else {
+            void openOutline(item.id, item.title);
+          }
         },
         'No outlines yet. Save to Google Drive to create one.',
       );
       openDialogEl(openDialog);
     });
+  }
+
+  async function onOpen() {
+    await showOutlinePicker('open');
+  }
+
+  async function onInsert() {
+    await showOutlinePicker('insert');
   }
 
   async function onDeleteMenu() {
@@ -377,6 +405,25 @@ export function mountCloudUi({
       outline.markClean?.();
       setStatus(title ? `Opened “${title}”` : `Opened ${id}`);
     });
+  }
+
+  /**
+   * Insert a Drive outline below the caret without replacing the current document.
+   * @param {string} id
+   * @param {string | undefined} listedTitle
+   */
+  async function insertOutlineFromCloud(id, listedTitle) {
+    if (typeof outline.insertOutline !== 'function') return;
+    let title = listedTitle;
+    const ok = await withBusy('Inserting…', async () => {
+      const got = await cloud.getOutline(id);
+      const opml = typeof got === 'string' ? got : got.opml;
+      const tree = outline.parseOpml(opml);
+      title = listedTitle || tree.title;
+      outline.insertOutline(tree);
+      closeDialog(openDialog);
+    });
+    if (ok) setStatus(title ? `Inserted “${title}”` : `Inserted ${id}`);
   }
 
   function absoluteShareUrl(urlPath) {
@@ -451,6 +498,9 @@ export function mountCloudUi({
   });
   btnOpen?.addEventListener('click', () => {
     void onOpen();
+  });
+  btnInsert?.addEventListener('click', () => {
+    void onInsert();
   });
   btnDelete?.addEventListener('click', () => {
     void onDeleteMenu();

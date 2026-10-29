@@ -93,6 +93,13 @@ describe('index.html CSP-safe entry', () => {
     assert.match(html, /id="menu-save"/);
     assert.match(html, /id="menu-save-as"/);
     assert.match(html, /id="menu-revert"/);
+    assert.match(html, /id="menu-insert"/);
+    assert.match(html, />Insert…</);
+    assert.ok(
+      html.indexOf('id="menu-open"') < html.indexOf('id="menu-insert"') &&
+        html.indexOf('id="menu-insert"') < html.indexOf('id="menu-save"'),
+      'Insert… should sit between Open and Save',
+    );
     assert.match(html, /id="menu-import"/);
     assert.match(html, /id="menu-export"/);
     assert.match(html, /id="menu-insert-import"/);
@@ -114,6 +121,15 @@ describe('index.html CSP-safe entry', () => {
     assert.match(appJs, /insertOutline/);
     assert.match(appJs, /fileOpenMode\s*=\s*'insert'/);
     assert.match(appJs, /mode === 'insert'/);
+  });
+
+  it('wires Drive Insert… through outline.insertOutline', () => {
+    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    const cloudUi = readFileSync(join(root, 'cloud-ui.js'), 'utf8');
+    assert.match(appJs, /insertOutline:\s*\(tree\)\s*=>/);
+    assert.match(cloudUi, /menu-insert/);
+    assert.match(cloudUi, /insertOutline/);
+    assert.match(cloudUi, /Insert from Google Drive/);
   });
 
   it('links to a privacy policy page', () => {
