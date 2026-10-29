@@ -143,3 +143,55 @@ export async function saveOpmlWithFilePicker(contents, deps = {}) {
     throw error;
   }
 }
+
+/**
+ * Save locally via File System Access when available. Never falls back to a
+ * forced download after the save picker is cancelled or fails — that made
+ * Cancel still download the OPML.
+ *
+ * @param {{
+ *   contents: string,
+ *   suggestedName?: string,
+ *   existingHandle?: FileSystemFileHandle | null,
+ *   forcePicker?: boolean,
+ *   supportsFsa?: boolean,
+ *   saveWithPicker?: typeof saveOpmlWithFilePicker,
+ *   writeToHandle?: typeof writeOpmlToFileHandle,
+ *   download?: (contents: string, filename: string) => void,
+ * }} options
+ * @returns {Promise<{
+ *   ok: boolean,
+ *   reason: 'handle' | 'picker' | 'download' | 'cancelled',
+ *   handle: FileSystemFileHandle | null,
+ * }>}
+ */
+export async function saveOutlineLocally({
+  contents,
+  suggestedName = 'outline.opml',
+  existingHandle = null,
+  forcePicker = false,
+  supportsFsa = supportsFileSystemAccess(),
+  saveWithPicker = saveOpmlWithFilePicker,
+  writeToHandle = writeOpmlToFileHandle,
+  download,
+} = {}) {
+  if (supportsFsa) {
+    try {
+      if (existingHandle && !forcePicker) {
+        await writeToHandle(existingHandle, contents);
+        return { ok: true, reason: 'handle', handle: existingHandle };
+      }
+      const handle = await saveWithPicker(contents, { suggestedName });
+      if (!handle) return { ok: false, reason: 'cancelled', handle: null };
+      return { ok: true, reason: 'picker', handle };
+    } catch (error) {
+      // Cancel and embed/picker failures must not force a download.
+      if (isAbortError(error) || isFilePickerUnavailableError(error)) {
+        return { ok: false, reason: 'cancelled', handle: null };
+      }
+      throw error;
+    }
+  }
+  download?.(contents, suggestedName);
+  return { ok: true, reason: 'download', handle: null };
+}

@@ -11,6 +11,7 @@ import {
   openOpmlWithFilePicker,
   saveOpmlWithFilePicker,
   writeOpmlToFileHandle,
+  saveOutlineLocally,
   isAbortError,
   isFilePickerUnavailableError,
 } from '../local-file.js';
@@ -180,6 +181,57 @@ describe('local file (File System Access)', () => {
       },
     });
     assert.equal(result, null);
+  });
+
+  it('saveOutlineLocally does not download when the save picker is cancelled', async () => {
+    const downloads = [];
+    const result = await saveOutlineLocally({
+      contents: '<opml/>',
+      suggestedName: 'notes.opml',
+      supportsFsa: true,
+      saveWithPicker: async () => null,
+      download: (contents, name) => {
+        downloads.push({ contents, name });
+      },
+    });
+    assert.deepEqual(result, { ok: false, reason: 'cancelled', handle: null });
+    assert.deepEqual(downloads, []);
+  });
+
+  it('saveOutlineLocally does not download when the save picker throws AbortError or NotAllowedError', async () => {
+    const downloads = [];
+    for (const name of ['AbortError', 'NotAllowedError', 'SecurityError']) {
+      const err = new Error(name);
+      err.name = name;
+      const result = await saveOutlineLocally({
+        contents: '<opml/>',
+        suggestedName: 'notes.opml',
+        supportsFsa: true,
+        saveWithPicker: async () => {
+          throw err;
+        },
+        download: (contents, filename) => {
+          downloads.push({ contents, filename });
+        },
+      });
+      assert.equal(result.ok, false, name);
+      assert.equal(result.reason, 'cancelled', name);
+    }
+    assert.deepEqual(downloads, []);
+  });
+
+  it('saveOutlineLocally downloads only when File System Access is unsupported', async () => {
+    const downloads = [];
+    const result = await saveOutlineLocally({
+      contents: '<opml/>',
+      suggestedName: 'notes.opml',
+      supportsFsa: false,
+      download: (contents, filename) => {
+        downloads.push({ contents, filename });
+      },
+    });
+    assert.deepEqual(result, { ok: true, reason: 'download', handle: null });
+    assert.deepEqual(downloads, [{ contents: '<opml/>', filename: 'notes.opml' }]);
   });
 });
 

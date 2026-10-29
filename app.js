@@ -67,8 +67,7 @@ import {
   localSaveMenuLabel,
   suggestedOpmlFilename,
   openOpmlWithFilePicker,
-  saveOpmlWithFilePicker,
-  writeOpmlToFileHandle,
+  saveOutlineLocally,
   isAbortError,
   isFilePickerUnavailableError,
 } from './local-file.js';
@@ -379,36 +378,26 @@ async function saveLocalOutline({ forcePicker = false } = {}) {
   const opml = toOpml(root, { title });
   const filename = suggestedOpmlFilename(title);
 
-  if (supportsFileSystemAccess()) {
-    try {
-      if (localFileHandle && !forcePicker) {
-        await writeOpmlToFileHandle(localFileHandle, opml);
-      } else {
-        const handle = await saveOpmlWithFilePicker(opml, { suggestedName: filename });
-        if (!handle) return false;
-        localFileHandle = handle;
-        syncLocalSaveLabel();
-      }
-      dirty.markClean();
-      syncRevert();
-      return true;
-    } catch (error) {
-      if (isAbortError(error)) return false;
-      if (isFilePickerUnavailableError(error)) {
-        downloadOpml(root, { title, filename });
-        dirty.markClean();
-        syncRevert();
-        return true;
-      }
-      window.alert('Could not save OPML file: ' + (error?.message || error));
-      return false;
+  try {
+    const result = await saveOutlineLocally({
+      contents: opml,
+      suggestedName: filename,
+      existingHandle: localFileHandle,
+      forcePicker,
+      download: () => downloadOpml(root, { title, filename }),
+    });
+    if (!result.ok) return false;
+    if (result.handle) {
+      localFileHandle = result.handle;
+      syncLocalSaveLabel();
     }
+    dirty.markClean();
+    syncRevert();
+    return true;
+  } catch (error) {
+    window.alert('Could not save OPML file: ' + (error?.message || error));
+    return false;
   }
-
-  downloadOpml(root, { title, filename });
-  dirty.markClean();
-  syncRevert();
-  return true;
 }
 
 document.getElementById('menu-file-open')?.addEventListener('click', () => {
