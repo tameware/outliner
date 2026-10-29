@@ -445,12 +445,22 @@ export function mountCloudUi({
     }
   }
 
-  async function onShare() {
+  function requireSavedOutline(kind) {
     const id = outline.getOutlineId?.();
-    if (!id) {
-      window.alert('Save this outline to Google Drive before creating a read-only link.');
-      return;
+    if (!id || outline.isDirty?.()) {
+      window.alert(
+        kind === 'edit'
+          ? 'Save this outline to Google Drive before creating an editable link.'
+          : 'Save this outline to Google Drive before creating a read-only link.',
+      );
+      return null;
     }
+    return id;
+  }
+
+  async function onShare() {
+    const id = requireSavedOutline('view');
+    if (!id) return;
     /** @type {{ urlPath: string } | undefined} */
     let result;
     const ok = await withBusy('Creating link…', async () => {
@@ -460,11 +470,8 @@ export function mountCloudUi({
   }
 
   async function onShareEdit() {
-    const id = outline.getOutlineId?.();
-    if (!id) {
-      window.alert('Save this outline to Google Drive before creating an editable link.');
-      return;
-    }
+    const id = requireSavedOutline('edit');
+    if (!id) return;
     /** @type {{ urlPath: string } | undefined} */
     let result;
     const ok = await withBusy('Creating link…', async () => {

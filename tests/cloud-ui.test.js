@@ -70,6 +70,8 @@ describe('cloud UI', () => {
   let deletedCalls;
   let outlineId;
   let syncUrlCalls;
+  let outlineDirty;
+  let alerts;
 
   beforeEach(() => {
     dom = setupDom();
@@ -79,7 +81,12 @@ describe('cloud UI', () => {
     deletedCalls = [];
     syncUrlCalls = [];
     outlineId = null;
+    outlineDirty = false;
+    alerts = [];
     window.confirm = () => true;
+    window.alert = (msg) => {
+      alerts.push(String(msg));
+    };
     const listeners = [];
     auth = {
       onAuthStateChanged(cb) {
@@ -147,6 +154,7 @@ describe('cloud UI', () => {
       syncUrl: (id) => {
         syncUrlCalls.push(id);
       },
+      isDirty: () => outlineDirty,
     };
   });
 
@@ -448,6 +456,39 @@ describe('cloud UI', () => {
     assert.match(document.getElementById('cloud-status').textContent, /read-only link copied/i);
   });
 
+  it('asks to save before a read-only link when the outline has no Drive id', async () => {
+    outlineId = null;
+    const shareCalls = [];
+    cloud.createShareLink = async (id) => {
+      shareCalls.push(id);
+      return { token: 'x', urlPath: '/outliner/?view=x' };
+    };
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-cloud-share').click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(shareCalls.length, 0);
+    assert.equal(alerts.length, 1);
+    assert.match(alerts[0], /Save this outline to Google Drive before creating a read-only link/i);
+  });
+
+  it('asks to save before a read-only link when the outline is dirty', async () => {
+    outlineId = 'stale-other-doc';
+    outlineDirty = true;
+    const shareCalls = [];
+    cloud.createShareLink = async (id) => {
+      shareCalls.push(id);
+      return { token: 'x', urlPath: `/outliner/?view=x&from=${id}` };
+    };
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-cloud-share').click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(shareCalls.length, 0);
+    assert.equal(alerts.length, 1);
+    assert.match(alerts[0], /Save this outline to Google Drive before creating a read-only link/i);
+  });
+
   it('copies an editable share link to the clipboard without a dialog', async () => {
     outlineId = 'existing-1';
     const written = mockClipboard();
@@ -465,6 +506,23 @@ describe('cloud UI', () => {
     assert.doesNotMatch(written[0], /[?&]id=/);
     assert.doesNotMatch(written[0], /view=/);
     assert.match(document.getElementById('cloud-status').textContent, /editable link copied/i);
+  });
+
+  it('asks to save before an editable link when the outline is dirty', async () => {
+    outlineId = 'stale-other-doc';
+    outlineDirty = true;
+    const shareCalls = [];
+    cloud.createEditShareLink = async (id) => {
+      shareCalls.push(id);
+      return { token: 'x', urlPath: `/outliner/?edit=x&from=${id}` };
+    };
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-cloud-share-edit').click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(shareCalls.length, 0);
+    assert.equal(alerts.length, 1);
+    assert.match(alerts[0], /Save this outline to Google Drive before creating an editable link/i);
   });
 
   it('in editShareMode enables Save without sign-in and hides Cloud menu chrome', async () => {

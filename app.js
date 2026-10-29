@@ -380,6 +380,7 @@ async function initCloud() {
       },
       syncUrl: (id) => syncUrl(id),
       beforeReplace,
+      isDirty: () => dirty.isDirty(),
       markClean: () => dirty.markClean(),
     },
   });
