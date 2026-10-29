@@ -11,6 +11,7 @@ import {
   toOpml,
   parseOpml,
   clearOutline,
+  setReadOnly,
 } from '../outliner.js';
 import { createOutlineHistory } from '../clear-outline-ui.js';
 import { mountFindReplace } from '../find-replace-ui.js';
@@ -70,6 +71,7 @@ describe('Find & Replace UI', () => {
       getRoot: () => root,
       getActiveItem: () => root.querySelector('[data-item]'),
       runStructural: (mutate) => history.run(mutate),
+      isReadOnly: () => root.dataset.readonly === 'true',
       beep: () => {},
     });
   });
@@ -156,6 +158,26 @@ describe('Find & Replace UI', () => {
       }),
     );
     assert.equal(input.value, 'AK♥');
+  });
+
+  it('allows Find (but not Replace) while read-only', () => {
+    setReadOnly(root, true);
+
+    document.getElementById('menu-find').click();
+    const dialog = document.getElementById('find-replace-dialog');
+    assert.ok(dialog.hasAttribute('open'));
+    assert.equal(dialog.getAttribute('data-mode'), 'find');
+
+    document.getElementById('find-replace-find').value = 'bridge';
+    assert.equal(ui.findNext(), true);
+    assert.equal(window.getSelection().toString(), 'bridge');
+
+    dialog.close();
+    document.getElementById('menu-replace').click();
+    assert.equal(dialog.hasAttribute('open'), false);
+
+    assert.equal(ui.replaceAll(), false);
+    assert.deepEqual(getItemTexts(root), ['Alpha bridge', 'Beta bridge']);
   });
 });
 

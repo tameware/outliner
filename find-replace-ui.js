@@ -120,7 +120,6 @@ export function mountFindReplace({
    * @param {1 | -1} direction
    */
   function step(direction) {
-    if (isReadOnly?.()) return false;
     const opts = queryOptions();
     if (!opts.find) {
       setStatus('Enter text to find');
@@ -169,8 +168,8 @@ export function mountFindReplace({
    * @param {boolean} [focusReplace]
    */
   function openDialog(focusReplace = false) {
-    if (isReadOnly?.()) return;
     const showReplace = Boolean(focusReplace);
+    if (showReplace && isReadOnly?.()) return;
     dialog.setAttribute('data-mode', showReplace ? 'replace' : 'find');
     if (heading) heading.textContent = showReplace ? 'Find & Replace' : 'Find';
     for (const el of replaceUi) {
@@ -315,11 +314,11 @@ export function mountFindReplace({
   });
 
   function onKeyDown(event) {
-    if (isReadOnly?.()) return;
     const mod = event.metaKey || event.ctrlKey;
     if (!mod) return;
     const key = event.key?.toLowerCase?.() || '';
     if (key === 'f' && event.altKey) {
+      if (isReadOnly?.()) return;
       event.preventDefault();
       openDialog(true);
       return;

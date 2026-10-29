@@ -29,6 +29,8 @@ describe('read-only toolbar', () => {
           <button type="button" class="menu-label">Edit</button>
           <div class="menu-panel">
             <button type="button" role="menuitem" id="menu-undo">Undo</button>
+            <button type="button" role="menuitem" id="menu-find">Find…</button>
+            <button type="button" role="menuitem" id="menu-replace">Replace…</button>
             <button type="button" role="menuitem" id="menu-clear">Clear Outline</button>
           </div>
         </div>
@@ -68,8 +70,10 @@ describe('read-only toolbar', () => {
       'menu-report-issues',
       'menu-privacy',
       'menu-export',
+      'menu-find',
       'menu-expand-all',
       'menu-collapse-all',
     ]);
+    assert.equal(toolbar.querySelector('#menu-replace').disabled, true);
   });
 });
