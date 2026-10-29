@@ -505,6 +505,9 @@ ol.outline ol {
 }
 
 .text {
+  position: relative;
+  /* Room for absolutely positioned A./1./a. so the caret stays in the text, not left of the label. */
+  padding-left: 1.85rem;
   min-height: 1.25rem;
   outline: none;
   word-break: break-word;
@@ -512,9 +515,10 @@ ol.outline ol {
 }
 
 .text::before {
-  display: inline-block;
+  position: absolute;
+  left: 0;
+  top: 0;
   min-width: 1.5rem;
-  margin-right: 0.35rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
