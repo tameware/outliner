@@ -326,6 +326,49 @@ body {
   cursor: pointer;
 }
 
+.find-replace-dialog {
+  max-width: min(32rem, 94vw);
+  /* Modeless: float above <main> (dialog lives in .chrome, which paints under the outline). */
+  position: fixed;
+  z-index: 1000;
+  inset: 1.25rem auto auto 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  background-color: var(--paper);
+  opacity: 1;
+}
+
+.find-replace-dialog .find-replace-form {
+  background-color: var(--paper);
+}
+
+.find-replace-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  margin: 0 0 0.9rem;
+  font-size: 0.9rem;
+}
+
+.find-replace-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.find-replace-actions {
+  justify-content: flex-start;
+}
+
+.find-replace-status {
+  margin: 0.65rem 0 0;
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .cloud-outline-list {
   list-style: none;
   margin: 0 0 1rem;

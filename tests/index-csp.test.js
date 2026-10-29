@@ -132,6 +132,16 @@ describe('index.html CSP-safe entry', () => {
     assert.match(cloudUi, /Insert from Google Drive/);
   });
 
+  it('includes Find & Replace dialog and Edit menu items', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    assert.match(html, /id="menu-find"/);
+    assert.match(html, /id="menu-replace"/);
+    assert.match(html, /id="find-replace-dialog"/);
+    assert.match(html, /id="find-replace-grep"/);
+    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    assert.match(appJs, /mountFindReplace/);
+  });
+
   it('links to a privacy policy page', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     assert.match(html, /href="privacy\.html"/);

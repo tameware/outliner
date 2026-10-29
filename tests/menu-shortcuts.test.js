@@ -16,6 +16,7 @@ describe('formatMenuShortcut', () => {
     assert.equal(formatMenuShortcut('tab', { mac: true }), '⇥');
     assert.equal(formatMenuShortcut('mod+[', { mac: true }), '⌘[');
     assert.equal(formatMenuShortcut('mod+]', { mac: true }), '⌘]');
+    assert.equal(formatMenuShortcut('mod+alt+f', { mac: true }), '⌥⌘F');
   });
 
   it('formats non-Mac chords with Ctrl/Shift words', () => {
@@ -24,6 +25,7 @@ describe('formatMenuShortcut', () => {
     assert.equal(formatMenuShortcut('shift+tab', { mac: false }), 'Shift+Tab');
     assert.equal(formatMenuShortcut('tab', { mac: false }), 'Tab');
     assert.equal(formatMenuShortcut('mod+[', { mac: false }), 'Ctrl+[');
+    assert.equal(formatMenuShortcut('mod+alt+f', { mac: false }), 'Ctrl+Alt+F');
   });
 });
 
@@ -60,6 +62,8 @@ describe('index.html menu shortcuts', () => {
       ['menu-outdent', 'shift+tab'],
       ['menu-promote', 'mod+['],
       ['menu-demote', 'mod+]'],
+      ['menu-find', 'mod+f'],
+      ['menu-replace', 'mod+alt+f'],
     ]) {
       const start = html.indexOf(`id="${id}"`);
       assert.ok(start >= 0, `expected ${id}`);

@@ -1,6 +1,6 @@
 {
   "name": "html-outliner",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "description": "WYSIWYG HTML outliner with expand/collapse, editing, promote/demote, and OPML save/restore",
   "license": "MIT",
   "type": "module",

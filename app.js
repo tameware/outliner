@@ -33,6 +33,7 @@ import { createOutlineHistory } from './clear-outline-ui.js';
 import { handlePromoteDemoteShortcut } from './promote-demote-keys.js';
 import { systemBeep } from './system-beep.js';
 import { mountIndentOutdentMenu } from './indent-outdent-menu.js';
+import { mountFindReplace } from './find-replace-ui.js';
 import { blankOutlineForDeepLink } from './deep-link-boot.js';
 import {
   bindDeepLinkOutlineLoad,
@@ -163,6 +164,17 @@ mountIndentOutdentMenu({
   getActiveItem: () => api.getActiveItem(),
   runStructural: (mutate) => outlineHistory.run(mutate),
   isReadOnly: () => root.dataset.readonly === 'true',
+});
+
+mountFindReplace({
+  dialog: document.getElementById('find-replace-dialog'),
+  findButton: document.getElementById('menu-find'),
+  replaceButton: document.getElementById('menu-replace'),
+  getRoot: () => root,
+  getActiveItem: () => api.getActiveItem(),
+  runStructural: (mutate) => outlineHistory.run(mutate),
+  isReadOnly: () => root.dataset.readonly === 'true',
+  beep: systemBeep,
 });
 
 document.getElementById('menu-promote').addEventListener('click', () => {

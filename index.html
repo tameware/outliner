@@ -64,6 +64,13 @@
             Demote<span class="menu-shortcut" data-keys="mod+]"></span>
           </button>
           <hr class="menu-sep" />
+          <button type="button" role="menuitem" id="menu-find">
+            Find…<span class="menu-shortcut" data-keys="mod+f"></span>
+          </button>
+          <button type="button" role="menuitem" id="menu-replace">
+            Replace…<span class="menu-shortcut" data-keys="mod+alt+f"></span>
+          </button>
+          <hr class="menu-sep" />
           <button type="button" role="menuitem" id="menu-clear">Clear Outline</button>
         </div>
       </div>
@@ -147,6 +154,47 @@
           <button type="button" id="unsaved-cancel" value="cancel">Cancel</button>
           <button type="submit" id="unsaved-save" autofocus>Save</button>
         </div>
+      </form>
+    </dialog>
+    <dialog id="find-replace-dialog" class="cloud-dialog find-replace-dialog">
+      <form class="cloud-dialog-form find-replace-form" id="find-replace-form">
+        <h2>Find &amp; Replace</h2>
+        <label class="cloud-save-label" for="find-replace-find">Find</label>
+        <input
+          id="find-replace-find"
+          name="find"
+          type="text"
+          autocomplete="off"
+          class="cloud-save-input"
+        />
+        <label class="cloud-save-label" for="find-replace-replace">Replace</label>
+        <input
+          id="find-replace-replace"
+          name="replace"
+          type="text"
+          autocomplete="off"
+          class="cloud-save-input"
+        />
+        <div class="find-replace-options">
+          <label class="find-replace-check"
+            ><input type="checkbox" id="find-replace-grep" /> Grep</label
+          >
+          <label class="find-replace-check"
+            ><input type="checkbox" id="find-replace-case" /> Case sensitive</label
+          >
+          <label class="find-replace-check"
+            ><input type="checkbox" id="find-replace-wrap" checked /> Wrap around</label
+          >
+        </div>
+        <div class="cloud-dialog-actions find-replace-actions">
+          <button type="button" id="find-replace-prev">Previous</button>
+          <button type="submit" id="find-replace-next">Next</button>
+          <button type="button" id="find-replace-one">Replace</button>
+          <button type="button" id="find-replace-and-find">Replace &amp; Find</button>
+          <button type="button" id="find-replace-all">Replace All</button>
+          <button type="button" id="find-replace-close" value="cancel">Close</button>
+        </div>
+        <p id="find-replace-status" class="find-replace-status" role="status"></p>
       </form>
     </dialog>
   </header>
