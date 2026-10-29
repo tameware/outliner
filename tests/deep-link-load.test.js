@@ -1,9 +1,14 @@
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   bindDeepLinkOutlineLoad,
   isSoftDeepLinkLoadError,
 } from '../deep-link-load.js';
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('isSoftDeepLinkLoadError', () => {
   it('treats 401 and network Failed to fetch as soft', () => {
@@ -105,5 +110,18 @@ describe('bindDeepLinkOutlineLoad', () => {
     await ready;
     assert.equal(cloud.getOutline.mock.callCount(), 0);
     destroy();
+  });
+
+  it('app.js syncs the resolved file id through syncUrl after a deep-link load', () => {
+    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    assert.match(appJs, /bindDeepLinkOutlineLoad\s*\(/);
+    assert.match(
+      appJs,
+      /applyOutline:\s*async\s*\(got\)\s*=>\s*\{[\s\S]*?if\s*\(got\.fileId\)\s*syncUrl\(got\.fileId\)/,
+    );
+    assert.doesNotMatch(
+      appJs,
+      /applyOutline:\s*async\s*\(got\)\s*=>\s*\{[\s\S]*?if\s*\(got\.fileId\)\s*currentOutlineId\s*=\s*got\.fileId/,
+    );
   });
 });

@@ -629,7 +629,9 @@ async function initCloud() {
         loadOutline(root, tree);
         clearLocalFileHandle();
         if (got.title || tree.title) applyDocumentTitle(got.title || tree.title);
-        if (got.fileId) currentOutlineId = got.fileId;
+        // Match Cloud Open: keep currentOutlineId + owner ?id= URL in sync.
+        // Share ?view= / ?edit= URLs stay opaque (syncUrl no-ops the history rewrite).
+        if (got.fileId) syncUrl(got.fileId);
         currentRevision = got.revision ?? null;
         leaseToken = null;
         dirty.markClean();
