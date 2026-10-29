@@ -1,10 +1,16 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   offerSaveIfDirty,
   mountUnsavedChangesDialog,
+  bindBeforeUnloadGuard,
 } from '../unsaved-changes.js';
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('unsaved changes offer', () => {
   it('proceeds immediately when clean', async () => {
@@ -170,5 +176,67 @@ describe('unsaved changes dialog', () => {
       }),
     );
     assert.equal(await pendingCtrlDiscard, 'discard');
+  });
+});
+
+describe('beforeunload dirty guard', () => {
+  /** @type {import('jsdom').JSDOM} */
+  let dom;
+
+  beforeEach(() => {
+    dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
+      url: 'http://localhost/',
+    });
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+  });
+
+  it('does nothing when the outline is clean', () => {
+    bindBeforeUnloadGuard(window, () => false);
+    const event = new window.Event('beforeunload', { cancelable: true });
+    Object.defineProperty(event, 'returnValue', {
+      writable: true,
+      configurable: true,
+      value: undefined,
+    });
+    const prevented = !window.dispatchEvent(event);
+    assert.equal(prevented, false);
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(event.returnValue, undefined);
+  });
+
+  it('triggers the browser leave prompt when dirty', () => {
+    bindBeforeUnloadGuard(window, () => true);
+    const event = new window.Event('beforeunload', { cancelable: true });
+    Object.defineProperty(event, 'returnValue', {
+      writable: true,
+      configurable: true,
+      value: undefined,
+    });
+    window.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(event.returnValue, '');
+  });
+
+  it('can be unbound so later closes are not intercepted', () => {
+    let dirty = true;
+    const unbind = bindBeforeUnloadGuard(window, () => dirty);
+    unbind();
+    dirty = true;
+    const event = new window.Event('beforeunload', { cancelable: true });
+    Object.defineProperty(event, 'returnValue', {
+      writable: true,
+      configurable: true,
+      value: undefined,
+    });
+    window.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, false);
+  });
+
+  it('wires bindBeforeUnloadGuard from app.js against dirty.isDirty', () => {
+    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    assert.match(appJs, /bindBeforeUnloadGuard/);
+    assert.match(appJs, /from ['"]\.\/unsaved-changes\.js['"]/);
+    assert.match(appJs, /bindBeforeUnloadGuard\(\s*window\s*,\s*\(\)\s*=>\s*dirty\.isDirty\(\)\s*\)/);
   });
 });

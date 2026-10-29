@@ -3,6 +3,29 @@
  */
 
 /**
+ * Ask the browser to confirm leaving when the outline is dirty.
+ * Custom Save UI is not allowed on unload; this only triggers the generic leave prompt.
+ *
+ * @param {EventTarget | null | undefined} target typically `window`
+ * @param {() => boolean} isDirty
+ * @returns {() => void} unbind
+ */
+export function bindBeforeUnloadGuard(target, isDirty) {
+  if (!target?.addEventListener) return () => {};
+
+  function onBeforeUnload(event) {
+    if (!isDirty()) return;
+    event.preventDefault();
+    // Chromium still requires a non-empty returnValue to show the prompt.
+    event.returnValue = '';
+    return '';
+  }
+
+  target.addEventListener('beforeunload', onBeforeUnload);
+  return () => target.removeEventListener('beforeunload', onBeforeUnload);
+}
+
+/**
  * @param {object} options
  * @param {() => boolean} options.isDirty
  * @param {() => Promise<boolean>} options.save resolves true if saved

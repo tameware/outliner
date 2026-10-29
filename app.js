@@ -63,6 +63,7 @@ import { createDirtyTracker } from './dirty-tracker.js';
 import {
   offerSaveIfDirty,
   mountUnsavedChangesDialog,
+  bindBeforeUnloadGuard,
 } from './unsaved-changes.js';
 import {
   revertToCleanSnapshot,
@@ -185,6 +186,7 @@ if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
 }
 dirty.markClean();
 syncDocumentTitles();
+bindBeforeUnloadGuard(window, () => dirty.isDirty());
 
 function syncUrl(id) {
   currentOutlineId = id;
