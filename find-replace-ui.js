@@ -38,8 +38,10 @@ export function mountFindReplace({
   }
 
   const form = dialog.querySelector('#find-replace-form') || dialog.querySelector('form');
+  const heading = dialog.querySelector('h2');
   const findInput = dialog.querySelector('#find-replace-find');
   const replaceInput = dialog.querySelector('#find-replace-replace');
+  const replaceLabel = dialog.querySelector('label[for="find-replace-replace"]');
   const grepInput = dialog.querySelector('#find-replace-grep');
   const caseInput = dialog.querySelector('#find-replace-case');
   const wrapInput = dialog.querySelector('#find-replace-wrap');
@@ -50,6 +52,7 @@ export function mountFindReplace({
   const btnReplaceFind = dialog.querySelector('#find-replace-and-find');
   const btnReplaceAll = dialog.querySelector('#find-replace-all');
   const btnClose = dialog.querySelector('#find-replace-close');
+  const replaceUi = [replaceLabel, replaceInput, btnReplace, btnReplaceFind, btnReplaceAll];
 
   /** @type {import('./find-replace.js').FindMatch[]} */
   let matches = [];
@@ -162,11 +165,20 @@ export function mountFindReplace({
     return true;
   }
 
+  /**
+   * @param {boolean} [focusReplace]
+   */
   function openDialog(focusReplace = false) {
     if (isReadOnly?.()) return;
+    const showReplace = Boolean(focusReplace);
+    dialog.setAttribute('data-mode', showReplace ? 'replace' : 'find');
+    if (heading) heading.textContent = showReplace ? 'Find & Replace' : 'Find';
+    for (const el of replaceUi) {
+      if (el) el.hidden = !showReplace;
+    }
     if (dialog.show) dialog.show();
     else dialog.setAttribute('open', '');
-    const target = focusReplace ? replaceInput : findInput;
+    const target = showReplace ? replaceInput : findInput;
     target?.focus();
     target?.select?.();
   }

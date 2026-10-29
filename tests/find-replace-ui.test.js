@@ -74,17 +74,43 @@ describe('Find & Replace UI', () => {
     });
   });
 
-  it('opens the shared dialog from Find… focused on Find', () => {
+  it('opens the shared dialog from Find… focused on Find without Replace options', () => {
     document.getElementById('menu-find').click();
     const dialog = document.getElementById('find-replace-dialog');
     assert.ok(dialog.hasAttribute('open'));
     assert.equal(document.activeElement, document.getElementById('find-replace-find'));
+    assert.equal(dialog.getAttribute('data-mode'), 'find');
+    assert.match(dialog.querySelector('h2').textContent, /^Find$/);
+    assert.equal(document.getElementById('find-replace-replace').hidden, true);
+    assert.equal(document.querySelector('label[for="find-replace-replace"]').hidden, true);
+    assert.equal(document.getElementById('find-replace-one').hidden, true);
+    assert.equal(document.getElementById('find-replace-and-find').hidden, true);
+    assert.equal(document.getElementById('find-replace-all').hidden, true);
+    assert.equal(document.getElementById('find-replace-grep').hidden, false);
+    assert.equal(document.getElementById('find-replace-next').hidden, false);
   });
 
-  it('opens the shared dialog from Replace… focused on Replace', () => {
+  it('opens the shared dialog from Replace… focused on Replace with Replace options', () => {
     document.getElementById('menu-replace').click();
-    assert.ok(document.getElementById('find-replace-dialog').hasAttribute('open'));
+    const dialog = document.getElementById('find-replace-dialog');
+    assert.ok(dialog.hasAttribute('open'));
     assert.equal(document.activeElement, document.getElementById('find-replace-replace'));
+    assert.equal(dialog.getAttribute('data-mode'), 'replace');
+    assert.match(dialog.querySelector('h2').textContent, /Find.*Replace/);
+    assert.equal(document.getElementById('find-replace-replace').hidden, false);
+    assert.equal(document.querySelector('label[for="find-replace-replace"]').hidden, false);
+    assert.equal(document.getElementById('find-replace-one').hidden, false);
+    assert.equal(document.getElementById('find-replace-and-find').hidden, false);
+    assert.equal(document.getElementById('find-replace-all').hidden, false);
+  });
+
+  it('toggling Find… after Replace… hides Replace options again', () => {
+    document.getElementById('menu-replace').click();
+    document.getElementById('menu-find').click();
+    const dialog = document.getElementById('find-replace-dialog');
+    assert.equal(dialog.getAttribute('data-mode'), 'find');
+    assert.equal(document.getElementById('find-replace-replace').hidden, true);
+    assert.equal(document.getElementById('find-replace-all').hidden, true);
   });
 
   it('Find Next selects the next match in the outline', () => {
