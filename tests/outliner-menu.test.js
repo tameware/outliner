@@ -24,18 +24,30 @@ function setupDom() {
       <div class="menu" data-menu="outliner">
         <button type="button" class="menu-label">Outliner</button>
         <div class="menu-panel" role="menu">
-          <button type="button" role="menuitem" id="menu-about">About</button>
-          <button type="button" role="menuitem" id="menu-version">Version</button>
-          <button type="button" role="menuitem" id="menu-changelog">Change Log</button>
-          <button type="button" role="menuitem" id="menu-open-source">Open-Source Repository</button>
+          <button type="button" role="menuitem" id="menu-about">About…</button>
+          <button type="button" role="menuitem" id="menu-version">Version…</button>
+          <button type="button" role="menuitem" id="menu-changelog">Change log</button>
+          <button type="button" role="menuitem" id="menu-open-source">Source code</button>
           <button type="button" role="menuitem" id="menu-report-issues">Report issues</button>
           <button type="button" role="menuitem" id="menu-privacy">Privacy</button>
         </div>
       </div>
     </nav>
+    <dialog id="outliner-message-dialog" class="cloud-dialog">
+      <form method="dialog" class="cloud-dialog-form">
+        <h2 id="outliner-message-title"></h2>
+        <p id="outliner-message-body" class="cloud-share-hint"></p>
+        <div class="cloud-dialog-actions">
+          <button type="submit" id="outliner-message-ok" autofocus>OK</button>
+        </div>
+      </form>
+    </dialog>
   </body>`);
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
+  const dialog = document.getElementById('outliner-message-dialog');
+  dialog.showModal = () => dialog.setAttribute('open', '');
+  dialog.close = () => dialog.removeAttribute('open');
   return dom;
 }
 
@@ -72,17 +84,46 @@ describe('Outliner menu', () => {
     assert.equal(OUTLINER_PRIVACY_URL, 'privacy.html');
     assert.equal(OUTLINER_REPO_URL, 'https://github.com/tameware/outliner');
     assert.equal(OUTLINER_ISSUES_MAILTO, 'mailto:outliner@tameware.com');
-    assert.match(OUTLINER_ABOUT_TEXT, /Tameware Outliner/i);
+    assert.equal(
+      OUTLINER_ABOUT_TEXT,
+      'Tameware Outliner is a WYSIWYG HTML outliner with expand/collapse editing, OPML import/export, optional Google Drive sync, and special features for bridge players. It was written by Adam Wildavsky using Cursor AI.',
+    );
   });
 
-  it('shows About text and Version (with update date) on click', () => {
+  it('shows About and Version in an in-app dialog (not window.alert)', () => {
+    mountOutlinerMenu(document);
+    const dialog = document.getElementById('outliner-message-dialog');
+    const title = document.getElementById('outliner-message-title');
+    const body = document.getElementById('outliner-message-body');
+
+    document.getElementById('menu-about').click();
+    assert.ok(dialog.hasAttribute('open'));
+    assert.equal(title.textContent, 'About');
+    assert.equal(body.textContent, OUTLINER_ABOUT_TEXT);
+    assert.deepEqual(alerts, []);
+
+    document.getElementById('outliner-message-ok').click();
+    assert.equal(dialog.hasAttribute('open'), false);
+
+    document.getElementById('menu-version').click();
+    assert.ok(dialog.hasAttribute('open'));
+    assert.equal(title.textContent, 'Version');
+    assert.equal(body.textContent, outlinerVersionLabel());
+    assert.match(
+      body.textContent,
+      new RegExp(`^${OUTLINER_VERSION.replace('.', '\\.')} \\(updated \\d{4}-\\d{2}-\\d{2}\\)$`),
+    );
+    assert.deepEqual(alerts, []);
+  });
+
+  it('still shows About/Version when window.alert is a no-op (Cursor browser)', () => {
+    window.alert = () => {};
     mountOutlinerMenu(document);
     document.getElementById('menu-about').click();
-    document.getElementById('menu-version').click();
-    assert.deepEqual(alerts, [OUTLINER_ABOUT_TEXT, outlinerVersionLabel()]);
-    assert.match(
-      alerts[1],
-      new RegExp(`^${OUTLINER_VERSION.replace('.', '\\.')} \\(updated \\d{4}-\\d{2}-\\d{2}\\)$`),
+    assert.ok(document.getElementById('outliner-message-dialog').hasAttribute('open'));
+    assert.equal(
+      document.getElementById('outliner-message-body').textContent,
+      OUTLINER_ABOUT_TEXT,
     );
   });
 
@@ -118,15 +159,19 @@ describe('Outliner menu', () => {
     assert.ok(fileAt > outlinerAt);
 
     const panel = html.slice(outlinerAt, fileAt);
-    assert.match(panel, /id="menu-about"[^>]*>\s*About\s*</);
-    assert.match(panel, /id="menu-version"[^>]*>\s*Version\s*</);
-    assert.match(panel, /id="menu-changelog"[^>]*>\s*Change Log\s*</);
-    assert.match(panel, /id="menu-open-source"[^>]*>\s*Open-Source Repository\s*</);
+    assert.match(panel, /id="menu-about"[^>]*>\s*About…\s*</);
+    assert.match(panel, /id="menu-version"[^>]*>\s*Version…\s*</);
+    assert.match(panel, /id="menu-changelog"[^>]*>\s*Change log\s*</);
+    assert.match(panel, /id="menu-open-source"[^>]*>\s*Source code\s*</);
     assert.match(panel, /id="menu-report-issues"[^>]*>\s*Report issues\s*</);
     assert.match(panel, /id="menu-privacy"[^>]*>\s*Privacy\s*</);
     assert.ok(panel.indexOf('menu-version') < panel.indexOf('menu-changelog'));
     assert.ok(panel.indexOf('menu-report-issues') < panel.indexOf('menu-privacy'));
     assert.doesNotMatch(html, /chrome-privacy/);
+    assert.match(html, /id="outliner-message-dialog"/);
+    assert.match(html, /id="outliner-message-title"/);
+    assert.match(html, /id="outliner-message-body"/);
+    assert.match(html, /id="outliner-message-ok"/);
   });
 
   it('wires mountOutlinerMenu from app.js', () => {

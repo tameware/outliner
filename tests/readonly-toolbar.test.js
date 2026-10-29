@@ -10,10 +10,10 @@ describe('read-only toolbar', () => {
         <div class="menu" data-menu="outliner" hidden>
           <button type="button" class="menu-label">Outliner</button>
           <div class="menu-panel">
-            <button type="button" role="menuitem" id="menu-about">About</button>
-            <button type="button" role="menuitem" id="menu-version">Version</button>
-            <button type="button" role="menuitem" id="menu-changelog">Change Log</button>
-            <button type="button" role="menuitem" id="menu-open-source">Open-Source Repository</button>
+            <button type="button" role="menuitem" id="menu-about">About…</button>
+            <button type="button" role="menuitem" id="menu-version">Version…</button>
+            <button type="button" role="menuitem" id="menu-changelog">Change log</button>
+            <button type="button" role="menuitem" id="menu-open-source">Source code</button>
             <button type="button" role="menuitem" id="menu-report-issues">Report issues</button>
             <button type="button" role="menuitem" id="menu-privacy">Privacy</button>
           </div>

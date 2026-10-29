@@ -17,10 +17,10 @@
       <div class="menu" data-menu="outliner">
         <button type="button" class="menu-label" aria-haspopup="menu" aria-expanded="false">Outliner</button>
         <div class="menu-panel" role="menu" hidden>
-          <button type="button" role="menuitem" id="menu-about">About</button>
-          <button type="button" role="menuitem" id="menu-version">Version</button>
-          <button type="button" role="menuitem" id="menu-changelog">Change Log</button>
-          <button type="button" role="menuitem" id="menu-open-source">Open-Source Repository</button>
+          <button type="button" role="menuitem" id="menu-about">About…</button>
+          <button type="button" role="menuitem" id="menu-version">Version…</button>
+          <button type="button" role="menuitem" id="menu-changelog">Change log</button>
+          <button type="button" role="menuitem" id="menu-open-source">Source code</button>
           <button type="button" role="menuitem" id="menu-report-issues">Report issues</button>
           <button type="button" role="menuitem" id="menu-privacy">Privacy</button>
         </div>
@@ -161,6 +161,15 @@
           <button type="button" id="unsaved-discard">Don't Save</button>
           <button type="button" id="unsaved-cancel" value="cancel">Cancel</button>
           <button type="submit" id="unsaved-save" autofocus>Save</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="outliner-message-dialog" class="cloud-dialog">
+      <form method="dialog" class="cloud-dialog-form">
+        <h2 id="outliner-message-title"></h2>
+        <p id="outliner-message-body" class="cloud-share-hint"></p>
+        <div class="cloud-dialog-actions">
+          <button type="submit" id="outliner-message-ok" autofocus>OK</button>
         </div>
       </form>
     </dialog>
