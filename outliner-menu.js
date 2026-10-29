@@ -1,12 +1,14 @@
 /** Product / help menu for the Outliner app chrome. */
 
 /** Display version: major.minor only. */
-export const OUTLINER_VERSION = '1.12';
+export const OUTLINER_VERSION = '1.13';
 
 /** ISO date the shipped code was last updated (bump when shipping meaningful changes). */
 export const OUTLINER_UPDATED = '2026-10-29';
 
 export const OUTLINER_CHANGELOG_URL = 'changelog.html';
+
+export const OUTLINER_PRIVACY_URL = 'privacy.html';
 
 export const OUTLINER_REPO_URL = 'https://github.com/tameware/outliner';
 
@@ -38,10 +40,12 @@ export function mountOutlinerMenu(root, deps = {}) {
   const changelog = root.querySelector('#menu-changelog');
   const openSource = root.querySelector('#menu-open-source');
   const report = root.querySelector('#menu-report-issues');
+  const privacy = root.querySelector('#menu-privacy');
 
   about?.addEventListener('click', () => alertFn(OUTLINER_ABOUT_TEXT));
   version?.addEventListener('click', () => alertFn(outlinerVersionLabel()));
   changelog?.addEventListener('click', () => openFn(OUTLINER_CHANGELOG_URL));
   openSource?.addEventListener('click', () => openFn(OUTLINER_REPO_URL));
   report?.addEventListener('click', () => openFn(OUTLINER_ISSUES_MAILTO));
+  privacy?.addEventListener('click', () => openFn(OUTLINER_PRIVACY_URL));
 }

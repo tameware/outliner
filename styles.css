@@ -60,17 +60,6 @@ body {
   margin: 0;
 }
 
-.chrome-privacy {
-  font-size: 0.85rem;
-  color: var(--muted);
-  text-decoration: none;
-}
-
-.chrome-privacy:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
 .legal-back {
   margin: 0 0 0.5rem;
   font-size: 0.9rem;

@@ -8,6 +8,7 @@ import {
   OUTLINER_ABOUT_TEXT,
   OUTLINER_CHANGELOG_URL,
   OUTLINER_ISSUES_MAILTO,
+  OUTLINER_PRIVACY_URL,
   OUTLINER_REPO_URL,
   OUTLINER_UPDATED,
   OUTLINER_VERSION,
@@ -28,6 +29,7 @@ function setupDom() {
           <button type="button" role="menuitem" id="menu-changelog">Change Log</button>
           <button type="button" role="menuitem" id="menu-open-source">Open-Source Repository</button>
           <button type="button" role="menuitem" id="menu-report-issues">Report issues</button>
+          <button type="button" role="menuitem" id="menu-privacy">Privacy</button>
         </div>
       </div>
     </nav>
@@ -67,6 +69,7 @@ describe('Outliner menu', () => {
       `${OUTLINER_VERSION} (updated ${OUTLINER_UPDATED})`,
     );
     assert.equal(OUTLINER_CHANGELOG_URL, 'changelog.html');
+    assert.equal(OUTLINER_PRIVACY_URL, 'privacy.html');
     assert.equal(OUTLINER_REPO_URL, 'https://github.com/tameware/outliner');
     assert.equal(OUTLINER_ISSUES_MAILTO, 'mailto:outliner@tameware.com');
     assert.match(OUTLINER_ABOUT_TEXT, /Tameware Outliner/i);
@@ -101,7 +104,13 @@ describe('Outliner menu', () => {
     assert.deepEqual(opened, [OUTLINER_ISSUES_MAILTO]);
   });
 
-  it('places Outliner left of File in index.html with Change Log after Version', () => {
+  it('opens the Privacy policy page', () => {
+    mountOutlinerMenu(document);
+    document.getElementById('menu-privacy').click();
+    assert.deepEqual(opened, [OUTLINER_PRIVACY_URL]);
+  });
+
+  it('places Outliner left of File in index.html with Privacy after Report issues', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     const outlinerAt = html.indexOf('data-menu="outliner"');
     const fileAt = html.indexOf('data-menu="file"');
@@ -114,7 +123,10 @@ describe('Outliner menu', () => {
     assert.match(panel, /id="menu-changelog"[^>]*>\s*Change Log\s*</);
     assert.match(panel, /id="menu-open-source"[^>]*>\s*Open-Source Repository\s*</);
     assert.match(panel, /id="menu-report-issues"[^>]*>\s*Report issues\s*</);
+    assert.match(panel, /id="menu-privacy"[^>]*>\s*Privacy\s*</);
     assert.ok(panel.indexOf('menu-version') < panel.indexOf('menu-changelog'));
+    assert.ok(panel.indexOf('menu-report-issues') < panel.indexOf('menu-privacy'));
+    assert.doesNotMatch(html, /chrome-privacy/);
   });
 
   it('wires mountOutlinerMenu from app.js', () => {

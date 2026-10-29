@@ -142,9 +142,10 @@ describe('index.html CSP-safe entry', () => {
     assert.match(appJs, /mountFindReplace/);
   });
 
-  it('links to a privacy policy page', () => {
+  it('links to a privacy policy page from the Outliner menu', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
-    assert.match(html, /href="privacy\.html"/);
+    assert.match(html, /id="menu-privacy"[^>]*>\s*Privacy\s*</);
+    assert.doesNotMatch(html, /chrome-privacy/);
     const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
     assert.match(privacy, /Privacy Policy/i);
     assert.match(privacy, /Google Drive/i);

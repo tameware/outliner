@@ -15,6 +15,7 @@ describe('read-only toolbar', () => {
             <button type="button" role="menuitem" id="menu-changelog">Change Log</button>
             <button type="button" role="menuitem" id="menu-open-source">Open-Source Repository</button>
             <button type="button" role="menuitem" id="menu-report-issues">Report issues</button>
+            <button type="button" role="menuitem" id="menu-privacy">Privacy</button>
           </div>
         </div>
         <div class="menu" data-menu="file" hidden>
@@ -65,6 +66,7 @@ describe('read-only toolbar', () => {
       'menu-changelog',
       'menu-open-source',
       'menu-report-issues',
+      'menu-privacy',
       'menu-export',
       'menu-expand-all',
       'menu-collapse-all',
