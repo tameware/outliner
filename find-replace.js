@@ -3,7 +3,7 @@
  */
 
 import { isDealDiagramItem } from './deal-diagram.js';
-import { fillTextWithSuits } from './suit-shortcuts.js';
+import { expandSuitBangShortcuts, fillTextWithSuits } from './suit-shortcuts.js';
 
 /**
  * @param {HTMLElement} item
@@ -106,19 +106,21 @@ export function findNextIndex(matches, currentIndex, options) {
 }
 
 /**
- * Expand `$1` / `$$` style replacements when Grep is on; otherwise return replace as-is.
+ * Expand `$1` / `$$` when Grep is on, then expand `!c` `!d` `!h` `!s` suit bangs.
  * @param {string} template
  * @param {RegExpMatchArray | { 0: string, index?: number, [k: number]: string }} match
  * @param {{ grep?: boolean }} options
  */
 export function expandReplaceTemplate(template, match, options = {}) {
-  const value = String(template ?? '');
-  if (!options.grep) return value;
-  return value.replace(/\$(\$|\d+)/g, (_, token) => {
-    if (token === '$') return '$';
-    const idx = Number(token);
-    return match[idx] != null ? String(match[idx]) : `$${token}`;
-  });
+  let value = String(template ?? '');
+  if (options.grep) {
+    value = value.replace(/\$(\$|\d+)/g, (_, token) => {
+      if (token === '$') return '$';
+      const idx = Number(token);
+      return match[idx] != null ? String(match[idx]) : `$${token}`;
+    });
+  }
+  return expandSuitBangShortcuts(value);
 }
 
 /**
@@ -218,7 +220,7 @@ export function replaceMatch(match, replace, options = {}) {
   if (slice !== match.matchText && options.find) {
     // Stale match — rebuild from current text using find options if provided.
   }
-  let insertion = String(replace ?? '');
+  let insertion = expandReplaceTemplate(replace, { 0: match.matchText }, options);
   if (options.grep && options.find != null) {
     const { regex } = buildFindRegex(options.find, options);
     if (regex) {
@@ -230,9 +232,6 @@ export function replaceMatch(match, replace, options = {}) {
         insertion = expandReplaceTemplate(replace, m, { grep: true });
       }
     }
-  } else if (options.grep) {
-    // Fall back: treat matchText as group 0 only.
-    insertion = expandReplaceTemplate(replace, { 0: match.matchText }, { grep: true });
   }
   const next = text.slice(0, match.start) + insertion + text.slice(match.end);
   setItemText(match.item, next);

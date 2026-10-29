@@ -5,6 +5,8 @@ import {
   matchSuitShortcut,
   tryInsertSuitShortcut,
   fillTextWithSuits,
+  expandSuitBangShortcuts,
+  tryInsertSuitShortcutInInput,
   SUIT_GLYPHS,
 } from '../suit-shortcuts.js';
 import { mountOutliner, getItemText } from '../outliner.js';
@@ -23,6 +25,29 @@ describe('suit shortcuts', () => {
     assert.equal(matchSuitShortcut('!c', 'c'), null);
     assert.equal(matchSuitShortcut('!', 'x'), null);
     assert.equal(matchSuitShortcut('', 'c'), null);
+  });
+
+  it('expandSuitBangShortcuts turns !c !d !h !s into glyphs', () => {
+    assert.equal(
+      expandSuitBangShortcuts('Lead !h then !d vs !s!c'),
+      `Lead ${SUIT_GLYPHS.hearts} then ${SUIT_GLYPHS.diamonds} vs ${SUIT_GLYPHS.spades}${SUIT_GLYPHS.clubs}`,
+    );
+    assert.equal(expandSuitBangShortcuts('!H !D'), `${SUIT_GLYPHS.hearts} ${SUIT_GLYPHS.diamonds}`);
+    assert.equal(expandSuitBangShortcuts('plain'), 'plain');
+  });
+
+  it('tryInsertSuitShortcutInInput replaces ! plus letter in a text input', () => {
+    const dom = new JSDOM('<!DOCTYPE html><body><input id="r" /></body>', {
+      url: 'http://localhost/',
+    });
+    globalThis.document = dom.window.document;
+    const input = document.getElementById('r');
+    input.value = 'AK!';
+    input.selectionStart = 3;
+    input.selectionEnd = 3;
+    assert.equal(tryInsertSuitShortcutInInput(input, 'h'), true);
+    assert.equal(input.value, `AK${SUIT_GLYPHS.hearts}`);
+    assert.equal(input.selectionStart, 3);
   });
 
   describe('fillTextWithSuits', () => {

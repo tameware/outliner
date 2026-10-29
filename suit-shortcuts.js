@@ -43,6 +43,15 @@ export function createSuitNode(glyph) {
 }
 
 /**
+ * Turn `!c` `!d` `!h` `!s` (any case) into Unicode suit glyphs.
+ * @param {string} text
+ * @returns {string}
+ */
+export function expandSuitBangShortcuts(text) {
+  return String(text ?? '').replace(/!([cdhs])/gi, (_, letter) => suitGlyphForKey(letter) || `!${letter}`);
+}
+
+/**
  * Replace an element's children with plain text, wrapping ♥/♦ in `.suit-red`.
  * Used when restoring lines from OPML (undo/load) so red suits stay red.
  * @param {HTMLElement} el
@@ -68,6 +77,26 @@ export function fillTextWithSuits(el, text) {
     }
   }
   flush();
+}
+
+/**
+ * Bang-suit shortcut for a plain text `<input>` / `<textarea>` (e.g. Replace field).
+ * @param {HTMLInputElement | HTMLTextAreaElement} input
+ * @param {string} key
+ * @returns {boolean}
+ */
+export function tryInsertSuitShortcutInInput(input, key) {
+  if (!input || input.selectionStart == null || input.selectionEnd == null) return false;
+  if (input.selectionStart !== input.selectionEnd) return false;
+  const start = input.selectionStart;
+  const before = String(input.value).slice(0, start);
+  const glyph = matchSuitShortcut(before, key);
+  if (!glyph) return false;
+  const next = `${before.slice(0, -1)}${glyph}${String(input.value).slice(start)}`;
+  input.value = next;
+  const caret = before.length - 1 + glyph.length;
+  input.setSelectionRange(caret, caret);
+  return true;
 }
 
 /**

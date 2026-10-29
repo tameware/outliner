@@ -113,6 +113,14 @@ describe('find-replace core', () => {
     assert.equal(getItemText(matches[0].item), 'Alpha river');
   });
 
+  it('replaceMatch expands !c !d !h !s in the replace string', () => {
+    const matches = findMatches(root, { find: 'bridge' });
+    assert.equal(replaceMatch(matches[0], 'lead !h'), true);
+    assert.equal(getItemText(matches[0].item), 'Alpha lead ♥');
+    const heart = matches[0].item.querySelector('.suit-red');
+    assert.equal(heart?.textContent, '♥');
+  });
+
   it('replaceAllMatches replaces every match', () => {
     const n = replaceAllMatches(root, { find: 'bridge', replace: 'X' });
     assert.equal(n, 3);
@@ -124,6 +132,15 @@ describe('find-replace core', () => {
       },
       { text: 'Delta', children: [] },
     ]);
+  });
+
+  it('replaceAllMatches expands suit bangs in the replace string', () => {
+    const n = replaceAllMatches(root, { find: 'Delta', replace: '!c!d!h!s' });
+    assert.equal(n, 1);
+    const delta = [...root.querySelectorAll('[data-item]')].at(-1);
+    assert.equal(getItemText(delta), '♣♦♥♠');
+    const reds = [...delta.querySelectorAll('.suit-red')].map((el) => el.textContent);
+    assert.deepEqual(reds, ['♦', '♥']);
   });
 
   it('selectTextRange selects the match inside the line', () => {

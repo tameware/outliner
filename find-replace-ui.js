@@ -9,6 +9,7 @@ import {
   replaceAllMatches,
   selectTextRange,
 } from './find-replace.js';
+import { tryInsertSuitShortcutInInput } from './suit-shortcuts.js';
 
 /**
  * @param {{
@@ -285,6 +286,14 @@ export function mountFindReplace({
       currentIndex = -1;
     });
   }
+
+  replaceInput?.addEventListener('keydown', (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (!event.key || event.key.length !== 1) return;
+    if (tryInsertSuitShortcutInInput(/** @type {HTMLInputElement} */ (replaceInput), event.key)) {
+      event.preventDefault();
+    }
+  });
 
   findButton?.addEventListener('click', () => {
     openDialog(false);

@@ -115,6 +115,22 @@ describe('Find & Replace UI', () => {
     assert.equal(ui.findNext(), true);
     assert.equal(window.getSelection().toString(), 'Beta');
   });
+
+  it('expands !h in the Replace field while typing', () => {
+    document.getElementById('menu-replace').click();
+    const input = document.getElementById('find-replace-replace');
+    input.value = 'AK!';
+    input.selectionStart = 3;
+    input.selectionEnd = 3;
+    input.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'h',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(input.value, 'AK♥');
+  });
 });
 
 describe('index.html Find & Replace menu', () => {
