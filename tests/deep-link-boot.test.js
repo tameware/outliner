@@ -18,6 +18,37 @@ describe('deep-link boot', () => {
     assert.equal(hasRemoteOutlineParams({ search: '?edit=opaque-edit' }), true);
   });
 
+  it('clears the default outline when an opaque view share is present', () => {
+    const dom = new JSDOM(`<!DOCTYPE html><body>
+      <main>
+        <p id="outline-loading" class="outline-loading" hidden>Loading your outline…</p>
+        <ol class="outline" data-outline-root>
+          <li data-item>
+            <div class="row">
+              <button type="button" class="toggle"></button>
+              <div class="text" contenteditable="true">Default tip</div>
+            </div>
+          </li>
+        </ol>
+      </main>
+    </body>`);
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.Node = dom.window.Node;
+    const root = document.querySelector('[data-outline-root]');
+
+    assert.equal(
+      blankOutlineForDeepLink(
+        root,
+        { search: '?view=opaque-share' },
+        { loadOutline },
+      ),
+      true,
+    );
+    assert.deepEqual(getItemTexts(root), ['']);
+    assert.equal(document.querySelector('main').getAttribute('data-loading'), 'true');
+  });
+
   it('clears the default outline when id is present', () => {
     const dom = new JSDOM(`<!DOCTYPE html><body>
       <main>

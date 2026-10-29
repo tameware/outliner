@@ -70,6 +70,19 @@ describe('outline loading panel', () => {
     assert.deepEqual(getItemTexts(els.root), ['']);
   });
 
+  it('deep-link boot blanks for opaque read-only ?view= links', () => {
+    assert.equal(
+      blankOutlineForDeepLink(
+        els.root,
+        { search: '?view=opaque-share' },
+        { loadOutline },
+      ),
+      true,
+    );
+    assert.equal(isOutlineLoading(els.root), true);
+    assert.deepEqual(getItemTexts(els.root), ['']);
+  });
+
   it('places the loading message in index.html ahead of the outline', () => {
     const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
     assert.match(html, /id="outline-loading"/);
@@ -83,5 +96,19 @@ describe('outline loading panel', () => {
       css,
       /main\[data-loading\]\s*\[data-outline-root\]\s*\{[^}]*display\s*:\s*none/s,
     );
+  });
+
+  it('runs an early sync paint script before the outline so deep links never flash starter HTML', () => {
+    const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
+    assert.match(html, /<script\s+src="\.\/deep-link-paint\.js"><\/script>/);
+    assert.doesNotMatch(html, /<script\s+type="module"\s+src="\.\/deep-link-paint/);
+    const paintAt = html.indexOf('deep-link-paint.js');
+    const outlineAt = html.indexOf('data-outline-root');
+    assert.ok(paintAt >= 0 && paintAt < outlineAt);
+
+    const paint = readFileSync(join(repoRoot, 'deep-link-paint.js'), 'utf8');
+    assert.match(paint, /data-loading/);
+    assert.match(paint, /outline-loading/);
+    assert.match(paint, /view/);
   });
 });
