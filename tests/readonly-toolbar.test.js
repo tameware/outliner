@@ -21,8 +21,7 @@ describe('read-only toolbar', () => {
         <div class="menu" data-menu="file" hidden>
           <button type="button" class="menu-label">File</button>
           <div class="menu-panel">
-            <button type="button" role="menuitem" id="menu-open">Open…</button>
-            <button type="button" role="menuitem" id="menu-export">Export…</button>
+            <button type="button" role="menuitem" id="menu-file-save">Save…</button>
           </div>
         </div>
         <div class="menu" data-menu="edit" hidden>
@@ -71,7 +70,7 @@ describe('read-only toolbar', () => {
       'menu-open-source',
       'menu-report-issues',
       'menu-privacy',
-      'menu-export',
+      'menu-file-save',
       'menu-find',
       'menu-focus',
       'menu-unfocus',

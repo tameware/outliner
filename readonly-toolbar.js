@@ -6,7 +6,7 @@ export const READONLY_TOOLBAR_IDS = [
   'menu-open-source',
   'menu-report-issues',
   'menu-privacy',
-  'menu-export',
+  'menu-file-save',
   'menu-find',
   'menu-focus',
   'menu-unfocus',

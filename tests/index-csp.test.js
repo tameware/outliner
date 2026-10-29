@@ -118,14 +118,17 @@ describe('index.html CSP-safe entry', () => {
         cloudPanel.indexOf('id="menu-cloud-revert"') < cloudPanel.indexOf('id="menu-cloud-share"'),
       'Cloud Revert should sit between Delete and share links',
     );
+    assert.match(filePanel, /id="menu-file-open"/);
+    assert.match(filePanel, /id="menu-file-save"/);
     assert.match(filePanel, /id="menu-revert"/);
-    assert.match(html, /id="menu-import"/);
-    assert.match(html, /id="menu-export"/);
     assert.match(html, /id="menu-insert-import"/);
     assert.match(html, /Insert Import…/);
+    assert.doesNotMatch(filePanel, /id="menu-import"/);
+    assert.doesNotMatch(filePanel, /id="menu-export"/);
     assert.ok(
-      filePanel.indexOf('id="menu-export"') < filePanel.indexOf('id="menu-insert-import"'),
-      'Insert Import… should be at the bottom of the File menu',
+      filePanel.indexOf('id="menu-file-open"') < filePanel.indexOf('id="menu-file-save"') &&
+        filePanel.indexOf('id="menu-file-save"') < filePanel.indexOf('id="menu-insert-import"'),
+      'File Open / Save should sit above Insert Import…',
     );
     assert.match(html, /id="menu-cloud-auth"/);
     assert.match(html, /id="menu-cloud-share"/);
@@ -138,7 +141,7 @@ describe('index.html CSP-safe entry', () => {
     const appJs = readFileSync(join(root, 'app.js'), 'utf8');
     assert.match(appJs, /menu-insert-import/);
     assert.match(appJs, /insertOutline/);
-    assert.match(appJs, /fileOpenMode\s*=\s*'insert'/);
+    assert.match(appJs, /triggerLegacyFileOpen\(['"]insert['"]\)/);
     assert.match(appJs, /mode === 'insert'/);
   });
 

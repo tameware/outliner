@@ -57,6 +57,16 @@ import {
   revertToCleanSnapshot,
   syncRevertMenuItem,
 } from './revert-outline.js';
+import {
+  supportsFileSystemAccess,
+  localSaveMenuLabel,
+  suggestedOpmlFilename,
+  openOpmlWithFilePicker,
+  saveOpmlWithFilePicker,
+  writeOpmlToFileHandle,
+  isAbortError,
+  isFilePickerUnavailableError,
+} from './local-file.js';
 
 const rootEl = document.querySelector('[data-outline-root]');
 const menubar = document.querySelector('.menubar');
@@ -120,10 +130,7 @@ async function saveBeforeReplace() {
   if (cloudSaveAvailable && cloudUi?.saveCurrent) {
     return cloudUi.saveCurrent();
   }
-  const title = document.title || 'Outline';
-  downloadOpml(root, { title, filename: 'outline.opml' });
-  dirty.markClean();
-  return true;
+  return saveLocalOutline();
 }
 
 async function beforeReplace() {
@@ -260,16 +267,131 @@ document.getElementById('menu-collapse-all').addEventListener('click', () => {
 document.getElementById('menu-clear').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   outlineHistory.clear();
+  clearLocalFileHandle();
   syncFocusMenus();
   const first = root.querySelector('[data-item]');
   if (first) focusItem(first);
 });
 
 const fileInput = document.getElementById('file-open');
+const fileSaveButton = document.getElementById('menu-file-save');
 
-document.getElementById('menu-export').addEventListener('click', () => {
+/** @type {FileSystemFileHandle | null} */
+let localFileHandle = null;
+
+function clearLocalFileHandle() {
+  localFileHandle = null;
+  syncLocalSaveLabel();
+}
+
+function syncLocalSaveLabel() {
+  if (fileSaveButton) {
+    fileSaveButton.textContent = localSaveMenuLabel(Boolean(localFileHandle));
+  }
+}
+
+syncLocalSaveLabel();
+
+/**
+ * @param {{ title?: string, items?: unknown[] }} tree
+ * @param {string} [fallbackName]
+ */
+function applyOpenedLocalOutline(tree, fallbackName) {
+  loadOutline(root, tree);
+  outlineHistory.discard();
+  if (tree.title) applyDocumentTitle(tree.title);
+  else if (fallbackName) {
+    const base = String(fallbackName).replace(/\.opml$/i, '').trim();
+    if (base) applyDocumentTitle(base);
+  }
+  dirty.markClean();
+  syncFocusMenus();
+  syncRevert();
+  const firstItem = root.querySelector('[data-item]');
+  if (firstItem) focusItem(firstItem);
+}
+
+function triggerLegacyFileOpen(mode = 'replace') {
+  fileOpenMode = mode;
+  fileInput.click();
+}
+
+async function openLocalOutline() {
+  if (root.dataset.readonly === 'true') return;
+  // Avoid awaiting when clean — showOpenFilePicker needs the click's user gesture.
+  if (dirty.isDirty()) {
+    const allow = await beforeReplace();
+    if (!allow) return;
+  }
+
+  if (supportsFileSystemAccess()) {
+    try {
+      const picked = await openOpmlWithFilePicker();
+      if (!picked) return;
+      const tree = parseOpml(picked.text);
+      localFileHandle = picked.handle;
+      syncLocalSaveLabel();
+      applyOpenedLocalOutline(tree, picked.name);
+      return;
+    } catch (error) {
+      if (isAbortError(error)) return;
+      // Cursor's browser and some embeds expose the API but cannot show the picker.
+      if (isFilePickerUnavailableError(error)) {
+        triggerLegacyFileOpen('replace');
+        return;
+      }
+      window.alert('Could not open OPML file: ' + (error?.message || error));
+      return;
+    }
+  }
+
+  triggerLegacyFileOpen('replace');
+}
+
+/** @returns {Promise<boolean>} */
+async function saveLocalOutline() {
   const title = document.title || 'Outline';
-  downloadOpml(root, { title, filename: 'outline.opml' });
+  const opml = toOpml(root, { title });
+  const filename = suggestedOpmlFilename(title);
+
+  if (supportsFileSystemAccess()) {
+    try {
+      if (localFileHandle) {
+        await writeOpmlToFileHandle(localFileHandle, opml);
+      } else {
+        const handle = await saveOpmlWithFilePicker(opml, { suggestedName: filename });
+        if (!handle) return false;
+        localFileHandle = handle;
+        syncLocalSaveLabel();
+      }
+      dirty.markClean();
+      syncRevert();
+      return true;
+    } catch (error) {
+      if (isAbortError(error)) return false;
+      if (isFilePickerUnavailableError(error)) {
+        downloadOpml(root, { title, filename });
+        dirty.markClean();
+        syncRevert();
+        return true;
+      }
+      window.alert('Could not save OPML file: ' + (error?.message || error));
+      return false;
+    }
+  }
+
+  downloadOpml(root, { title, filename });
+  dirty.markClean();
+  syncRevert();
+  return true;
+}
+
+document.getElementById('menu-file-open')?.addEventListener('click', () => {
+  void openLocalOutline();
+});
+
+document.getElementById('menu-file-save')?.addEventListener('click', () => {
+  void saveLocalOutline();
 });
 
 const revertButtons = [
@@ -323,19 +445,31 @@ document.getElementById('menu-cloud-revert')?.addEventListener('click', onRevert
 /** @type {'replace' | 'insert'} */
 let fileOpenMode = 'replace';
 
-document.getElementById('menu-import').addEventListener('click', () => {
+document.getElementById('menu-insert-import')?.addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
-  void beforeReplace().then((allow) => {
-    if (!allow) return;
-    fileOpenMode = 'replace';
-    fileInput.click();
-  });
-});
-
-document.getElementById('menu-insert-import').addEventListener('click', () => {
-  if (root.dataset.readonly === 'true') return;
-  fileOpenMode = 'insert';
-  fileInput.click();
+  if (supportsFileSystemAccess()) {
+    void (async () => {
+      try {
+        const picked = await openOpmlWithFilePicker();
+        if (!picked) return;
+        const tree = parseOpml(picked.text);
+        outlineHistory.run(() => {
+          const after = api.getActiveItem?.() ?? null;
+          return Boolean(insertOutline(root, tree, after));
+        });
+        syncRevert();
+      } catch (error) {
+        if (isAbortError(error)) return;
+        if (isFilePickerUnavailableError(error)) {
+          triggerLegacyFileOpen('insert');
+          return;
+        }
+        window.alert('Could not open OPML file: ' + (error?.message || error));
+      }
+    })();
+    return;
+  }
+  triggerLegacyFileOpen('insert');
 });
 
 fileInput.addEventListener('change', async () => {
@@ -355,13 +489,8 @@ fileInput.addEventListener('change', async () => {
       syncRevert();
       return;
     }
-    loadOutline(root, tree);
-    outlineHistory.discard();
-    if (tree.title) applyDocumentTitle(tree.title);
-    dirty.markClean();
-    syncFocusMenus();
-    const first = root.querySelector('[data-item]');
-    if (first) focusItem(first);
+    clearLocalFileHandle();
+    applyOpenedLocalOutline(tree, file.name);
   } catch (error) {
     window.alert('Could not open OPML file: ' + (error?.message || error));
   }
@@ -413,6 +542,7 @@ async function initCloud() {
       toOpml: () => toOpml(root, { title: document.title || 'Outline' }),
       parseOpml,
       loadOutline: (tree) => {
+        clearLocalFileHandle();
         loadOutline(root, tree);
         outlineHistory.discard();
         if (tree.title) applyDocumentTitle(tree.title);
@@ -467,6 +597,7 @@ async function initCloud() {
       applyOutline: async (got) => {
         const tree = parseOpml(got.opml);
         loadOutline(root, tree);
+        clearLocalFileHandle();
         if (got.title || tree.title) applyDocumentTitle(got.title || tree.title);
         if (got.fileId) currentOutlineId = got.fileId;
         currentRevision = got.revision ?? null;

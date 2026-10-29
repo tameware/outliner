@@ -28,11 +28,11 @@
       <div class="menu" data-menu="file">
         <button type="button" class="menu-label" aria-haspopup="menu" aria-expanded="false">File</button>
         <div class="menu-panel" role="menu" hidden>
-          <button type="button" role="menuitem" id="menu-revert" disabled>Revert</button>
-          <hr class="menu-sep" />
-          <button type="button" role="menuitem" id="menu-import">Import…</button>
-          <button type="button" role="menuitem" id="menu-export">Export…</button>
+          <button type="button" role="menuitem" id="menu-file-open">Open…</button>
+          <button type="button" role="menuitem" id="menu-file-save">Save…</button>
           <button type="button" role="menuitem" id="menu-insert-import">Insert Import…</button>
+          <hr class="menu-sep" />
+          <button type="button" role="menuitem" id="menu-revert" disabled>Revert</button>
         </div>
       </div>
       <div class="menu" data-menu="edit">
@@ -311,7 +311,7 @@
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">File → Import… / Export… — OPML on your computer</div>
+                  <div class="text" contenteditable="true">File → Open… / Save — OPML on your computer (re-saves in place when the browser supports it)</div>
                 </div>
               </li>
               <li data-item>
