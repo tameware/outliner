@@ -95,11 +95,25 @@ describe('index.html CSP-safe entry', () => {
     assert.match(html, /id="menu-revert"/);
     assert.match(html, /id="menu-import"/);
     assert.match(html, /id="menu-export"/);
+    assert.match(html, /id="menu-insert-import"/);
+    assert.match(html, /Insert Import…/);
+    assert.ok(
+      html.indexOf('id="menu-export"') < html.indexOf('id="menu-insert-import"'),
+      'Insert Import… should be at the bottom of the File menu',
+    );
     assert.match(html, /id="menu-cloud-auth"/);
     assert.match(html, /id="menu-cloud-share"/);
     assert.match(html, /id="menu-cloud-share-edit"/);
     assert.doesNotMatch(html, /id="btn-sign-in"/);
     assert.doesNotMatch(html, /id="btn-cloud-share"/);
+  });
+
+  it('wires Insert Import through insertOutline without replacing the outline', () => {
+    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    assert.match(appJs, /menu-insert-import/);
+    assert.match(appJs, /insertOutline/);
+    assert.match(appJs, /fileOpenMode\s*=\s*'insert'/);
+    assert.match(appJs, /mode === 'insert'/);
   });
 
   it('links to a privacy policy page', () => {

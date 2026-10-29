@@ -7,6 +7,7 @@ import {
   downloadOpml,
   readOpmlFile,
   loadOutline,
+  insertOutline,
   toOpml,
   parseOpml,
   setReadOnly,
@@ -244,11 +245,22 @@ document.getElementById('menu-revert').addEventListener('click', () => {
   syncRevert();
 });
 
+/** @type {'replace' | 'insert'} */
+let fileOpenMode = 'replace';
+
 document.getElementById('menu-import').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   void beforeReplace().then((allow) => {
-    if (allow) fileInput.click();
+    if (!allow) return;
+    fileOpenMode = 'replace';
+    fileInput.click();
   });
+});
+
+document.getElementById('menu-insert-import').addEventListener('click', () => {
+  if (root.dataset.readonly === 'true') return;
+  fileOpenMode = 'insert';
+  fileInput.click();
 });
 
 fileInput.addEventListener('change', async () => {
@@ -256,8 +268,18 @@ fileInput.addEventListener('change', async () => {
   const file = fileInput.files?.[0];
   fileInput.value = '';
   if (!file) return;
+  const mode = fileOpenMode;
+  fileOpenMode = 'replace';
   try {
     const tree = await readOpmlFile(file);
+    if (mode === 'insert') {
+      outlineHistory.run(() => {
+        const after = api.getActiveItem?.() ?? null;
+        return Boolean(insertOutline(root, tree, after));
+      });
+      syncRevert();
+      return;
+    }
     loadOutline(root, tree);
     outlineHistory.discard();
     if (tree.title) document.title = tree.title;

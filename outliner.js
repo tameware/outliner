@@ -947,6 +947,42 @@ export function loadOutline(root, tree) {
 }
 
 /**
+ * Insert a parsed OPML tree into `root` as siblings immediately after `afterItem`
+ * (same nesting level). When `afterItem` is omitted or not in the outline, append
+ * at the top level. Does not change the document title.
+ * @param {HTMLElement} root
+ * @param {{ items?: Array<{ text?: string, children?: unknown[], expanded?: boolean }> }} tree
+ * @param {HTMLElement | null} [afterItem]
+ * @returns {HTMLElement | null} first inserted item, or null if nothing to insert
+ */
+export function insertOutline(root, tree, afterItem = null) {
+  const items = tree?.items ?? [];
+  if (!items.length) return null;
+
+  const nodes = items.map((node) => renderItem(node));
+  const anchor =
+    afterItem && root.contains(afterItem) && afterItem.matches?.('[data-item]')
+      ? afterItem
+      : null;
+
+  if (anchor) {
+    let prev = anchor;
+    for (const li of nodes) {
+      prev.after(li);
+      prev = li;
+    }
+  } else {
+    nodes.forEach((li) => root.appendChild(li));
+  }
+
+  syncTree(root);
+  syncAllDealDiagrams(root);
+  if (isReadOnly(root)) setReadOnly(root, true);
+  focusItem(nodes[0]);
+  return nodes[0];
+}
+
+/**
  * Replace the outline with a single empty line.
  * @returns {string} OPML snapshot of the previous content (for undo).
  */
