@@ -42,9 +42,14 @@ export function coerceDocumentUpdatedAt(date) {
 export function formatDocumentUpdatedLabel(date) {
   const d = coerceDocumentUpdatedAt(date);
   if (!d) return '';
+  // dateStyle/timeStyle cannot combine with timeZoneName in some engines.
   return `Updated ${d.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
   })}`;
 }
 

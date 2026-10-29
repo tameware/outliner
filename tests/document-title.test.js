@@ -33,13 +33,20 @@ describe('document title display', () => {
     assert.equal(el.textContent, 'My outline');
   });
 
-  it('formatDocumentUpdatedLabel prefixes Updated with a locale timestamp', () => {
+  it('formatDocumentUpdatedLabel prefixes Updated with a locale timestamp and timezone', () => {
     assert.equal(formatDocumentUpdatedLabel(null), '');
     assert.equal(formatDocumentUpdatedLabel(undefined), '');
     assert.equal(formatDocumentUpdatedLabel('not-a-date'), '');
-    const label = formatDocumentUpdatedLabel(new Date('2026-10-29T15:04:00Z'));
+    const when = new Date('2026-10-29T15:04:00Z');
+    const label = formatDocumentUpdatedLabel(when);
     assert.match(label, /^Updated /);
     assert.match(label, /2026/);
+    const parts = new Intl.DateTimeFormat(undefined, {
+      timeZoneName: 'short',
+    }).formatToParts(when);
+    const zone = parts.find((p) => p.type === 'timeZoneName')?.value;
+    assert.ok(zone, 'expected a short local timezone name');
+    assert.match(label, new RegExp(zone.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   });
 
   it('syncDocumentUpdatedDisplay writes Updated text to the right-hand time element', () => {
