@@ -271,7 +271,11 @@ export function mergeWithPreviousLine(item) {
   const curEl = textEl(item);
   const joinAt = prevEl?.textContent?.length ?? 0;
   if (prevEl) {
-    prevEl.textContent = `${prevEl.textContent || ''}${curEl?.textContent || ''}`;
+    // textContent concat would drop .suit-red; re-wrap ♥/♦ like OPML restore.
+    fillTextWithSuits(
+      prevEl,
+      `${prevEl.textContent || ''}${curEl?.textContent || ''}`,
+    );
   }
 
   const kids = directChildItems(item);

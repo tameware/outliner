@@ -306,6 +306,23 @@ describe('WYSIWYG HTML outliner', () => {
     assert.equal(getItemText(items[0]), 'Alpha');
   });
 
+  it('mergeWithPreviousLine keeps red suit spans when joining lines', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'AK♥', children: [] },
+        { text: ' vs ♦2', children: [] },
+      ],
+    });
+    const [first, second] = root.querySelectorAll('[data-item]');
+    assert.equal(first.querySelectorAll('.suit-red').length, 1);
+    assert.equal(second.querySelectorAll('.suit-red').length, 1);
+    assert.equal(mergeWithPreviousLine(second), true);
+    assert.equal(getItemText(first), 'AK♥ vs ♦2');
+    const reds = [...first.querySelectorAll('.suit-red')].map((el) => el.textContent);
+    assert.deepEqual(reds, ['♥', '♦']);
+    assert.equal(caretOffsetIn(first.querySelector('.text')), 'AK♥'.length);
+  });
+
   it('removes an item and keeps siblings intact', () => {
     removeItem(items[3]); // Delta
     assert.deepEqual(getItemTexts(root), ['Alpha', 'Beta', 'Gamma', 'Epsilon']);
