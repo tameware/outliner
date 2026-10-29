@@ -10,6 +10,7 @@ import {
   isDealDiagramItem,
   syncAllDealDiagrams,
 } from './deal-diagram.js';
+import { clearOutlineFocus } from './outline-focus.js';
 
 function childList(item) {
   return item.querySelector(':scope > ol');
@@ -497,6 +498,9 @@ function outlineDepth(item, root) {
  * @param {HTMLElement} root
  */
 function isVisibleOutlineItem(item, root) {
+  if (item.dataset?.focusRole === 'hidden' || item.dataset?.focusRole === 'ancestor') {
+    return false;
+  }
   let el = item.parentElement;
   while (el && el !== root) {
     if (el.matches?.('ol') && el.hidden) return false;
@@ -933,6 +937,7 @@ function renderItem(node) {
 
 /** Replace the contents of an outline root with a parsed tree. */
 export function loadOutline(root, tree) {
+  clearOutlineFocus(root);
   const items = tree?.items ?? [];
   root.replaceChildren();
   if (items.length === 0) {

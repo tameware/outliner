@@ -8,6 +8,8 @@ export const READONLY_TOOLBAR_IDS = [
   'menu-privacy',
   'menu-export',
   'menu-find',
+  'menu-focus',
+  'menu-unfocus',
   'menu-expand-all',
   'menu-collapse-all',
 ];

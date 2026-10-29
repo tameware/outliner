@@ -37,6 +37,8 @@ describe('read-only toolbar', () => {
         <div class="menu" data-menu="view">
           <button type="button" class="menu-label">View</button>
           <div class="menu-panel">
+            <button type="button" role="menuitem" id="menu-focus">Focus</button>
+            <button type="button" role="menuitem" id="menu-unfocus">Unfocus</button>
             <button type="button" role="menuitem" id="menu-expand-all">Expand All</button>
             <button type="button" role="menuitem" id="menu-collapse-all">Collapse All</button>
           </div>
@@ -71,6 +73,8 @@ describe('read-only toolbar', () => {
       'menu-privacy',
       'menu-export',
       'menu-find',
+      'menu-focus',
+      'menu-unfocus',
       'menu-expand-all',
       'menu-collapse-all',
     ]);

@@ -531,6 +531,20 @@ ol.outline ol {
   content: "▸";
 }
 
+[data-item][data-focus-role="hidden"] {
+  display: none;
+}
+
+[data-item][data-focus-role="ancestor"] > .row {
+  display: none;
+}
+
+[data-outline-root][data-focused] [data-item][data-focus-role="ancestor"] > ol {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: none;
+}
+
 [data-item][data-has-children="false"] > .row > .toggle {
   cursor: default;
 }

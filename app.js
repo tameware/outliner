@@ -43,6 +43,11 @@ import { mountMenubar } from './menubar.js';
 import { mountOutlinerMenu } from './outliner-menu.js';
 import { applyMenuShortcuts } from './menu-shortcuts.js';
 import { syncDocumentTitleDisplay } from './document-title.js';
+import {
+  focusOutlineItem,
+  unfocusOutline,
+  isOutlineFocusActive,
+} from './outline-focus.js';
 import { createDirtyTracker } from './dirty-tracker.js';
 import {
   offerSaveIfDirty,
@@ -208,6 +213,39 @@ document.addEventListener(
   true,
 );
 
+const focusButton = document.getElementById('menu-focus');
+const unfocusButton = document.getElementById('menu-unfocus');
+
+function syncFocusMenus() {
+  if (unfocusButton) unfocusButton.disabled = !isOutlineFocusActive(root);
+}
+
+focusButton?.addEventListener('click', () => {
+  const item = api.getActiveItem?.();
+  if (!item) {
+    systemBeep();
+    return;
+  }
+  if (!focusOutlineItem(root, item)) {
+    systemBeep();
+    return;
+  }
+  if (item.dataset.hasChildren === 'true' && item.dataset.state === 'collapsed') {
+    toggleItem(item);
+  }
+  syncFocusMenus();
+});
+
+unfocusButton?.addEventListener('click', () => {
+  if (!unfocusOutline(root)) {
+    systemBeep();
+    return;
+  }
+  syncFocusMenus();
+});
+
+syncFocusMenus();
+
 document.getElementById('menu-expand-all').addEventListener('click', () => {
   root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {
     if (item.dataset.state === 'collapsed') toggleItem(item);
@@ -222,6 +260,7 @@ document.getElementById('menu-collapse-all').addEventListener('click', () => {
 document.getElementById('menu-clear').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   outlineHistory.clear();
+  syncFocusMenus();
   const first = root.querySelector('[data-item]');
   if (first) focusItem(first);
 });
@@ -261,6 +300,7 @@ document.getElementById('menu-revert').addEventListener('click', () => {
     run: (mutate) => outlineHistory.run(mutate),
   });
   if (ok) {
+    syncFocusMenus();
     const first = root.querySelector('[data-item]');
     if (first) focusItem(first);
   }
@@ -306,6 +346,7 @@ fileInput.addEventListener('change', async () => {
     outlineHistory.discard();
     if (tree.title) applyDocumentTitle(tree.title);
     dirty.markClean();
+    syncFocusMenus();
     const first = root.querySelector('[data-item]');
     if (first) focusItem(first);
   } catch (error) {
@@ -362,6 +403,7 @@ async function initCloud() {
         loadOutline(root, tree);
         outlineHistory.discard();
         if (tree.title) applyDocumentTitle(tree.title);
+        syncFocusMenus();
         const item = root.querySelector('[data-item]');
         if (item) focusItem(item);
       },
@@ -417,6 +459,7 @@ async function initCloud() {
         currentRevision = got.revision ?? null;
         leaseToken = null;
         dirty.markClean();
+        syncFocusMenus();
         if (readOnlyShare) {
           setReadOnly(root, true);
           applyReadOnlyToolbar(document.querySelector('.menubar'));
