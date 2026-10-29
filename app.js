@@ -48,6 +48,8 @@ import { mountMenubar } from './menubar.js';
 import { mountOutlinerMenu } from './outliner-menu.js';
 import { applyMenuShortcuts } from './menu-shortcuts.js';
 import {
+  documentTitleLabel,
+  stripDirtyTitleSuffix,
   syncDocumentTitleDisplay,
   syncDocumentUpdatedDisplay,
   coerceDocumentUpdatedAt,
@@ -84,10 +86,21 @@ const documentUpdatedEl = document.getElementById('document-updated');
 /** @type {Date | null} */
 let documentUpdatedAt = null;
 
+function outlineTitleBase() {
+  return documentTitleLabel(stripDirtyTitleSuffix(document.title));
+}
+
+function syncDocumentTitles() {
+  syncDocumentTitleDisplay(documentTitleEl, outlineTitleBase(), {
+    dirty: dirty.isDirty(),
+    syncTabTitle: true,
+  });
+}
+
 function applyDocumentTitle(title) {
-  const next = String(title ?? '').trim();
-  if (next) document.title = next;
-  syncDocumentTitleDisplay(documentTitleEl);
+  const next = stripDirtyTitleSuffix(String(title ?? '')).trim();
+  if (next) document.title = documentTitleLabel(next);
+  syncDocumentTitles();
 }
 
 /**
@@ -101,7 +114,6 @@ function applyDocumentUpdated(date) {
 mountMenubar(menubar);
 mountOutlinerMenu(document);
 applyMenuShortcuts(document);
-syncDocumentTitleDisplay(documentTitleEl);
 syncDocumentUpdatedDisplay(documentUpdatedEl, null);
 
 const outlineHistory = createOutlineHistory({
@@ -113,8 +125,12 @@ const outlineHistory = createOutlineHistory({
   parseOpml,
   loadOutline,
   clearOutline,
-  getTitle: () => document.title || 'Outline',
+  getTitle: () => outlineTitleBase(),
   maxDepth: 50,
+  onChange: () => {
+    // Called after dirty exists; syncRevert is a function declaration (hoisted).
+    syncRevert();
+  },
 });
 
 const api = boot('[data-outline-root]', {
@@ -138,10 +154,10 @@ let cloudSaveAvailable = false;
 const dirty = createDirtyTracker({
   getContentSnapshot: () =>
     toOpml(root, {
-      title: document.title || 'Outline',
+      title: outlineTitleBase(),
       includeExpansionState: false,
     }),
-  getRevertSnapshot: () => toOpml(root, { title: document.title || 'Outline' }),
+  getRevertSnapshot: () => toOpml(root, { title: outlineTitleBase() }),
 });
 const askUnsavedChanges = mountUnsavedChangesDialog(
   document.getElementById('unsaved-dialog'),
@@ -168,6 +184,7 @@ if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
   outlineHistory.discard();
 }
 dirty.markClean();
+syncDocumentTitles();
 
 function syncUrl(id) {
   currentOutlineId = id;
@@ -395,7 +412,7 @@ async function openLocalOutline() {
  * @returns {Promise<boolean>}
  */
 async function saveLocalOutline({ forcePicker = false } = {}) {
-  const title = document.title || 'Outline';
+  const title = outlineTitleBase();
   const updatedAt = new Date();
   const opml = toOpml(root, { title, dateModified: updatedAt });
   const filename = suggestedOpmlFilename(title);
@@ -450,6 +467,7 @@ function syncRevert() {
     }
     syncRevertMenuItem(btn, dirtyNow);
   }
+  syncDocumentTitles();
 }
 syncRevert();
 document
@@ -458,7 +476,10 @@ document
 document
   .querySelector('[data-menu="cloud"] .menu-label')
   ?.addEventListener('click', syncRevert);
-root.addEventListener('input', syncRevert);
+root.addEventListener('input', () => {
+  applyDocumentUpdated(new Date());
+  syncRevert();
+});
 
 function onRevert() {
   if (root.dataset.readonly === 'true') return;
@@ -542,10 +563,6 @@ fileInput.addEventListener('change', async () => {
   }
 });
 
-root.addEventListener('input', () => {
-  applyDocumentUpdated(new Date());
-});
-
 const first = root.querySelector('[data-item]');
 if (first) focusItem(first);
 
@@ -591,7 +608,7 @@ async function initCloud() {
       root,
       toOpml: () =>
         toOpml(root, {
-          title: document.title || 'Outline',
+          title: outlineTitleBase(),
           dateModified: documentUpdatedAt ?? new Date(),
         }),
       parseOpml,
@@ -599,6 +616,7 @@ async function initCloud() {
         showOutlineLoading(root, { loadOutline });
         outlineHistory.discard();
         dirty.markClean();
+        syncDocumentTitles();
       },
       hideLoading: () => {
         hideOutlineLoading(root);
@@ -624,7 +642,7 @@ async function initCloud() {
         });
         syncRevert();
       },
-      getTitle: () => document.title || 'Outline',
+      getTitle: () => outlineTitleBase(),
       setTitle: (title) => {
         applyDocumentTitle(title);
       },
@@ -643,7 +661,10 @@ async function initCloud() {
       syncUrl: (id) => syncUrl(id),
       beforeReplace,
       isDirty: () => dirty.isDirty(),
-      markClean: () => dirty.markClean(),
+      markClean: () => {
+        dirty.markClean();
+        syncDocumentTitles();
+      },
     },
   });
 
@@ -674,6 +695,7 @@ async function initCloud() {
         currentRevision = got.revision ?? null;
         leaseToken = null;
         dirty.markClean();
+        syncDocumentTitles();
         syncFocusMenus();
         if (readOnlyShare) {
           setReadOnly(root, true);

@@ -81,6 +81,29 @@ describe('clear outline', () => {
     assert.deepEqual(getItemTexts(root), ['Alpha', 'Beta']);
   });
 
+  it('notifies onChange after run, undo, and redo', () => {
+    const calls = [];
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+      onChange: () => calls.push('change'),
+    });
+    assert.equal(calls.length, 0);
+    history.run(() => {
+      promoteChildren(root.querySelector('[data-item]'));
+      return true;
+    });
+    assert.equal(calls.length, 1);
+    history.undo();
+    assert.equal(calls.length, 2);
+    history.redo();
+    assert.equal(calls.length, 3);
+  });
+
   it('handles Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z shortcuts', () => {
     history.bindShortcuts(root);
     history.clear();

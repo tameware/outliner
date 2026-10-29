@@ -30,6 +30,7 @@ const DEFAULT_MAX_DEPTH = 50;
  * @param {HTMLButtonElement | null} [options.undoButton]
  * @param {HTMLButtonElement | null} [options.redoButton]
  * @param {number} [options.maxDepth] max undo entries (oldest dropped); default 50
+ * @param {() => void} [options.onChange] after a successful structural edit, undo, or redo
  */
 export function createOutlineHistory({
   getRoot,
@@ -42,6 +43,7 @@ export function createOutlineHistory({
   undoButton = null,
   redoButton = null,
   maxDepth = DEFAULT_MAX_DEPTH,
+  onChange = null,
 }) {
   /** @type {HistoryEntry[]} */
   const undoStack = [];
@@ -133,6 +135,10 @@ export function createOutlineHistory({
     if (redoButton) redoButton.disabled = redoStack.length === 0;
   }
 
+  function notifyChange() {
+    onChange?.();
+  }
+
   /**
    * @param {string} opml
    * @param {FocusSave | null} [focus]
@@ -142,6 +148,7 @@ export function createOutlineHistory({
     trimUndo();
     redoStack.length = 0;
     syncButtons();
+    notifyChange();
   }
 
   /** Push current outline onto the undo stack (call before a structural mutation). */
@@ -185,6 +192,7 @@ export function createOutlineHistory({
     redoStack.push({ opml: snapshot(), focus: captureFocus(root) });
     applyEntry(undoStack.pop());
     syncButtons();
+    notifyChange();
     return true;
   }
 
@@ -195,6 +203,7 @@ export function createOutlineHistory({
     trimUndo();
     applyEntry(redoStack.pop());
     syncButtons();
+    notifyChange();
     return true;
   }
 

@@ -4,25 +4,51 @@ export const APP_DOCUMENT_TITLE = 'Tameware Outliner';
 /** Label shown in chrome when the outline has no name yet. */
 export const UNTITLED_DOCUMENT_TITLE = 'Untitled';
 
+/** Trailing marker for unsaved changes (Mac-style document dirty). */
+export const DIRTY_TITLE_SUFFIX = ' •';
+
 /**
  * @param {string | null | undefined} title
  * @returns {string}
  */
-export function documentTitleLabel(title) {
-  const trimmed = String(title ?? '').trim();
-  if (!trimmed || trimmed === APP_DOCUMENT_TITLE) return UNTITLED_DOCUMENT_TITLE;
-  return trimmed;
+export function stripDirtyTitleSuffix(title) {
+  const value = String(title ?? '');
+  return value.endsWith(DIRTY_TITLE_SUFFIX)
+    ? value.slice(0, -DIRTY_TITLE_SUFFIX.length)
+    : value;
+}
+
+/**
+ * @param {string | null | undefined} title
+ * @param {{ dirty?: boolean }} [options]
+ * @returns {string}
+ */
+export function documentTitleLabel(title, options = {}) {
+  const trimmed = stripDirtyTitleSuffix(title).trim();
+  const base =
+    !trimmed || trimmed === APP_DOCUMENT_TITLE
+      ? UNTITLED_DOCUMENT_TITLE
+      : trimmed;
+  return options.dirty ? `${base}${DIRTY_TITLE_SUFFIX}` : base;
 }
 
 /**
  * @param {Element | null | undefined} el
  * @param {string | null | undefined} [title]
+ * @param {{ dirty?: boolean, syncTabTitle?: boolean }} [options]
  */
-export function syncDocumentTitleDisplay(el, title) {
-  if (!el) return;
+export function syncDocumentTitleDisplay(el, title, options = {}) {
   const source =
-    title !== undefined ? title : typeof document !== 'undefined' ? document.title : '';
-  el.textContent = documentTitleLabel(source);
+    title !== undefined
+      ? title
+      : typeof document !== 'undefined'
+        ? document.title
+        : '';
+  const labeled = documentTitleLabel(source, { dirty: Boolean(options.dirty) });
+  if (el) el.textContent = labeled;
+  if (options.syncTabTitle && typeof document !== 'undefined') {
+    document.title = labeled;
+  }
 }
 
 /**
