@@ -148,12 +148,19 @@ describe('Drive cloud client', () => {
       assert.equal(String(url), '/api/outliner/drive/file-public');
       return new Response(
         '<?xml version="1.0"?><opml version="2.0"><body></body></opml>',
-        { status: 200, headers: { 'Content-Type': 'application/xml' } },
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/xml',
+            'Last-Modified': 'Thu, 29 Oct 2026 19:57:45 GMT',
+          },
+        },
       );
     });
     const got = await client().getOutline('file-public');
     assert.match(got.opml, /<opml/);
     assert.equal(got.revision, null);
+    assert.equal(got.modifiedTime, 'Thu, 29 Oct 2026 19:57:45 GMT');
     assert.equal(urls.length, 1);
   });
 

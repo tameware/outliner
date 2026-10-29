@@ -26,7 +26,9 @@ DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive'
 
 bp = Blueprint('outliner_drive_proxy', __name__)
 
-FetchFn = Callable[[str], tuple[int, str]]
+# Fetch may return (status, body) or (status, body, headers).
+FetchResult = tuple[int, str] | tuple[int, str, dict[str, str]]
+FetchFn = Callable[[str], FetchResult]
 UploadFn = Callable[[str, str], tuple[int, str]]
 
 
@@ -34,7 +36,15 @@ def _share_secret() -> str:
     return current_app.config.get('OUTLINER_SHARE_SECRET') or share_secret_from_env()
 
 
-def default_fetch(url: str) -> tuple[int, str]:
+def _unpack_fetch(result: FetchResult) -> tuple[int, str, dict[str, str]]:
+    if len(result) == 3:
+        status, body, headers = result  # type: ignore[misc]
+        return int(status), body, dict(headers or {})
+    status, body = result  # type: ignore[misc]
+    return int(status), body, {}
+
+
+def default_fetch(url: str) -> tuple[int, str, dict[str, str]]:
     req = urllib.request.Request(
         url,
         headers={'User-Agent': 'outliner-host/1.0'},
@@ -42,10 +52,12 @@ def default_fetch(url: str) -> tuple[int, str]:
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = resp.read().decode('utf-8', errors='replace')
-            return int(resp.status), body
+            headers = {k: v for k, v in resp.headers.items()}
+            return int(resp.status), body, headers
     except urllib.error.HTTPError as err:
         body = err.read().decode('utf-8', errors='replace') if err.fp else ''
-        return int(err.code), body
+        headers = {k: v for k, v in (err.headers.items() if err.headers else [])}
+        return int(err.code), body, headers
     except urllib.error.URLError as err:
         raise RuntimeError(f'Drive fetch failed: {err}') from err
 
@@ -77,18 +89,21 @@ def is_opml_body(text: str) -> bool:
     return '<opml' in lower or trimmed.startswith('<?xml')
 
 
-def fetch_public_opml(file_id: str, fetch: FetchFn | None = None) -> tuple[int, str | None]:
-    """Return (status, opml_or_none)."""
+def fetch_public_opml(
+    file_id: str,
+    fetch: FetchFn | None = None,
+) -> tuple[int, str | None, dict[str, str]]:
+    """Return (status, opml_or_none, upstream_headers)."""
     if not DRIVE_FILE_ID_RE.fullmatch(file_id):
-        return 400, None
+        return 400, None, {}
     url = DRIVE_UC_DOWNLOAD.format(file_id=file_id)
     fetch_fn = fetch or default_fetch
-    status, body = fetch_fn(url)
+    status, body, headers = _unpack_fetch(fetch_fn(url))
     if status != 200:
-        return (404 if status == 404 else 502), None
+        return (404 if status == 404 else 502), None, headers
     if not is_opml_body(body):
-        return 502, None
-    return 200, body
+        return 502, None, headers
+    return 200, body, headers
 
 
 def write_public_opml(
@@ -111,9 +126,28 @@ def write_public_opml(
     return 502, detail
 
 
-def _opml_response(file_id: str, body: str) -> Response:
+def _modified_header(headers: dict[str, str] | None) -> str | None:
+    if not headers:
+        return None
+    for key, value in headers.items():
+        if key.lower() == 'last-modified' and value:
+            return value
+        if key.lower() == 'x-outliner-modified' and value:
+            return value
+    return None
+
+
+def _opml_response(
+    file_id: str,
+    body: str,
+    upstream_headers: dict[str, str] | None = None,
+) -> Response:
     response = Response(body, status=200, mimetype='application/xml')
     response.headers['X-Outliner-File-Id'] = file_id
+    modified = _modified_header(upstream_headers)
+    if modified:
+        response.headers['Last-Modified'] = modified
+        response.headers['X-Outliner-Modified'] = modified
     return response
 
 
@@ -151,12 +185,12 @@ def get_view_share_outline(token: str):
         return jsonify({'error': 'Invalid share link'}), 404
     fetch = current_app.config.get('DRIVE_PUBLIC_FETCH')
     try:
-        status, body = fetch_public_opml(file_id, fetch=fetch)
+        status, body, headers = fetch_public_opml(file_id, fetch=fetch)
     except RuntimeError as err:
         return jsonify({'error': str(err)}), 502
     if status != 200 or body is None:
         return jsonify({'error': 'Outline unavailable'}), status
-    return _opml_response(file_id, body)
+    return _opml_response(file_id, body, headers)
 
 
 @bp.get('/api/outliner/drive/edit/<token>')
@@ -167,12 +201,12 @@ def get_edit_share_outline(token: str):
         return jsonify({'error': 'Invalid share link'}), 404
     fetch = current_app.config.get('DRIVE_PUBLIC_FETCH')
     try:
-        status, body = fetch_public_opml(file_id, fetch=fetch)
+        status, body, headers = fetch_public_opml(file_id, fetch=fetch)
     except RuntimeError as err:
         return jsonify({'error': str(err)}), 502
     if status != 200 or body is None:
         return jsonify({'error': 'Outline unavailable'}), status
-    return _opml_response(file_id, body)
+    return _opml_response(file_id, body, headers)
 
 
 @bp.put('/api/outliner/drive/edit/<token>')
@@ -199,12 +233,12 @@ def get_public_drive_outline(file_id: str):
     """Legacy/public GET by Drive file id (anyone-with-link)."""
     fetch = current_app.config.get('DRIVE_PUBLIC_FETCH')
     try:
-        status, body = fetch_public_opml(file_id, fetch=fetch)
+        status, body, headers = fetch_public_opml(file_id, fetch=fetch)
     except RuntimeError as err:
         return jsonify({'error': str(err)}), 502
     if status != 200 or body is None:
         return jsonify({'error': 'Outline unavailable'}), status
-    return _opml_response(file_id, body)
+    return _opml_response(file_id, body, headers)
 
 
 @bp.put('/api/outliner/drive/<file_id>')

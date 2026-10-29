@@ -65,6 +65,20 @@ def test_proxies_public_opml(client):
     assert calls[0].startswith('https://drive.google.com/uc?')
 
 
+def test_forwards_last_modified_from_drive(client):
+    http, _calls = client
+    app = http.application
+
+    def fake_fetch(url: str) -> tuple[int, str, dict[str, str]]:
+        return 200, SAMPLE_OPML, {'Last-Modified': 'Thu, 29 Oct 2026 19:57:45 GMT'}
+
+    app.config['DRIVE_PUBLIC_FETCH'] = fake_fetch
+    response = http.get('/api/outliner/drive/fileAbc_123-xyz')
+    assert response.status_code == 200
+    assert response.headers.get('Last-Modified') == 'Thu, 29 Oct 2026 19:57:45 GMT'
+    assert response.headers.get('X-Outliner-Modified') == 'Thu, 29 Oct 2026 19:57:45 GMT'
+
+
 def test_rejects_invalid_file_id(client):
     http, calls = client
     response = http.get('/api/outliner/drive/not.valid!')
