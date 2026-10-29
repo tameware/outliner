@@ -525,7 +525,7 @@ describe('cloud UI', () => {
     assert.match(alerts[0], /Save this outline to Google Drive before creating an editable link/i);
   });
 
-  it('in editShareMode enables Save without sign-in and hides Cloud menu chrome', async () => {
+  it('in editShareMode enables Save without sign-in and hides owner Cloud chrome', async () => {
     signedInUser = null;
     outlineId = 'shared-edit-1';
     mountCloudUi({
@@ -535,7 +535,9 @@ describe('cloud UI', () => {
       configured: true,
       editShareMode: true,
     });
-    assert.equal(document.querySelector('[data-menu="cloud"]').hidden, true);
+    assert.equal(document.querySelector('[data-menu="cloud"]').hidden, false);
+    assert.equal(document.getElementById('menu-cloud-auth').hidden, true);
+    assert.equal(document.getElementById('menu-cloud-share').hidden, true);
     assert.equal(document.getElementById('menu-open').hidden, true);
     assert.equal(document.getElementById('menu-insert').hidden, true);
     assert.equal(document.getElementById('menu-delete').hidden, true);

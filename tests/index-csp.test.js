@@ -95,17 +95,36 @@ describe('index.html CSP-safe entry', () => {
     assert.match(html, /id="menu-revert"/);
     assert.match(html, /id="menu-insert"/);
     assert.match(html, />Insert…</);
+    const fileAt = html.indexOf('data-menu="file"');
+    const editAt = html.indexOf('data-menu="edit"');
+    const cloudAt = html.indexOf('data-menu="cloud"');
+    const filePanel = html.slice(fileAt, editAt);
+    const cloudPanel = html.slice(cloudAt);
+    assert.match(cloudPanel, /id="menu-open"/);
+    assert.match(cloudPanel, /id="menu-insert"/);
+    assert.match(cloudPanel, /id="menu-save"/);
+    assert.match(cloudPanel, /id="menu-save-as"/);
+    assert.match(cloudPanel, /id="menu-delete"/);
+    assert.match(cloudPanel, /id="menu-cloud-revert"/);
+    assert.doesNotMatch(filePanel, /id="menu-open"/);
+    assert.doesNotMatch(filePanel, /id="menu-save"/);
     assert.ok(
-      html.indexOf('id="menu-open"') < html.indexOf('id="menu-insert"') &&
-        html.indexOf('id="menu-insert"') < html.indexOf('id="menu-save"'),
-      'Insert… should sit between Open and Save',
+      cloudPanel.indexOf('id="menu-open"') < cloudPanel.indexOf('id="menu-insert"') &&
+        cloudPanel.indexOf('id="menu-insert"') < cloudPanel.indexOf('id="menu-save"'),
+      'Insert… should sit between Open and Save in Cloud',
     );
+    assert.ok(
+      cloudPanel.indexOf('id="menu-delete"') < cloudPanel.indexOf('id="menu-cloud-revert"') &&
+        cloudPanel.indexOf('id="menu-cloud-revert"') < cloudPanel.indexOf('id="menu-cloud-share"'),
+      'Cloud Revert should sit between Delete and share links',
+    );
+    assert.match(filePanel, /id="menu-revert"/);
     assert.match(html, /id="menu-import"/);
     assert.match(html, /id="menu-export"/);
     assert.match(html, /id="menu-insert-import"/);
     assert.match(html, /Insert Import…/);
     assert.ok(
-      html.indexOf('id="menu-export"') < html.indexOf('id="menu-insert-import"'),
+      filePanel.indexOf('id="menu-export"') < filePanel.indexOf('id="menu-insert-import"'),
       'Insert Import… should be at the bottom of the File menu',
     );
     assert.match(html, /id="menu-cloud-auth"/);
@@ -130,6 +149,14 @@ describe('index.html CSP-safe entry', () => {
     assert.match(cloudUi, /menu-insert/);
     assert.match(cloudUi, /insertOutline/);
     assert.match(cloudUi, /Insert from Google Drive/);
+  });
+
+  it('wires File and Cloud Revert to the same revert handler', () => {
+    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    assert.match(appJs, /menu-cloud-revert/);
+    assert.match(appJs, /function onRevert\b/);
+    assert.match(appJs, /getElementById\('menu-revert'\)[\s\S]*?onRevert/);
+    assert.match(appJs, /getElementById\('menu-cloud-revert'\)[\s\S]*?onRevert/);
   });
 
   it('includes Find & Replace dialog and Edit menu items', () => {

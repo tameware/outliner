@@ -272,21 +272,31 @@ document.getElementById('menu-export').addEventListener('click', () => {
   downloadOpml(root, { title, filename: 'outline.opml' });
 });
 
-const revertButton = document.getElementById('menu-revert');
+const revertButtons = [
+  document.getElementById('menu-revert'),
+  document.getElementById('menu-cloud-revert'),
+].filter(Boolean);
+
 function syncRevert() {
-  if (root.dataset.readonly === 'true') {
-    if (revertButton) revertButton.disabled = true;
-    return;
+  const dirtyNow = () => dirty.isDirty();
+  for (const btn of revertButtons) {
+    if (root.dataset.readonly === 'true') {
+      btn.disabled = true;
+      continue;
+    }
+    syncRevertMenuItem(btn, dirtyNow);
   }
-  syncRevertMenuItem(revertButton, () => dirty.isDirty());
 }
 syncRevert();
 document
   .querySelector('[data-menu="file"] .menu-label')
   ?.addEventListener('click', syncRevert);
+document
+  .querySelector('[data-menu="cloud"] .menu-label')
+  ?.addEventListener('click', syncRevert);
 root.addEventListener('input', syncRevert);
 
-document.getElementById('menu-revert').addEventListener('click', () => {
+function onRevert() {
   if (root.dataset.readonly === 'true') return;
   const ok = revertToCleanSnapshot({
     isDirty: () => dirty.isDirty(),
@@ -305,7 +315,10 @@ document.getElementById('menu-revert').addEventListener('click', () => {
     if (first) focusItem(first);
   }
   syncRevert();
-});
+}
+
+document.getElementById('menu-revert')?.addEventListener('click', onRevert);
+document.getElementById('menu-cloud-revert')?.addEventListener('click', onRevert);
 
 /** @type {'replace' | 'insert'} */
 let fileOpenMode = 'replace';

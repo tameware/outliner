@@ -77,9 +77,10 @@ export function mountCloudUi({
   function syncAuthUi() {
     const signedIn = Boolean(user);
     const hideOwnerChrome = readOnlyView || editShareMode;
-    if (cloudMenu) cloudMenu.hidden = hideOwnerChrome;
+    // Keep Cloud visible in edit-share so Save remains reachable; hide fully only for read-only.
+    if (cloudMenu) cloudMenu.hidden = readOnlyView;
     if (btnAuth) {
-      btnAuth.hidden = false;
+      btnAuth.hidden = hideOwnerChrome;
       btnAuth.disabled = busy;
       btnAuth.textContent = signedIn ? 'Sign out' : 'Sign in with Google';
     }
@@ -113,11 +114,11 @@ export function mountCloudUi({
       btnDelete.disabled = !canMutate || editShareMode;
     }
     if (btnShare) {
-      btnShare.hidden = false;
+      btnShare.hidden = hideOwnerChrome;
       btnShare.disabled = !canMutate || editShareMode;
     }
     if (btnShareEdit) {
-      btnShareEdit.hidden = false;
+      btnShareEdit.hidden = hideOwnerChrome;
       btnShareEdit.disabled = !canMutate || editShareMode;
     }
   }

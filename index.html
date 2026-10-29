@@ -28,11 +28,6 @@
       <div class="menu" data-menu="file">
         <button type="button" class="menu-label" aria-haspopup="menu" aria-expanded="false">File</button>
         <div class="menu-panel" role="menu" hidden>
-          <button type="button" role="menuitem" id="menu-open" disabled>Open…</button>
-          <button type="button" role="menuitem" id="menu-insert" disabled>Insert…</button>
-          <button type="button" role="menuitem" id="menu-save" disabled>Save…</button>
-          <button type="button" role="menuitem" id="menu-save-as" disabled>Save As…</button>
-          <button type="button" role="menuitem" id="menu-delete" disabled>Delete…</button>
           <button type="button" role="menuitem" id="menu-revert" disabled>Revert</button>
           <hr class="menu-sep" />
           <button type="button" role="menuitem" id="menu-import">Import…</button>
@@ -88,6 +83,14 @@
         <button type="button" class="menu-label" aria-haspopup="menu" aria-expanded="false">Cloud</button>
         <div class="menu-panel" role="menu" hidden>
           <button type="button" role="menuitem" id="menu-cloud-auth">Sign in with Google</button>
+          <hr class="menu-sep" />
+          <button type="button" role="menuitem" id="menu-open" disabled>Open…</button>
+          <button type="button" role="menuitem" id="menu-insert" disabled>Insert…</button>
+          <button type="button" role="menuitem" id="menu-save" disabled>Save…</button>
+          <button type="button" role="menuitem" id="menu-save-as" disabled>Save As…</button>
+          <button type="button" role="menuitem" id="menu-delete" disabled>Delete…</button>
+          <button type="button" role="menuitem" id="menu-cloud-revert" disabled>Revert</button>
+          <hr class="menu-sep" />
           <button
             type="button"
             role="menuitem"
@@ -314,7 +317,7 @@
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">File → Open… / Save / Save As… / Delete… — Google Drive outlines after Cloud → Sign in with Google</div>
+                  <div class="text" contenteditable="true">Cloud → Open… / Save / Save As… / Delete… — Google Drive outlines after Sign in with Google</div>
                 </div>
               </li>
               <li data-item>
