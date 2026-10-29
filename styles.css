@@ -402,6 +402,27 @@ main {
   padding: 0.5rem 1.25rem 2rem;
 }
 
+.outline-loading {
+  margin: 0;
+  padding: 2.5rem 1.25rem;
+  text-align: center;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 1.05rem;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+main[data-loading] [data-outline-root] {
+  display: none;
+}
+
+main[data-loading] .outline-loading {
+  display: block;
+}
+
 /* Classic HTML outline numbering: A. 1. a. i. */
 ol.outline,
 ol.outline ol {

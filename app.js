@@ -39,6 +39,10 @@ import {
   bindDeepLinkOutlineLoad,
   isSoftDeepLinkLoadError,
 } from './deep-link-load.js';
+import {
+  showOutlineLoading,
+  hideOutlineLoading,
+} from './outline-loading.js';
 import { mountMenubar } from './menubar.js';
 import { mountOutlinerMenu } from './outliner-menu.js';
 import { applyMenuShortcuts } from './menu-shortcuts.js';
@@ -297,6 +301,7 @@ syncLocalSaveLabel();
  * @param {string} [fallbackName]
  */
 function applyOpenedLocalOutline(tree, fallbackName) {
+  hideOutlineLoading(root);
   loadOutline(root, tree);
   outlineHistory.discard();
   if (tree.title) applyDocumentTitle(tree.title);
@@ -328,12 +333,14 @@ async function openLocalOutline() {
     try {
       const picked = await openOpmlWithFilePicker();
       if (!picked) return;
+      showOutlineLoading(root, { loadOutline });
       const tree = parseOpml(picked.text);
       localFileHandle = picked.handle;
       syncLocalSaveLabel();
       applyOpenedLocalOutline(tree, picked.name);
       return;
     } catch (error) {
+      hideOutlineLoading(root);
       if (isAbortError(error)) return;
       // Cursor's browser and some embeds expose the API but cannot show the picker.
       if (isFilePickerUnavailableError(error)) {
@@ -487,6 +494,7 @@ fileInput.addEventListener('change', async () => {
   const mode = fileOpenMode;
   fileOpenMode = 'replace';
   try {
+    if (mode === 'replace') showOutlineLoading(root, { loadOutline });
     const tree = await readOpmlFile(file);
     if (mode === 'insert') {
       outlineHistory.run(() => {
@@ -499,6 +507,7 @@ fileInput.addEventListener('change', async () => {
     clearLocalFileHandle();
     applyOpenedLocalOutline(tree, file.name);
   } catch (error) {
+    hideOutlineLoading(root);
     window.alert('Could not open OPML file: ' + (error?.message || error));
   }
 });
@@ -548,7 +557,16 @@ async function initCloud() {
       root,
       toOpml: () => toOpml(root, { title: document.title || 'Outline' }),
       parseOpml,
+      beginLoading: () => {
+        showOutlineLoading(root, { loadOutline });
+        outlineHistory.discard();
+        dirty.markClean();
+      },
+      hideLoading: () => {
+        hideOutlineLoading(root);
+      },
       loadOutline: (tree) => {
+        hideOutlineLoading(root);
         clearLocalFileHandle();
         loadOutline(root, tree);
         outlineHistory.discard();
@@ -603,6 +621,7 @@ async function initCloud() {
         editShareToken || viewShareToken || currentOutlineId,
       applyOutline: async (got) => {
         const tree = parseOpml(got.opml);
+        hideOutlineLoading(root);
         loadOutline(root, tree);
         clearLocalFileHandle();
         if (got.title || tree.title) applyDocumentTitle(got.title || tree.title);
@@ -622,6 +641,7 @@ async function initCloud() {
         console.warn('Could not load outline from Google Drive', error);
         // 401 / Failed to fetch: wait for proxy success or sign-in retry.
         if (isSoftDeepLinkLoadError(error)) return;
+        hideOutlineLoading(root);
         window.alert(
           'Could not open outline from Google Drive: ' + (error?.message || error),
         );

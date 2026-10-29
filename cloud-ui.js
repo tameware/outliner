@@ -389,7 +389,9 @@ export function mountCloudUi({
       const allow = await outline.beforeReplace();
       if (!allow) return;
     }
-    await withBusy('Opening…', async () => {
+    outline.beginLoading?.();
+    closeDialog(openDialog);
+    const ok = await withBusy('Opening…', async () => {
       const got = await cloud.getOutline(id);
       const opml = typeof got === 'string' ? got : got.opml;
       const revision = typeof got === 'string' ? null : got.revision;
@@ -401,11 +403,11 @@ export function mountCloudUi({
       const title = listedTitle || tree.title;
       outline.setTitle?.(title);
       if (outline.syncUrl) outline.syncUrl(id);
-      closeDialog(openDialog);
       syncSaveLabel();
       outline.markClean?.();
       setStatus(title ? `Opened “${title}”` : `Opened ${id}`);
     });
+    if (!ok) outline.hideLoading?.();
   }
 
   /**

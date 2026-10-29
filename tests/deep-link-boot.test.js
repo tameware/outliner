@@ -20,14 +20,17 @@ describe('deep-link boot', () => {
 
   it('clears the default outline when id is present', () => {
     const dom = new JSDOM(`<!DOCTYPE html><body>
-      <ol class="outline" data-outline-root>
-        <li data-item>
-          <div class="row">
-            <button type="button" class="toggle"></button>
-            <div class="text" contenteditable="true">Default tip</div>
-          </div>
-        </li>
-      </ol>
+      <main>
+        <p id="outline-loading" class="outline-loading" hidden>Loading your outline…</p>
+        <ol class="outline" data-outline-root>
+          <li data-item>
+            <div class="row">
+              <button type="button" class="toggle"></button>
+              <div class="text" contenteditable="true">Default tip</div>
+            </div>
+          </li>
+        </ol>
+      </main>
     </body>`);
     globalThis.window = dom.window;
     globalThis.document = dom.window.document;
@@ -39,6 +42,8 @@ describe('deep-link boot', () => {
       true,
     );
     assert.deepEqual(getItemTexts(root), ['']);
+    assert.equal(document.querySelector('main').getAttribute('data-loading'), 'true');
+    assert.equal(document.getElementById('outline-loading').hidden, false);
   });
 
   it('leaves the outline alone when there is no remote param', () => {
