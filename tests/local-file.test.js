@@ -184,17 +184,25 @@ describe('local file (File System Access)', () => {
 });
 
 describe('index.html File Open / Save', () => {
-  it('lists Open… and Save… instead of Import / Export', () => {
+  it('lists Open…, Insert…, Save…, and Save As… in the File menu', () => {
     const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
     const fileAt = html.indexOf('data-menu="file"');
     const editAt = html.indexOf('data-menu="edit"');
     const panel = html.slice(fileAt, editAt);
     assert.match(panel, /id="menu-file-open"[^>]*>\s*Open…\s*</);
+    assert.match(panel, /id="menu-insert-import"[^>]*>\s*Insert…\s*</);
     assert.match(panel, /id="menu-file-save"/);
+    assert.match(panel, /id="menu-file-save-as"[^>]*>\s*Save As…\s*</);
+    assert.ok(
+      panel.indexOf('id="menu-file-open"') < panel.indexOf('id="menu-insert-import"') &&
+        panel.indexOf('id="menu-insert-import"') < panel.indexOf('id="menu-file-save"') &&
+        panel.indexOf('id="menu-file-save"') < panel.indexOf('id="menu-file-save-as"'),
+    );
     assert.doesNotMatch(panel, /id="menu-import"/);
     assert.doesNotMatch(panel, /id="menu-export"/);
     assert.doesNotMatch(panel, />Import…</);
     assert.doesNotMatch(panel, />Export…</);
+    assert.doesNotMatch(panel, /Insert Import/);
   });
 
   it('wires local-file helpers from app.js', () => {
@@ -202,6 +210,8 @@ describe('index.html File Open / Save', () => {
     assert.match(appJs, /from ['"]\.\/local-file\.js['"]/);
     assert.match(appJs, /menu-file-open/);
     assert.match(appJs, /menu-file-save/);
+    assert.match(appJs, /menu-file-save-as/);
+    assert.match(appJs, /forcePicker\s*:\s*true|saveLocalOutline\(\s*\{\s*forcePicker/);
     assert.match(appJs, /supportsFileSystemAccess|openOpmlWithFilePicker/);
   });
 });

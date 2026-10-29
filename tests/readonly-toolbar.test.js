@@ -22,6 +22,7 @@ describe('read-only toolbar', () => {
           <button type="button" class="menu-label">File</button>
           <div class="menu-panel">
             <button type="button" role="menuitem" id="menu-file-save">Save…</button>
+            <button type="button" role="menuitem" id="menu-file-save-as">Save As…</button>
           </div>
         </div>
         <div class="menu" data-menu="edit" hidden>
@@ -71,6 +72,7 @@ describe('read-only toolbar', () => {
       'menu-report-issues',
       'menu-privacy',
       'menu-file-save',
+      'menu-file-save-as',
       'menu-find',
       'menu-focus',
       'menu-unfocus',

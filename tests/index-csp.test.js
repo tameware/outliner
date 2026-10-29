@@ -120,15 +120,18 @@ describe('index.html CSP-safe entry', () => {
     );
     assert.match(filePanel, /id="menu-file-open"/);
     assert.match(filePanel, /id="menu-file-save"/);
+    assert.match(filePanel, /id="menu-file-save-as"/);
     assert.match(filePanel, /id="menu-revert"/);
     assert.match(html, /id="menu-insert-import"/);
-    assert.match(html, /Insert Import…/);
+    assert.match(filePanel, /id="menu-insert-import"[^>]*>\s*Insert…\s*</);
+    assert.doesNotMatch(filePanel, /Insert Import/);
     assert.doesNotMatch(filePanel, /id="menu-import"/);
     assert.doesNotMatch(filePanel, /id="menu-export"/);
     assert.ok(
-      filePanel.indexOf('id="menu-file-open"') < filePanel.indexOf('id="menu-file-save"') &&
-        filePanel.indexOf('id="menu-file-save"') < filePanel.indexOf('id="menu-insert-import"'),
-      'File Open / Save should sit above Insert Import…',
+      filePanel.indexOf('id="menu-file-open"') < filePanel.indexOf('id="menu-insert-import"') &&
+        filePanel.indexOf('id="menu-insert-import"') < filePanel.indexOf('id="menu-file-save"') &&
+        filePanel.indexOf('id="menu-file-save"') < filePanel.indexOf('id="menu-file-save-as"'),
+      'File order should be Open, Insert, Save, Save As',
     );
     assert.match(html, /id="menu-cloud-auth"/);
     assert.match(html, /id="menu-cloud-share"/);
@@ -137,7 +140,7 @@ describe('index.html CSP-safe entry', () => {
     assert.doesNotMatch(html, /id="btn-cloud-share"/);
   });
 
-  it('wires Insert Import through insertOutline without replacing the outline', () => {
+  it('wires File Insert… through insertOutline without replacing the outline', () => {
     const appJs = readFileSync(join(root, 'app.js'), 'utf8');
     assert.match(appJs, /menu-insert-import/);
     assert.match(appJs, /insertOutline/);

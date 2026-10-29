@@ -348,15 +348,18 @@ async function openLocalOutline() {
   triggerLegacyFileOpen('replace');
 }
 
-/** @returns {Promise<boolean>} */
-async function saveLocalOutline() {
+/**
+ * @param {{ forcePicker?: boolean }} [options]
+ * @returns {Promise<boolean>}
+ */
+async function saveLocalOutline({ forcePicker = false } = {}) {
   const title = document.title || 'Outline';
   const opml = toOpml(root, { title });
   const filename = suggestedOpmlFilename(title);
 
   if (supportsFileSystemAccess()) {
     try {
-      if (localFileHandle) {
+      if (localFileHandle && !forcePicker) {
         await writeOpmlToFileHandle(localFileHandle, opml);
       } else {
         const handle = await saveOpmlWithFilePicker(opml, { suggestedName: filename });
@@ -392,6 +395,10 @@ document.getElementById('menu-file-open')?.addEventListener('click', () => {
 
 document.getElementById('menu-file-save')?.addEventListener('click', () => {
   void saveLocalOutline();
+});
+
+document.getElementById('menu-file-save-as')?.addEventListener('click', () => {
+  void saveLocalOutline({ forcePicker: true });
 });
 
 const revertButtons = [
