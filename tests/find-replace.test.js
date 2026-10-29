@@ -1,7 +1,13 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { mountOutliner, loadOutline, getItemText, serializeOutline } from '../outliner.js';
+import {
+  mountOutliner,
+  loadOutline,
+  getItemText,
+  serializeOutline,
+  isExpanded,
+} from '../outliner.js';
 import {
   collectSearchableItems,
   findMatches,
@@ -10,6 +16,7 @@ import {
   replaceMatch,
   replaceAllMatches,
   selectTextRange,
+  expandCollapsedAncestors,
 } from '../find-replace.js';
 
 function setupDom() {
@@ -151,5 +158,33 @@ describe('find-replace core', () => {
     assert.ok(sel.rangeCount);
     assert.equal(sel.toString(), 'bridge');
     assert.equal(document.activeElement, text);
+  });
+
+  it('expandCollapsedAncestors expands every collapsed parent of the item', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'Parent',
+          expanded: false,
+          children: [
+            {
+              text: 'Child',
+              expanded: false,
+              children: [{ text: 'needle here', children: [] }],
+            },
+          ],
+        },
+      ],
+    });
+    const parent = root.querySelector('[data-item]');
+    const child = parent.querySelector('[data-item]');
+    const needle = child.querySelector('[data-item]');
+    assert.equal(isExpanded(parent), false);
+    assert.equal(isExpanded(child), false);
+
+    assert.equal(expandCollapsedAncestors(needle, root), true);
+    assert.equal(isExpanded(parent), true);
+    assert.equal(isExpanded(child), true);
+    assert.equal(expandCollapsedAncestors(needle, root), false);
   });
 });

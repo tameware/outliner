@@ -125,6 +125,26 @@ describe('Find & Replace UI', () => {
     assert.match(document.getElementById('find-replace-status').textContent, /2 of 2/);
   });
 
+  it('Find Next expands collapsed ancestors so the match is visible', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'Hidden branch',
+          expanded: false,
+          children: [{ text: 'secret bridge', children: [] }],
+        },
+        { text: 'Visible', children: [] },
+      ],
+    });
+    const parent = root.querySelector('[data-item]');
+    assert.equal(parent.dataset.state, 'collapsed');
+    document.getElementById('menu-find').click();
+    document.getElementById('find-replace-find').value = 'secret';
+    assert.equal(ui.findNext(), true);
+    assert.equal(parent.dataset.state, 'expanded');
+    assert.equal(window.getSelection().toString(), 'secret');
+  });
+
   it('Replace All is undoable via outline history', () => {
     document.getElementById('menu-replace').click();
     document.getElementById('find-replace-find').value = 'bridge';

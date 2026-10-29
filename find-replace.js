@@ -4,6 +4,7 @@
 
 import { isDealDiagramItem } from './deal-diagram.js';
 import { expandSuitBangShortcuts, fillTextWithSuits } from './suit-shortcuts.js';
+import { isExpanded, toggleItem } from './outliner.js';
 
 /**
  * @param {HTMLElement} item
@@ -138,6 +139,28 @@ export function applyReplaceInText(text, regex, replace, options = {}) {
   if (!m) return text;
   const insertion = expandReplaceTemplate(replace, m, options);
   return text.slice(0, m.index) + insertion + text.slice(m.index + m[0].length);
+}
+
+/**
+ * Expand every collapsed ancestor of `item` so Find can show the match.
+ * @param {HTMLElement | null | undefined} item
+ * @param {HTMLElement | null | undefined} root
+ * @returns {boolean} true when any ancestor was expanded
+ */
+export function expandCollapsedAncestors(item, root) {
+  if (!item || !root) return false;
+  /** @type {HTMLElement[]} */
+  const ancestors = [];
+  let el = item.parentElement;
+  while (el && el !== root) {
+    if (el.matches?.('[data-item]')) ancestors.push(/** @type {HTMLElement} */ (el));
+    el = el.parentElement;
+  }
+  let changed = false;
+  for (const ancestor of ancestors.reverse()) {
+    if (!isExpanded(ancestor) && toggleItem(ancestor)) changed = true;
+  }
+  return changed;
 }
 
 /**

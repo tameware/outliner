@@ -8,6 +8,7 @@ import {
   replaceMatch,
   replaceAllMatches,
   selectTextRange,
+  expandCollapsedAncestors,
 } from './find-replace.js';
 import { tryInsertSuitShortcutInInput } from './suit-shortcuts.js';
 
@@ -111,6 +112,7 @@ export function mountFindReplace({
    * @param {number} total
    */
   function revealMatch(match, index, total) {
+    expandCollapsedAncestors(match.item, getRoot());
     const el = match.item.querySelector(':scope > .row > .text');
     selectTextRange(el, match.start, match.end);
     setStatus(`${index + 1} of ${total}`);
