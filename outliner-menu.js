@@ -1,10 +1,10 @@
 /** Product / help menu for the Outliner app chrome. */
 
 /** Display version: major.minor only. */
-export const OUTLINER_VERSION = '1.5';
+export const OUTLINER_VERSION = '1.6';
 
 /** ISO date the shipped code was last updated (bump when shipping meaningful changes). */
-export const OUTLINER_UPDATED = '2026-10-28';
+export const OUTLINER_UPDATED = '2026-10-29';
 
 export const OUTLINER_CHANGELOG_URL = 'changelog.html';
 
