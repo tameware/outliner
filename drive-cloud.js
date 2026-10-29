@@ -232,6 +232,53 @@ export function createDriveCloudClient({
     };
   }
 
+  async function saveOutlinePublic(id, opml) {
+    const url =
+      share?.mode === 'edit'
+        ? `${publicBase}edit/${encodeURIComponent(share.token)}`
+        : `${publicBase}${encodeURIComponent(id)}`;
+    let response;
+    try {
+      response = await fetchFn(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': OPML_MIME },
+        body: opml,
+      });
+    } catch (error) {
+      throw new CloudApiError(error?.message || 'Failed to fetch', 0, error);
+    }
+    if (!response.ok) {
+      throw new CloudApiError(
+        `Could not save shared outline (HTTP ${response.status})`,
+        response.status,
+      );
+    }
+    const fileId = response.headers.get('X-Outliner-File-Id') || id;
+    return { id: fileId, revision: null };
+  }
+
+  async function saveOutlineAuthed(id, { opml, revision, title }) {
+    if (title) {
+      await driveFetch(`${DRIVE_FILES}/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: fileNameForTitle(title) }),
+      });
+    }
+    const headers = { 'Content-Type': OPML_MIME };
+    if (revision != null && revision !== '') headers['If-Match'] = String(revision);
+    const response = await driveFetch(
+      `${DRIVE_UPLOAD}/${encodeURIComponent(id)}?uploadType=media&fields=id`,
+      {
+        method: 'PATCH',
+        headers,
+        body: opml,
+      },
+    );
+    const data = await response.json();
+    return { id: data.id || id, revision: response.headers.get('ETag') || null };
+  }
+
   return {
     async listOutlines() {
       const parent = await ensureAppFolder();
@@ -348,51 +395,4 @@ export function createDriveCloudClient({
       return mintShareLink('edit', id);
     },
   };
-
-  async function saveOutlinePublic(id, opml) {
-    const url =
-      share?.mode === 'edit'
-        ? `${publicBase}edit/${encodeURIComponent(share.token)}`
-        : `${publicBase}${encodeURIComponent(id)}`;
-    let response;
-    try {
-      response = await fetchFn(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': OPML_MIME },
-        body: opml,
-      });
-    } catch (error) {
-      throw new CloudApiError(error?.message || 'Failed to fetch', 0, error);
-    }
-    if (!response.ok) {
-      throw new CloudApiError(
-        `Could not save shared outline (HTTP ${response.status})`,
-        response.status,
-      );
-    }
-    const fileId = response.headers.get('X-Outliner-File-Id') || id;
-    return { id: fileId, revision: null };
-  }
-
-  async function saveOutlineAuthed(id, { opml, revision, title }) {
-    if (title) {
-      await driveFetch(`${DRIVE_FILES}/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: fileNameForTitle(title) }),
-      });
-    }
-    const headers = { 'Content-Type': OPML_MIME };
-    if (revision != null && revision !== '') headers['If-Match'] = String(revision);
-    const response = await driveFetch(
-      `${DRIVE_UPLOAD}/${encodeURIComponent(id)}?uploadType=media&fields=id`,
-      {
-        method: 'PATCH',
-        headers,
-        body: opml,
-      },
-    );
-    const data = await response.json();
-    return { id: data.id || id, revision: response.headers.get('ETag') || null };
-  }
 }
