@@ -79,6 +79,74 @@ describe('find-replace core', () => {
     assert.equal(getItemText(matches[0].item), 'Beta Bridge notes');
   });
 
+  it('whole-word literal search skips substrings inside longer words', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'cat catalog catch cat', children: [] },
+        { text: 'concatenate', children: [] },
+      ],
+    });
+    const loose = findMatches(root, { find: 'cat' });
+    assert.equal(loose.length, 5);
+    const whole = findMatches(root, { find: 'cat', wholeWord: true });
+    assert.deepEqual(
+      whole.map((m) => ({ text: getItemText(m.item), start: m.start, end: m.end })),
+      [
+        { text: 'cat catalog catch cat', start: 0, end: 3 },
+        { text: 'cat catalog catch cat', start: 18, end: 21 },
+      ],
+    );
+  });
+
+  it('whole-word works with case-sensitive and Grep modes', () => {
+    loadOutline(root, {
+      items: [{ text: 'Bridge bridges Bridge', children: [] }],
+    });
+    const matches = findMatches(root, {
+      find: 'Bridge',
+      wholeWord: true,
+      caseSensitive: true,
+    });
+    assert.equal(matches.length, 2);
+    assert.deepEqual(
+      matches.map((m) => [m.start, m.end]),
+      [
+        [0, 6],
+        [15, 21],
+      ],
+    );
+
+    loadOutline(root, {
+      items: [{ text: 'cat catalog cat', children: [] }],
+    });
+    assert.equal(findMatches(root, { find: 'cat', grep: true }).length, 3);
+    const grep = findMatches(root, {
+      find: 'cat',
+      grep: true,
+      wholeWord: true,
+    });
+    assert.deepEqual(
+      grep.map((m) => [m.start, m.end]),
+      [
+        [0, 3],
+        [12, 15],
+      ],
+    );
+  });
+
+  it('replaceAllMatches respects wholeWord', () => {
+    loadOutline(root, {
+      items: [{ text: 'cat catalog cat', children: [] }],
+    });
+    const count = replaceAllMatches(root, {
+      find: 'cat',
+      replace: 'dog',
+      wholeWord: true,
+    });
+    assert.equal(count, 2);
+    assert.equal(getItemText(root.querySelector('[data-item]')), 'dog catalog dog');
+  });
+
   it('supports Grep regex matching', () => {
     const matches = findMatches(root, { find: 'Br\\w+', grep: true, caseSensitive: true });
     assert.deepEqual(

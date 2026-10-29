@@ -28,22 +28,28 @@ export function collectSearchableItems(root) {
 
 /**
  * @param {string} find
- * @param {{ grep?: boolean, caseSensitive?: boolean }} options
+ * @param {{ grep?: boolean, caseSensitive?: boolean, wholeWord?: boolean }} options
  * @returns {{ regex: RegExp | null, error?: string }}
  */
 export function buildFindRegex(find, options = {}) {
   const pattern = String(find ?? '');
   if (!pattern) return { regex: null };
   const flags = options.caseSensitive ? 'g' : 'gi';
+  /** @type {string} */
+  let source;
   if (options.grep) {
-    try {
-      return { regex: new RegExp(pattern, flags) };
-    } catch (error) {
-      return { regex: null, error: error?.message || String(error) };
-    }
+    source = pattern;
+  } else {
+    source = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
-  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return { regex: new RegExp(escaped, flags) };
+  if (options.wholeWord) {
+    source = `\\b(?:${source})\\b`;
+  }
+  try {
+    return { regex: new RegExp(source, flags) };
+  } catch (error) {
+    return { regex: null, error: error?.message || String(error) };
+  }
 }
 
 /**
@@ -52,7 +58,7 @@ export function buildFindRegex(find, options = {}) {
 
 /**
  * @param {HTMLElement} root
- * @param {{ find: string, grep?: boolean, caseSensitive?: boolean }} options
+ * @param {{ find: string, grep?: boolean, caseSensitive?: boolean, wholeWord?: boolean }} options
  * @returns {FindMatch[] & { error?: string }}
  */
 export function findMatches(root, options) {
@@ -263,7 +269,7 @@ export function replaceMatch(match, replace, options = {}) {
 
 /**
  * @param {HTMLElement} root
- * @param {{ find: string, replace?: string, grep?: boolean, caseSensitive?: boolean }} options
+ * @param {{ find: string, replace?: string, grep?: boolean, caseSensitive?: boolean, wholeWord?: boolean }} options
  * @returns {number} number of replacements
  */
 export function replaceAllMatches(root, options) {

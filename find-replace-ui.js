@@ -45,6 +45,7 @@ export function mountFindReplace({
   const replaceLabel = dialog.querySelector('label[for="find-replace-replace"]');
   const grepInput = dialog.querySelector('#find-replace-grep');
   const caseInput = dialog.querySelector('#find-replace-case');
+  const wholeInput = dialog.querySelector('#find-replace-whole');
   const wrapInput = dialog.querySelector('#find-replace-wrap');
   const statusEl = dialog.querySelector('#find-replace-status');
   const btnPrev = dialog.querySelector('#find-replace-prev');
@@ -70,6 +71,7 @@ export function mountFindReplace({
       replace: replaceInput?.value ?? '',
       grep: Boolean(grepInput?.checked),
       caseSensitive: Boolean(caseInput?.checked),
+      wholeWord: Boolean(wholeInput?.checked),
       wrapAround: wrapInput ? Boolean(wrapInput.checked) : true,
     };
   }
@@ -79,6 +81,7 @@ export function mountFindReplace({
       find: opts.find,
       grep: opts.grep,
       caseSensitive: opts.caseSensitive,
+      wholeWord: opts.wholeWord,
     });
   }
 
@@ -289,7 +292,7 @@ export function mountFindReplace({
     closeDialog();
   });
 
-  for (const el of [findInput, grepInput, caseInput]) {
+  for (const el of [findInput, grepInput, caseInput, wholeInput]) {
     el?.addEventListener('input', () => {
       queryKey = '';
       currentIndex = -1;

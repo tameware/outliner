@@ -171,6 +171,7 @@ describe('index.html CSP-safe entry', () => {
     assert.match(html, /id="menu-replace"/);
     assert.match(html, /id="find-replace-dialog"/);
     assert.match(html, /id="find-replace-grep"/);
+    assert.match(html, /id="find-replace-whole"/);
     const appJs = readFileSync(join(root, 'app.js'), 'utf8');
     assert.match(appJs, /mountFindReplace/);
   });

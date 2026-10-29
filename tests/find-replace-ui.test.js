@@ -89,6 +89,7 @@ describe('Find & Replace UI', () => {
     assert.equal(document.getElementById('find-replace-and-find').hidden, true);
     assert.equal(document.getElementById('find-replace-all').hidden, true);
     assert.equal(document.getElementById('find-replace-grep').hidden, false);
+    assert.equal(document.getElementById('find-replace-whole').hidden, false);
     assert.equal(document.getElementById('find-replace-next').hidden, false);
   });
 
@@ -104,6 +105,26 @@ describe('Find & Replace UI', () => {
     assert.equal(document.getElementById('find-replace-one').hidden, false);
     assert.equal(document.getElementById('find-replace-and-find').hidden, false);
     assert.equal(document.getElementById('find-replace-all').hidden, false);
+    assert.equal(document.getElementById('find-replace-whole').hidden, false);
+  });
+
+  it('Whole word limits Find Next and Replace All to whole words', () => {
+    loadOutline(root, {
+      items: [{ text: 'cat catalog cat', children: [] }],
+    });
+    document.getElementById('menu-find').click();
+    document.getElementById('find-replace-find').value = 'cat';
+    document.getElementById('find-replace-whole').checked = true;
+    assert.equal(ui.findNext(), true);
+    assert.match(document.getElementById('find-replace-status').textContent, /1 of 2/);
+    assert.equal(ui.findNext(), true);
+    assert.match(document.getElementById('find-replace-status').textContent, /2 of 2/);
+
+    document.getElementById('menu-replace').click();
+    document.getElementById('find-replace-replace').value = 'dog';
+    document.getElementById('find-replace-whole').checked = true;
+    assert.equal(ui.replaceAll(), true);
+    assert.deepEqual(getItemTexts(root), ['dog catalog dog']);
   });
 
   it('toggling Find… after Replace… hides Replace options again', () => {
@@ -208,6 +229,8 @@ describe('index.html Find & Replace menu', () => {
     assert.match(html, /id="menu-replace"/);
     assert.match(html, /id="find-replace-dialog"/);
     assert.match(html, /id="find-replace-grep"/);
+    assert.match(html, /id="find-replace-whole"/);
+    assert.match(html, />\s*Whole word\s*</);
     assert.ok(html.indexOf('id="menu-find"') < html.indexOf('id="menu-clear"'));
     assert.ok(html.indexOf('id="menu-replace"') < html.indexOf('id="menu-clear"'));
   });
