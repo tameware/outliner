@@ -43,6 +43,7 @@ import {
   showOutlineLoading,
   hideOutlineLoading,
 } from './outline-loading.js';
+import { clearCloudOutlineBinding } from './cloud-binding.js';
 import { mountMenubar } from './menubar.js';
 import { mountOutlinerMenu } from './outliner-menu.js';
 import { applyMenuShortcuts } from './menu-shortcuts.js';
@@ -302,6 +303,20 @@ syncLocalSaveLabel();
  */
 function applyOpenedLocalOutline(tree, fallbackName) {
   hideOutlineLoading(root);
+  // File Open replaces the document — do not overwrite the previously opened Drive file.
+  clearCloudOutlineBinding({
+    setOutlineId: (id) => {
+      currentOutlineId = id;
+    },
+    setRevision: (rev) => {
+      currentRevision = rev;
+    },
+    setLeaseToken: (token) => {
+      leaseToken = token;
+    },
+    syncUrl,
+  });
+  cloudUi?.syncSaveLabel?.();
   loadOutline(root, tree);
   outlineHistory.discard();
   if (tree.title) applyDocumentTitle(tree.title);

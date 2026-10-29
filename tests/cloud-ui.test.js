@@ -400,6 +400,29 @@ describe('cloud UI', () => {
     assert.equal(savedCalls[0].leaseToken, 'fresh-lease');
   });
 
+  it('Save after detaching a cloud id creates a new Drive file instead of overwriting', async () => {
+    outlineId = 'original-cloud-id';
+    outline.getTitle = () => 'Imported outline';
+    const { clearCloudOutlineBinding } = await import('../cloud-binding.js');
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    clearCloudOutlineBinding(outline);
+
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.ok(document.getElementById('cloud-save-dialog').hasAttribute('open'));
+    document.getElementById('cloud-save-name').value = 'Imported outline';
+    document.getElementById('cloud-save-form').dispatchEvent(
+      new dom.window.Event('submit', { bubbles: true, cancelable: true }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(savedCalls.length, 0);
+    assert.equal(createdCalls.length, 1);
+    assert.equal(createdCalls[0].title, 'Imported outline');
+    assert.equal(outlineId, 'new-1');
+  });
+
   it('Save works without a revision (Drive v3 often has no ETag)', async () => {
     outlineId = 'existing-1';
     outline.getTitle = () => 'Same name';
