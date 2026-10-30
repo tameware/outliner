@@ -261,8 +261,9 @@ export function createOutlineHistory({
     if (!textGestureActive && lastKnownOpml != null) {
       const current = snapshot();
       if (current !== lastKnownOpml) {
-        redoStack.push({ opml: current, focus: captureFocus(root) });
-        applyEntry({ opml: lastKnownOpml, focus: captureFocus(root) });
+        const focus = captureFocus(root);
+        redoStack.push({ opml: current, focus });
+        applyEntry({ opml: lastKnownOpml, focus });
         syncButtons();
         notifyChange();
         return true;

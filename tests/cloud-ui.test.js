@@ -448,6 +448,71 @@ describe('cloud UI', () => {
     assert.match(alerts[0] || '', /Drive write failed/);
   });
 
+  it('does not keep a new title or Updated time when Cloud Save fails', async () => {
+    outlineId = 'existing-1';
+    let title = 'Original name';
+    let updatedAt = 'prior-stamp';
+    const opmlCalls = [];
+    outline.getTitle = () => title;
+    outline.setTitle = (t) => {
+      title = t;
+    };
+    outline.setUpdatedAt = (d) => {
+      updatedAt = d;
+    };
+    outline.getRevision = () => 2;
+    outline.toOpml = (opts = {}) => {
+      opmlCalls.push(opts);
+      return '<opml></opml>';
+    };
+    cloud.createOutline = async () => {
+      throw new Error('Drive create failed');
+    };
+    window.alert = () => {};
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-save-as').click();
+    await new Promise((r) => setTimeout(r, 0));
+    document.getElementById('cloud-save-name').value = 'Renamed on Drive';
+    document.getElementById('cloud-save-form').dispatchEvent(
+      new dom.window.Event('submit', { bubbles: true, cancelable: true }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(title, 'Original name');
+    assert.equal(updatedAt, 'prior-stamp');
+    assert.equal(outlineId, 'existing-1');
+    assert.equal(opmlCalls[0]?.title, 'Renamed on Drive');
+    assert.ok(opmlCalls[0]?.dateModified instanceof Date);
+  });
+
+  it('does not advance Updated when an in-place Cloud Save fails', async () => {
+    outlineId = 'existing-1';
+    let title = 'Same name';
+    let updatedAt = 'prior-stamp';
+    outline.getTitle = () => title;
+    outline.setTitle = (t) => {
+      title = t;
+    };
+    outline.setUpdatedAt = (d) => {
+      updatedAt = d;
+    };
+    outline.getRevision = () => 2;
+    cloud.saveOutline = async () => {
+      throw new Error('Drive write failed');
+    };
+    window.alert = () => {};
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(title, 'Same name');
+    assert.equal(updatedAt, 'prior-stamp');
+  });
+
   it('Save after detaching a cloud id creates a new Drive file instead of overwriting', async () => {
     outlineId = 'original-cloud-id';
     outline.getTitle = () => 'Imported outline';

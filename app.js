@@ -659,10 +659,10 @@ async function initCloud() {
     cloud: cloud || nullCloud,
     outline: {
       root,
-      toOpml: () =>
+      toOpml: (opts = {}) =>
         toOpml(root, {
-          title: outlineTitleBase(),
-          dateModified: documentUpdatedAt ?? new Date(),
+          title: opts.title ?? outlineTitleBase(),
+          dateModified: opts.dateModified ?? documentUpdatedAt ?? new Date(),
         }),
       parseOpml,
       beginLoading: () => {

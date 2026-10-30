@@ -224,17 +224,11 @@ export function mountCloudUi({
         !editShareMode &&
         (forceNew || (Boolean(id) && name !== previousTitle));
 
-      outline.setTitle?.(name);
+      // Keep UI title/Updated unchanged until Drive accepts the write.
       const savedAt = new Date();
-      outline.setUpdatedAt?.(savedAt);
-      const opml = outline.toOpml();
+      const opml = outline.toOpml({ title: name, dateModified: savedAt });
 
       if (!id || saveAsNew) {
-        if (id && saveAsNew) {
-          outline.setOutlineId?.(null);
-          outline.setRevision?.(null);
-          outline.setLeaseToken?.(null);
-        }
         const created = await cloud.createOutline({ title: name, opml });
         id = created.id;
         // Drive v3 often omits ETag; revision is optional (last-write-wins).
@@ -242,6 +236,8 @@ export function mountCloudUi({
         outline.setOutlineId?.(id);
         outline.setRevision?.(revision);
         outline.setLeaseToken?.(null);
+        outline.setTitle?.(name);
+        outline.setUpdatedAt?.(savedAt);
         if (outline.syncUrl) outline.syncUrl(id);
         syncSaveLabel();
         setStatus(`Saved “${name}”`);
@@ -276,6 +272,8 @@ export function mountCloudUi({
           title: name,
         });
         outline.setRevision?.(saved?.revision ?? revision);
+        outline.setTitle?.(name);
+        outline.setUpdatedAt?.(savedAt);
         syncSaveLabel();
         setStatus(`Saved “${name}”`);
       } finally {
