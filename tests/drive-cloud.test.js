@@ -365,30 +365,30 @@ describe('Drive cloud client', () => {
     assert.match(String(calls[0].body), /<opml/);
   });
 
-  it('falls back to public PUT when authed save is forbidden', async () => {
-    const calls = [];
+  it('does not fall back to unauthenticated public PUT when authed save is forbidden', async () => {
     fetchMock.mock.mockImplementation(async (url, init) => {
       const href = String(url);
-      const method = init?.method || 'GET';
-      calls.push({ url: href, method });
       if (href.includes('/upload/') || href.includes('/drive/v3/files/file-9')) {
         return new Response(JSON.stringify({ error: { message: 'forbidden' } }), {
           status: 403,
           headers: { 'Content-Type': 'application/json' },
         });
       }
-      if (method === 'PUT' && href.includes('/api/outliner/drive/')) {
-        return new Response('', { status: 200 });
-      }
       return new Response('{}', { status: 200 });
     });
-    const saved = await client().saveOutline('file-9', {
-      opml: '<?xml version="1.0"?><opml></opml>',
-      revision: null,
-      title: 'Demo',
-    });
-    assert.equal(saved.id, 'file-9');
-    assert.ok(calls.some((c) => c.method === 'PUT' && c.url.includes('/api/outliner/drive/')));
+    await assert.rejects(
+      () =>
+        client().saveOutline('file-9', {
+          opml: '<?xml version="1.0"?><opml></opml>',
+          revision: null,
+          title: 'Demo',
+        }),
+      (err) => {
+        assert.ok(err instanceof CloudApiError);
+        assert.equal(err.status, 403);
+        return true;
+      },
+    );
   });
 
   it('throws CloudApiError on non-OK responses', async () => {

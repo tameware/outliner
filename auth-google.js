@@ -3,6 +3,9 @@
  */
 
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+/** OpenID scopes so userinfo can return sub / name / email after a fresh grant. */
+export const IDENTITY_SCOPES = 'openid profile email';
+export const AUTH_SCOPES = `${DRIVE_SCOPE} ${IDENTITY_SCOPES}`;
 
 const GIS_SCRIPT = 'https://accounts.google.com/gsi/client';
 
@@ -110,8 +113,9 @@ export function createGoogleAuth({
     }
     tokenClient = g.accounts.oauth2.initTokenClient({
       client_id: clientId,
-      scope: DRIVE_SCOPE,
+      scope: AUTH_SCOPES,
       callback: () => {},
+      error_callback: () => {},
     });
     return tokenClient;
   }
@@ -134,8 +138,20 @@ export function createGoogleAuth({
     async signInWithGoogle() {
       const client = await ensureClient();
       await new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (fn, value) => {
+          if (settled) return;
+          settled = true;
+          fn(value);
+        };
         client.callback = (response) => {
-          applyTokenResponse(response).then(resolve).catch(reject);
+          applyTokenResponse(response).then((v) => finish(resolve, v)).catch((e) => finish(reject, e));
+        };
+        client.error_callback = (error) => {
+          const message =
+            (error && typeof error === 'object' && (error.type || error.message)) ||
+            'Google sign-in failed';
+          finish(reject, new Error(String(message)));
         };
         client.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
       });

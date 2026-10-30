@@ -49,13 +49,13 @@ describe('outline loading panel', () => {
     els = setupDom();
   });
 
-  it('shows a blank loading panel and hides the outline', () => {
+  it('shows a loading panel without destroying the current outline', () => {
     showOutlineLoading(els.root, { loadOutline });
     assert.equal(els.loading.hidden, false);
     assert.equal(els.loading.textContent, 'Loading your outline…');
     assert.equal(els.main.getAttribute('data-loading'), 'true');
     assert.equal(isOutlineLoading(els.root), true);
-    assert.deepEqual(getItemTexts(els.root), ['']);
+    assert.deepEqual(getItemTexts(els.root), ['Starter tip']);
   });
 
   it('clears the document title so Untitled does not flash while opening', () => {
@@ -95,7 +95,7 @@ describe('outline loading panel', () => {
     assert.equal(isOutlineLoading(els.root), false);
   });
 
-  it('deep-link boot shows loading instead of the starter outline', () => {
+  it('deep-link boot shows loading and clears starter content', () => {
     assert.equal(
       blankOutlineForDeepLink(els.root, { search: '?id=abc' }, { loadOutline }),
       true,

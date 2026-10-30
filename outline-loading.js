@@ -30,11 +30,14 @@ export function isOutlineLoading(root) {
 }
 
 /**
- * Hide the outline and show a blank loading message (clears starter content).
+ * Hide the outline behind a loading message. Does not destroy current content
+ * so a failed open can leave the previous outline intact (CSS hides the tree).
+ * Pass `clear: true` (deep-link boot) to wipe starter lines while waiting.
  * @param {HTMLElement | null | undefined} root
  * @param {{
  *   loadOutline?: typeof import('./outliner.js').loadOutline,
  *   message?: string,
+ *   clear?: boolean,
  * }} [options]
  */
 export function showOutlineLoading(root, options = {}) {
@@ -52,7 +55,7 @@ export function showOutlineLoading(root, options = {}) {
   // Avoid flashing "Untitled" while a Drive / share / local open is in flight.
   const title = document.getElementById('document-title');
   if (title) title.textContent = '';
-  if (typeof options.loadOutline === 'function') {
+  if (options.clear && typeof options.loadOutline === 'function') {
     options.loadOutline(root, { items: [] });
   }
 }

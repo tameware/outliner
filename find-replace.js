@@ -22,7 +22,11 @@ function textEl(item) {
 export function collectSearchableItems(root) {
   if (!root) return [];
   return [...root.querySelectorAll('[data-item]')].filter(
-    (el) => !isDealDiagramItem(el) && textEl(el),
+    (el) =>
+      !isDealDiagramItem(el) &&
+      textEl(el) &&
+      // Focus-hidden lines are not visible; expanding ancestors cannot reveal them.
+      el.dataset?.focusRole !== 'hidden',
   );
 }
 
@@ -245,24 +249,34 @@ export function replaceMatch(match, replace, options = {}) {
   const el = textEl(match.item);
   if (!el) return false;
   const text = el.textContent ?? '';
-  const slice = text.slice(match.start, match.end);
-  if (slice !== match.matchText && options.find) {
-    // Stale match — rebuild from current text using find options if provided.
+  let start = match.start;
+  let end = match.end;
+  let matchText = match.matchText;
+  const slice = text.slice(start, end);
+  if (slice !== matchText) {
+    // Stale offsets — refuse rather than deleting an unrelated range.
+    return false;
   }
-  let insertion = expandReplaceTemplate(replace, { 0: match.matchText }, options);
+  let insertion = expandReplaceTemplate(replace, { 0: matchText }, options);
   if (options.grep && options.find != null) {
     const { regex } = buildFindRegex(options.find, options);
     if (regex) {
+      // Run against the full line so lookaround assertions keep their context.
       regex.lastIndex = 0;
-      const sub = text.slice(match.start, match.end);
-      const m = regex.exec(sub);
-      if (m) {
-        m.index = match.start;
-        insertion = expandReplaceTemplate(replace, m, { grep: true });
+      let m = regex.exec(text);
+      while (m) {
+        if (m.index === start && m.index + m[0].length === end) {
+          insertion = expandReplaceTemplate(replace, m, { grep: true });
+          break;
+        }
+        if (m[0].length === 0) {
+          if (regex.lastIndex === m.index) regex.lastIndex += 1;
+        }
+        m = regex.exec(text);
       }
     }
   }
-  const next = text.slice(0, match.start) + insertion + text.slice(match.end);
+  const next = text.slice(0, start) + insertion + text.slice(end);
   setItemText(match.item, next);
   return true;
 }

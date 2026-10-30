@@ -508,6 +508,60 @@ describe('multi-step undo/redo stack', () => {
     assert.equal(history.undo(), true);
     assert.deepEqual(getItemTexts(root), ['Alpha']);
   });
+
+  it('does not treat expand/collapse as unrecorded typing for undo', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'Parent',
+          expanded: true,
+          children: [{ text: 'Child', children: [] }],
+        },
+      ],
+    });
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    history.bindShortcuts(root);
+    const parent = root.querySelector('[data-item]');
+    history.run(() => {
+      addItemAfter(parent, 'Sibling');
+      return true;
+    });
+    assert.equal(history.undoDepth(), 1);
+    parent.dataset.state = 'collapsed';
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), ['Parent', 'Child']);
+    assert.equal(history.undoDepth(), 0);
+  });
+
+  it('refuses undo and redo while the outline is read-only', () => {
+    loadOutline(root, { items: [{ text: 'Alpha', children: [] }] });
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    history.bindShortcuts(root);
+    history.run(() => {
+      addItemAfter(root.querySelector('[data-item]'), 'Beta');
+      return true;
+    });
+    root.dataset.readonly = 'true';
+    root.querySelector('[data-item] .text').textContent = 'mutated';
+    assert.equal(history.undo(), false);
+    assert.deepEqual(getItemTexts(root), ['mutated', 'Beta']);
+    root.dataset.readonly = 'false';
+    assert.equal(history.undo(), true);
+  });
 });
 
 describe('Tab / Shift+Tab undo', () => {

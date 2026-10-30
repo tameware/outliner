@@ -39,18 +39,26 @@ export function bindDeepLinkOutlineLoad({
   let loadedForId = null;
   let generation = 0;
 
+  function invalidate() {
+    generation += 1;
+    loadedForId = null;
+  }
+
   async function tryLoad() {
     const id = getOutlineId?.();
     if (!id || !cloud?.getOutline) return false;
     const gen = ++generation;
+    const requestedId = id;
     try {
-      const got = await cloud.getOutline(id);
+      const got = await cloud.getOutline(requestedId);
       if (gen !== generation) return false;
+      if (getOutlineId?.() !== requestedId) return false;
       await applyOutline(got);
-      loadedForId = id;
+      if (gen !== generation || getOutlineId?.() !== requestedId) return false;
+      loadedForId = requestedId;
       return true;
     } catch (error) {
-      if (gen === generation) onError?.(error);
+      if (gen === generation && getOutlineId?.() === requestedId) onError?.(error);
       return false;
     }
   }
@@ -67,7 +75,9 @@ export function bindDeepLinkOutlineLoad({
 
   return {
     ready,
+    invalidate,
     destroy() {
+      invalidate();
       if (typeof unsub === 'function') unsub();
     },
   };

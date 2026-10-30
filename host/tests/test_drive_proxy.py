@@ -98,17 +98,15 @@ def test_upstream_404(client):
     assert response.status_code == 404
 
 
-def test_put_updates_opml(write_client):
+def test_put_by_file_id_is_disabled(write_client):
     http, uploads, _app = write_client
     response = http.put(
         '/api/outliner/drive/fileEdit1',
         data=SAMPLE_OPML,
         content_type='application/xml',
     )
-    assert response.status_code == 204
-    assert len(uploads) == 1
-    assert uploads[0]['file_id'] == 'fileEdit1'
-    assert '<opml' in uploads[0]['opml']
+    assert response.status_code == 405
+    assert uploads == []
 
 
 def test_put_rejects_invalid_file_id(write_client):
@@ -118,45 +116,8 @@ def test_put_rejects_invalid_file_id(write_client):
         data=SAMPLE_OPML,
         content_type='application/xml',
     )
-    assert response.status_code == 400
+    assert response.status_code in (400, 405)
     assert uploads == []
-
-
-def test_put_rejects_non_opml(write_client):
-    http, uploads, _app = write_client
-    response = http.put(
-        '/api/outliner/drive/fileEdit1',
-        data='<!DOCTYPE html><html></html>',
-        content_type='text/html',
-    )
-    assert response.status_code == 400
-    assert uploads == []
-
-
-def test_put_forbidden_becomes_404(write_client):
-    http, _uploads, _app = write_client
-    response = http.put(
-        '/api/outliner/drive/forbidden',
-        data=SAMPLE_OPML,
-        content_type='application/xml',
-    )
-    assert response.status_code == 404
-
-
-def test_put_surfaces_upload_exceptions_as_502(write_client):
-    http, _uploads, app = write_client
-
-    def boom(_file_id: str, _opml: str) -> tuple[int, str]:
-        raise ImportError('The requests library is not installed')
-
-    app.config['DRIVE_WRITE_UPLOAD'] = boom
-    response = http.put(
-        '/api/outliner/drive/fileEdit1',
-        data=SAMPLE_OPML,
-        content_type='application/xml',
-    )
-    assert response.status_code == 502
-    assert 'requests' in response.get_json()['error']
 
 
 def test_host_requirements_include_requests():

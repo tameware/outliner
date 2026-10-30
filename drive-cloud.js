@@ -353,22 +353,15 @@ export function createDriveCloudClient({
       if (share?.mode === 'view') {
         throw new CloudApiError('Read-only share', 403);
       }
+      // Guest writes must use an opaque edit token — never PUT by bare file id.
       if (share?.mode === 'edit') {
         return saveOutlinePublic(id, opml);
       }
       const token = await getAccessToken();
       if (!token) {
-        return saveOutlinePublic(id, opml);
+        throw new CloudApiError('Sign in required to save', 401);
       }
-      try {
-        return await saveOutlineAuthed(id, { opml, revision, title });
-      } catch (error) {
-        // drive.file cannot write another user's shared file — use SA proxy.
-        if (error instanceof CloudApiError && (error.status === 403 || error.status === 404)) {
-          return saveOutlinePublic(id, opml);
-        }
-        throw error;
-      }
+      return saveOutlineAuthed(id, { opml, revision, title });
     },
 
     async acquireLock() {

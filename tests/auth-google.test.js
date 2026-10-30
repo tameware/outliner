@@ -27,8 +27,13 @@ describe('Google Identity Services auth', () => {
         oauth2: {
           initTokenClient(config) {
             tokenClient.callback = config.callback;
+            tokenClient.error_callback = config.error_callback;
             assert.equal(config.client_id, 'client.apps.googleusercontent.com');
             assert.match(config.scope, new RegExp(DRIVE_SCOPE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+            assert.match(config.scope, /openid/);
+            assert.match(config.scope, /email/);
+            assert.match(config.scope, /profile/);
+            assert.equal(typeof config.error_callback, 'function');
             return tokenClient;
           },
           revoke() {},
@@ -52,6 +57,35 @@ describe('Google Identity Services auth', () => {
     assert.equal(seen.email, 'ada@example.com');
     assert.equal(seen.displayName, 'Ada');
     assert.ok(requests.length >= 1);
+  });
+
+  it('rejects sign-in when GIS reports a popup error via error_callback', async () => {
+    const tokenClient = {
+      callback: () => {},
+      error_callback: () => {},
+      requestAccessToken() {
+        queueMicrotask(() => {
+          tokenClient.error_callback({ type: 'popup_closed' });
+        });
+      },
+    };
+    const google = {
+      accounts: {
+        oauth2: {
+          initTokenClient(config) {
+            tokenClient.callback = config.callback;
+            tokenClient.error_callback = config.error_callback;
+            return tokenClient;
+          },
+          revoke() {},
+        },
+      },
+    };
+    const auth = createGoogleAuth({
+      clientId: 'client.apps.googleusercontent.com',
+      google,
+    });
+    await assert.rejects(() => auth.signInWithGoogle(), /popup_closed|sign-in/i);
   });
 
   it('createNullAuth refuses sign-in and has no token', async () => {

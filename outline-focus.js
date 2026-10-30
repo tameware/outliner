@@ -99,3 +99,17 @@ export function clearOutlineFocus(root) {
   stack.length = 0;
   applyFocusRoles(root, stack);
 }
+
+/**
+ * Recompute Focus roles after structural edits (promote/demote/delete/move).
+ * Drops stack entries that left the tree so the view cannot stay blank.
+ * @param {ParentNode | null | undefined} root
+ */
+export function syncOutlineFocus(root) {
+  if (!root) return;
+  const stack = stackFor(root);
+  for (let i = stack.length - 1; i >= 0; i -= 1) {
+    if (!root.contains(stack[i])) stack.splice(i, 1);
+  }
+  applyFocusRoles(root, stack);
+}

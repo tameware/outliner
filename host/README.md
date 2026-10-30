@@ -25,9 +25,9 @@ Put `host/` on `PYTHONPATH`, or copy `host/outliner_host/` next to your app pack
 
 | Item | Where |
 | --- | --- |
-| `OUTLINER_SHARE_SECRET` | Env or `app.config['OUTLINER_SHARE_SECRET']` — required in production; changing it invalidates existing share URLs |
+| `OUTLINER_SHARE_SECRET` | Env or `app.config['OUTLINER_SHARE_SECRET']` — required (no default); changing it invalidates existing share URLs |
 | OAuth Web client ID | Browser `config.local.js` (`googleClientId`) |
-| `driveWriterServiceAccount` | Browser config — SA email granted writer on editable shares so ADC can PUT |
+| `driveWriterServiceAccount` | Browser config — SA email granted writer on opaque edit shares (`PUT …/edit/<token>`) |
 | Google Drive API | Enabled on the GCP project; App Engine (or other) default credentials used for uploads |
 
 ## Dependencies

@@ -112,6 +112,33 @@ describe('bindDeepLinkOutlineLoad', () => {
     destroy();
   });
 
+  it('ignores a late deep-link response after invalidate or id change', async () => {
+    let resolveGet;
+    const applied = [];
+    let currentId = 'file-a';
+    const cloud = {
+      getOutline(id) {
+        return new Promise((resolve) => {
+          resolveGet = () => resolve({ opml: `<opml>${id}</opml>`, title: id });
+        });
+      },
+    };
+    const { ready, destroy, invalidate } = bindDeepLinkOutlineLoad({
+      auth: { onAuthStateChanged: () => () => {} },
+      cloud,
+      getOutlineId: () => currentId,
+      applyOutline: async (got) => {
+        applied.push(got.title);
+      },
+    });
+    currentId = null;
+    invalidate();
+    resolveGet();
+    await ready;
+    assert.deepEqual(applied, []);
+    destroy();
+  });
+
   it('app.js syncs the resolved file id through syncUrl after a deep-link load', () => {
     const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
     assert.match(appJs, /bindDeepLinkOutlineLoad\s*\(/);

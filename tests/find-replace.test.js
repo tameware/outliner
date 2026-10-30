@@ -188,6 +188,43 @@ describe('find-replace core', () => {
     assert.equal(getItemText(matches[0].item), 'Alpha river');
   });
 
+  it('skips Focus-hidden lines when collecting searchable items', () => {
+    const alpha = root.querySelector('[data-item]');
+    const beta = alpha.nextElementSibling;
+    beta.dataset.focusRole = 'hidden';
+    const items = collectSearchableItems(root);
+    assert.ok(items.includes(alpha));
+    assert.ok(!items.includes(beta));
+    const matches = findMatches(root, { find: 'bridge' });
+    assert.equal(matches.length, 2);
+  });
+
+  it('replaceMatch refuses stale offsets that no longer hold the match text', () => {
+    const matches = findMatches(root, { find: 'bridge' });
+    const stale = { ...matches[0], start: 0, end: 5, matchText: 'bridge' };
+    assert.equal(replaceMatch(stale, 'river', { find: 'bridge' }), false);
+    assert.equal(getItemText(matches[0].item), 'Alpha bridge');
+  });
+
+  it('replaceMatch Grep lookaround uses full-line context for $1', () => {
+    loadOutline(root, { items: [{ text: 'cat dog', children: [] }] });
+    const item = root.querySelector('[data-item]');
+    const match = {
+      item,
+      start: 4,
+      end: 7,
+      matchText: 'dog',
+    };
+    assert.equal(
+      replaceMatch(match, '$1!', {
+        grep: true,
+        find: '(?<=cat )(dog)',
+      }),
+      true,
+    );
+    assert.equal(getItemText(item), 'cat dog!');
+  });
+
   it('replaceMatch expands !c !d !h !s in the replace string', () => {
     const matches = findMatches(root, { find: 'bridge' });
     assert.equal(replaceMatch(matches[0], 'lead !h'), true);

@@ -45,6 +45,17 @@ describe('promote/demote shortcuts', () => {
     );
   });
 
+  it('ignores Ctrl+Alt (AltGr) bracket keys so layouts can type [ and ]', () => {
+    assert.equal(
+      matchPromoteDemoteShortcut({ key: '[', ctrlKey: true, altKey: true }),
+      null,
+    );
+    assert.equal(
+      matchPromoteDemoteShortcut({ key: ']', ctrlKey: true, altKey: true }),
+      null,
+    );
+  });
+
   it('always prevents default for Cmd+[ even when promote fails, and beeps', () => {
     const beeps = [];
     const event = {

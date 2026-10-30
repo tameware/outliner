@@ -11,6 +11,8 @@
  * @returns {'promote' | 'demote' | null}
  */
 export function matchPromoteDemoteShortcut(event) {
+  // AltGr on many layouts sets ctrlKey+altKey together; do not steal [ / ].
+  if (event.ctrlKey && event.altKey) return null;
   const mod = Boolean(event.metaKey || event.ctrlKey || event.altKey);
   if (!mod || event.shiftKey) return null;
   if (event.key === '[') return 'promote';

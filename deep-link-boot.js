@@ -25,6 +25,6 @@ export function hasRemoteOutlineParams(locationLike) {
  */
 export function blankOutlineForDeepLink(root, locationLike, { loadOutline }) {
   if (!root || !hasRemoteOutlineParams(locationLike)) return false;
-  showOutlineLoading(root, { loadOutline });
+  showOutlineLoading(root, { loadOutline, clear: true });
   return true;
 }

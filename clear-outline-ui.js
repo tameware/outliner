@@ -64,6 +64,8 @@ export function createOutlineHistory({
    * @type {string | null}
    */
   let lastKnownOpml = null;
+  /** Content-only OPML (no expansionState) for unrecorded-edit detection. */
+  let lastKnownContent = null;
 
   if (button) {
     button.title = 'Remove all lines (⌘Z / Ctrl+Z to undo)';
@@ -72,6 +74,11 @@ export function createOutlineHistory({
   function snapshot() {
     const root = getRoot();
     return toOpml(root, { title: getTitle() });
+  }
+
+  function contentSnapshot() {
+    const root = getRoot();
+    return toOpml(root, { title: getTitle(), includeExpansionState: false });
   }
 
   /**
@@ -134,7 +141,13 @@ export function createOutlineHistory({
    */
   function syncLastKnown() {
     const root = getRoot();
-    lastKnownOpml = root ? snapshot() : null;
+    if (!root) {
+      lastKnownOpml = null;
+      lastKnownContent = null;
+      return;
+    }
+    lastKnownOpml = snapshot();
+    lastKnownContent = contentSnapshot();
   }
 
   function applyEntry(entry) {
@@ -255,14 +268,16 @@ export function createOutlineHistory({
   function undo() {
     const root = getRoot();
     if (!root) return false;
+    if (root.dataset?.readonly === 'true') return false;
 
     // Prefer reverting unrecorded text (no beforeinput/input) over popping a
-    // structural step that would silently discard that typing.
-    if (!textGestureActive && lastKnownOpml != null) {
-      const current = snapshot();
-      if (current !== lastKnownOpml) {
+    // structural step that would silently discard that typing. Compare content
+    // only so expand/collapse does not become a fake undo step.
+    if (!textGestureActive && lastKnownOpml != null && lastKnownContent != null) {
+      const currentContent = contentSnapshot();
+      if (currentContent !== lastKnownContent) {
         const focus = captureFocus(root);
-        redoStack.push({ opml: current, focus });
+        redoStack.push({ opml: snapshot(), focus });
         applyEntry({ opml: lastKnownOpml, focus });
         syncButtons();
         notifyChange();
@@ -280,9 +295,10 @@ export function createOutlineHistory({
   }
 
   function redo() {
+    const root = getRoot();
+    if (!root || root.dataset?.readonly === 'true') return false;
     endTextGesture();
     if (!redoStack.length) return false;
-    const root = getRoot();
     undoStack.push({ opml: snapshot(), focus: captureFocus(root) });
     trimUndo();
     applyEntry(redoStack.pop());

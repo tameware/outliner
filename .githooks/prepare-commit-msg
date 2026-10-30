@@ -1,6 +1,7 @@
 #!/bin/sh
 # On each normal commit: bump major.minor, refresh OUTLINER_UPDATED, prepend Change Log.
 # Skip amends/merges/squashes. Set SKIP_OUTLINER_CHANGELOG=1 to opt out once.
+# When the message is still empty (editor commit), defer the bump to post-commit.
 set -e
 MSG_FILE="$1"
 SOURCE="${2:-}"
@@ -15,7 +16,32 @@ fi
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
+GIT_DIR="$(git rev-parse --git-dir)"
+PENDING="$GIT_DIR/outliner-changelog-pending"
+AMEND="$GIT_DIR/outliner-changelog-amend"
 
+# Strip comment lines to see whether a real subject exists yet.
+SUMMARY="$(
+  node -e "
+    const fs = require('fs');
+    const text = fs.readFileSync(process.argv[1], 'utf8');
+    for (const line of text.split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t || t.startsWith('#')) continue;
+      process.stdout.write(t);
+      break;
+    }
+  " "$MSG_FILE"
+)"
+
+if [ -z "$SUMMARY" ]; then
+  # Editor path: subject arrives later; post-commit will bump + amend once.
+  : > "$PENDING"
+  rm -f "$AMEND"
+  exit 0
+fi
+
+rm -f "$PENDING"
 node scripts/changelog-release.js --message-file "$MSG_FILE"
 
 git add \
@@ -23,3 +49,6 @@ git add \
   package.json \
   package-lock.json \
   changelog.html
+
+# Signal post-commit to fold these into the commit only if they missed the tree.
+: > "$AMEND"

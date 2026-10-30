@@ -9,15 +9,18 @@ import os
 
 from itsdangerous import BadSignature, URLSafeSerializer
 
-DEFAULT_SHARE_SECRET = 'dev-outliner-share-secret-change-me'
-
 
 def share_secret_from_env() -> str:
-    return (
+    secret = (
         os.environ.get('OUTLINER_SHARE_SECRET')
         or os.environ.get('OUTLINES_SHARE_SECRET')
-        or DEFAULT_SHARE_SECRET
-    )
+        or ''
+    ).strip()
+    if not secret:
+        raise RuntimeError(
+            'OUTLINER_SHARE_SECRET is not configured; refusing to mint or parse share tokens'
+        )
+    return secret
 
 
 def _serializer(secret: str, mode: str) -> URLSafeSerializer:

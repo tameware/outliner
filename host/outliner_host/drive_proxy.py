@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Callable
 
@@ -23,6 +25,8 @@ DRIVE_UPLOAD = (
     'https://www.googleapis.com/upload/drive/v3/files/{file_id}?uploadType=media'
 )
 DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive'
+TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo'
+DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files/{file_id}'
 
 bp = Blueprint('outliner_drive_proxy', __name__)
 
@@ -30,10 +34,60 @@ bp = Blueprint('outliner_drive_proxy', __name__)
 FetchResult = tuple[int, str] | tuple[int, str, dict[str, str]]
 FetchFn = Callable[[str], FetchResult]
 UploadFn = Callable[[str, str], tuple[int, str]]
+TokenVerifyFn = Callable[[str], bool]
+TokenCanAccessFn = Callable[[str, str], bool]
 
 
 def _share_secret() -> str:
-    return current_app.config.get('OUTLINER_SHARE_SECRET') or share_secret_from_env()
+    configured = current_app.config.get('OUTLINER_SHARE_SECRET')
+    if configured:
+        return str(configured)
+    return share_secret_from_env()
+
+
+def default_verify_access_token(token: str) -> bool:
+    """Return True when Google tokeninfo accepts the access token."""
+    url = f'{TOKENINFO_URL}?access_token={urllib.parse.quote(token)}'
+    try:
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            payload = json.loads(resp.read().decode('utf-8', errors='replace'))
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, TimeoutError):
+        return False
+    return bool(payload.get('aud') or payload.get('azp') or payload.get('expires_in'))
+
+
+def default_token_can_access_file(token: str, file_id: str) -> bool:
+    """Return True when the user token can metadata-read the Drive file."""
+    url = DRIVE_FILES_URL.format(file_id=urllib.parse.quote(file_id))
+    req = urllib.request.Request(
+        f'{url}?fields=id',
+        headers={'Authorization': f'Bearer {token}', 'User-Agent': 'outliner-host/1.0'},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return int(resp.status) == 200
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+        return False
+
+
+def _bearer_token() -> str | None:
+    auth = request.headers.get('Authorization') or ''
+    if not auth.lower().startswith('bearer '):
+        return None
+    token = auth[7:].strip()
+    return token or None
+
+
+def _require_verified_bearer() -> tuple[str | None, tuple[Response, int] | None]:
+    token = _bearer_token()
+    if not token:
+        return None, (jsonify({'error': 'Sign in required'}), 401)
+    verify: TokenVerifyFn = (
+        current_app.config.get('GOOGLE_ACCESS_TOKEN_VERIFY') or default_verify_access_token
+    )
+    if not verify(token):
+        return None, (jsonify({'error': 'Invalid or expired Google token'}), 401)
+    return token, None
 
 
 def _unpack_fetch(result: FetchResult) -> tuple[int, str, dict[str, str]]:
@@ -154,9 +208,9 @@ def _opml_response(
 @bp.post('/api/outliner/drive/share')
 def mint_drive_share_link():
     """Mint an opaque view/edit token for a Drive file id (caller must be signed in)."""
-    auth = request.headers.get('Authorization') or ''
-    if not auth.lower().startswith('bearer ') or not auth[7:].strip():
-        return jsonify({'error': 'Sign in required'}), 401
+    access_token, err = _require_verified_bearer()
+    if err is not None:
+        return err
     data = request.get_json(silent=True) or {}
     file_id = str(data.get('fileId') or '').strip()
     mode = str(data.get('mode') or '').strip()
@@ -164,8 +218,17 @@ def mint_drive_share_link():
         return jsonify({'error': 'mode must be view or edit'}), 400
     if not DRIVE_FILE_ID_RE.fullmatch(file_id):
         return jsonify({'error': 'Invalid file id'}), 400
+    can_access: TokenCanAccessFn = (
+        current_app.config.get('DRIVE_TOKEN_CAN_ACCESS_FILE') or default_token_can_access_file
+    )
+    assert access_token is not None
+    if not can_access(access_token, file_id):
+        return jsonify({'error': 'No access to that Drive file'}), 403
     try:
-        token = mint_share_token(_share_secret(), mode, file_id)
+        secret = _share_secret()
+        token = mint_share_token(secret, mode, file_id)
+    except RuntimeError as err:
+        return jsonify({'error': str(err)}), 503
     except ValueError as err:
         return jsonify({'error': str(err)}), 400
     return jsonify(
@@ -177,12 +240,22 @@ def mint_drive_share_link():
     )
 
 
+def _parse_share_file_id(mode: str, token: str) -> tuple[str | None, tuple[Response, int] | None]:
+    try:
+        file_id = parse_share_token(_share_secret(), mode, token)
+    except RuntimeError as err:
+        return None, (jsonify({'error': str(err)}), 503)
+    except BadSignature:
+        return None, (jsonify({'error': 'Invalid share link'}), 404)
+    return file_id, None
+
+
 @bp.get('/api/outliner/drive/view/<token>')
 def get_view_share_outline(token: str):
-    try:
-        file_id = parse_share_token(_share_secret(), 'view', token)
-    except BadSignature:
-        return jsonify({'error': 'Invalid share link'}), 404
+    file_id, err = _parse_share_file_id('view', token)
+    if err is not None:
+        return err
+    assert file_id is not None
     fetch = current_app.config.get('DRIVE_PUBLIC_FETCH')
     try:
         status, body, headers = fetch_public_opml(file_id, fetch=fetch)
@@ -195,10 +268,10 @@ def get_view_share_outline(token: str):
 
 @bp.get('/api/outliner/drive/edit/<token>')
 def get_edit_share_outline(token: str):
-    try:
-        file_id = parse_share_token(_share_secret(), 'edit', token)
-    except BadSignature:
-        return jsonify({'error': 'Invalid share link'}), 404
+    file_id, err = _parse_share_file_id('edit', token)
+    if err is not None:
+        return err
+    assert file_id is not None
     fetch = current_app.config.get('DRIVE_PUBLIC_FETCH')
     try:
         status, body, headers = fetch_public_opml(file_id, fetch=fetch)
@@ -211,10 +284,10 @@ def get_edit_share_outline(token: str):
 
 @bp.put('/api/outliner/drive/edit/<token>')
 def put_edit_share_outline(token: str):
-    try:
-        file_id = parse_share_token(_share_secret(), 'edit', token)
-    except BadSignature:
-        return jsonify({'error': 'Invalid share link'}), 404
+    file_id, err = _parse_share_file_id('edit', token)
+    if err is not None:
+        return err
+    assert file_id is not None
     opml = request.get_data(as_text=True) or ''
     upload = current_app.config.get('DRIVE_WRITE_UPLOAD')
     try:
@@ -243,13 +316,13 @@ def get_public_drive_outline(file_id: str):
 
 @bp.put('/api/outliner/drive/<file_id>')
 def put_public_drive_outline(file_id: str):
-    """Legacy PUT by file id — prefer /edit/<token> for share links."""
-    opml = request.get_data(as_text=True) or ''
-    upload = current_app.config.get('DRIVE_WRITE_UPLOAD')
-    try:
-        status, detail = write_public_opml(file_id, opml, upload=upload)
-    except Exception as err:  # noqa: BLE001 — surface ADC/Drive failures as 502
-        return jsonify({'error': str(err)}), 502
-    if status == 204:
-        return Response(status=204)
-    return jsonify({'error': detail or 'Outline update failed'}), status
+    """Disabled: unauthenticated PUT by file id used the host SA.
+
+    Writable shares must use ``PUT /api/outliner/drive/edit/<token>``.
+    """
+    return jsonify(
+        {
+            'error': 'Use an editable share link to save',
+            'fileId': file_id,
+        }
+    ), 405

@@ -1,11 +1,46 @@
 #!/bin/sh
-# If prepare-commit-msg staged a version bump too late for the tree, amend once.
+# Fold a deferred or late changelog bump into HEAD once. Never amend on
+# unrelated staged edits to version files.
 set -e
 if [ "${SKIP_OUTLINER_CHANGELOG_AMEND:-}" = "1" ]; then
   exit 0
 fi
 cd "$(git rev-parse --show-toplevel)"
-if git diff --cached --quiet -- outliner-menu.js changelog.html package.json package-lock.json 2>/dev/null; then
+GIT_DIR="$(git rev-parse --git-dir)"
+PENDING="$GIT_DIR/outliner-changelog-pending"
+AMEND="$GIT_DIR/outliner-changelog-amend"
+
+if [ -f "$PENDING" ]; then
+  rm -f "$PENDING" "$AMEND"
+  if [ "${SKIP_OUTLINER_CHANGELOG:-}" = "1" ]; then
+    exit 0
+  fi
+  MSG="$(git log -1 --pretty=%B)"
+  TMP="$(mktemp)"
+  printf '%s\n' "$MSG" > "$TMP"
+  node scripts/changelog-release.js --message-file "$TMP"
+  rm -f "$TMP"
+  git add \
+    outliner-menu.js \
+    package.json \
+    package-lock.json \
+    changelog.html
+  if git diff --cached --quiet; then
+    exit 0
+  fi
+  SKIP_OUTLINER_CHANGELOG=1 SKIP_OUTLINER_CHANGELOG_AMEND=1 \
+    git commit --amend --no-edit --no-verify
+  exit 0
+fi
+
+if [ ! -f "$AMEND" ]; then
+  exit 0
+fi
+rm -f "$AMEND"
+
+# Only amend leftovers our prepare-commit-msg hook staged for this commit.
+if git diff --cached --quiet -- \
+  outliner-menu.js changelog.html package.json package-lock.json 2>/dev/null; then
   exit 0
 fi
 SKIP_OUTLINER_CHANGELOG=1 SKIP_OUTLINER_CHANGELOG_AMEND=1 \

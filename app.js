@@ -65,6 +65,7 @@ import {
   focusOutlineItem,
   unfocusOutline,
   isOutlineFocusActive,
+  syncOutlineFocus,
 } from './outline-focus.js';
 import { createDirtyTracker } from './dirty-tracker.js';
 import {
@@ -151,6 +152,10 @@ const outlineHistory = createOutlineHistory({
     syncRevert();
     // Clear / undo / redo / structural edits can enter or leave the starter outline.
     outlinerMenuUi.syncHelpEnabled();
+    // Promote/demote/delete/move can leave Focus roles stale or blank.
+    syncOutlineFocus(rootEl);
+    const unfocus = document.getElementById('menu-unfocus');
+    if (unfocus) unfocus.disabled = !isOutlineFocusActive(rootEl);
   },
 });
 
@@ -170,6 +175,8 @@ const readOnlyShare = isReadOnlyViewFromLocation(window.location);
 const editShareMode = isEditableShareFromLocation(window.location);
 /** @type {{ saveCurrent: () => Promise<boolean> } | null} */
 let cloudUi = null;
+/** @type {{ invalidate?: () => void } | null} */
+let deepLinkLoad = null;
 let cloudSaveAvailable = false;
 
 const dirty = createDirtyTracker({
@@ -391,6 +398,7 @@ syncLocalSaveLabel();
  */
 function applyOpenedLocalOutline(tree, fallbackName, meta = {}) {
   hideOutlineLoading(root);
+  deepLinkLoad?.invalidate?.();
   // File Open replaces the document — do not overwrite the previously opened Drive file.
   clearCloudOutlineBinding({
     setOutlineId: (id) => {
@@ -666,6 +674,7 @@ async function initCloud() {
         }),
       parseOpml,
       beginLoading: () => {
+        deepLinkLoad?.invalidate?.();
         showOutlineLoading(root, { loadOutline });
         outlineHistory.discard();
         dirty.markClean();
@@ -734,7 +743,7 @@ async function initCloud() {
   if (configured && cloud && deepLinkKey) {
     // Eager load (public anyone-with-link or existing token). Also retry when
     // auth later delivers a signed-in user — do not depend only on a change event.
-    bindDeepLinkOutlineLoad({
+    deepLinkLoad = bindDeepLinkOutlineLoad({
       auth,
       cloud,
       getOutlineId: () =>

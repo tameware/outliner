@@ -10,6 +10,7 @@ import {
   unfocusOutline,
   clearOutlineFocus,
   isOutlineFocusActive,
+  syncOutlineFocus,
 } from '../outline-focus.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -116,6 +117,37 @@ describe('outline Focus / Unfocus', () => {
     assert.equal(isOutlineFocusActive(root), false);
   });
 
+  it('syncOutlineFocus prunes deleted focus roots and refreshes roles', () => {
+    const byText = (t) =>
+      [...root.querySelectorAll('[data-item]')].find(
+        (el) => el.querySelector(':scope > .row > .text')?.textContent === t,
+      );
+    const beta = byText('Beta');
+    focusOutlineItem(root, beta);
+    beta.remove();
+    syncOutlineFocus(root);
+    assert.equal(isOutlineFocusActive(root), false);
+    assert.equal(byText('Alpha').dataset.focusRole, undefined);
+  });
+
+  it('syncOutlineFocus refreshes roles after structural moves', () => {
+    const byText = (t) =>
+      [...root.querySelectorAll('[data-item]')].find(
+        (el) => el.querySelector(':scope > .row > .text')?.textContent === t,
+      );
+    const beta = byText('Beta');
+    focusOutlineItem(root, beta);
+    const epsilon = byText('Epsilon');
+    let children = beta.querySelector(':scope > ol');
+    if (!children) {
+      children = document.createElement('ol');
+      beta.appendChild(children);
+    }
+    children.appendChild(epsilon);
+    syncOutlineFocus(root);
+    assert.equal(epsilon.dataset.focusRole, 'visible');
+  });
+
   it('clearOutlineFocus and loadOutline clear focus state', () => {
     const beta = [...root.querySelectorAll('[data-item]')].find(
       (el) => el.querySelector(':scope > .row > .text')?.textContent === 'Beta',
@@ -146,6 +178,7 @@ describe('outline Focus / Unfocus', () => {
     const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
     assert.match(appJs, /focusOutlineItem/);
     assert.match(appJs, /unfocusOutline/);
+    assert.match(appJs, /syncOutlineFocus/);
     assert.match(appJs, /menu-focus/);
     assert.match(appJs, /menu-unfocus/);
   });
