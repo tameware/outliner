@@ -22,40 +22,69 @@ import { createOutlineHistory } from '../clear-outline-ui.js';
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('move up/down shortcuts', () => {
-  it('maps Option/Alt+U to move up and Option/Alt+D to move down', () => {
-    assert.equal(matchMoveUpDownShortcut({ key: 'u', altKey: true }), 'up');
-    assert.equal(matchMoveUpDownShortcut({ key: 'd', altKey: true }), 'down');
-    assert.equal(matchMoveUpDownShortcut({ key: 'U', altKey: true }), 'up');
-    assert.equal(matchMoveUpDownShortcut({ key: 'D', altKey: true }), 'down');
-  });
-
-  it('matches by physical key code so Mac Option dead keys still work', () => {
+  it('maps Cmd/Ctrl+ArrowUp to move up and Cmd/Ctrl+ArrowDown to move down', () => {
     assert.equal(
-      matchMoveUpDownShortcut({ key: 'Dead', code: 'KeyU', altKey: true }),
+      matchMoveUpDownShortcut({ key: 'ArrowUp', metaKey: true }),
       'up',
     );
     assert.equal(
-      matchMoveUpDownShortcut({ key: '∂', code: 'KeyD', altKey: true }),
+      matchMoveUpDownShortcut({ key: 'ArrowDown', metaKey: true }),
+      'down',
+    );
+    assert.equal(
+      matchMoveUpDownShortcut({ key: 'ArrowUp', ctrlKey: true }),
+      'up',
+    );
+    assert.equal(
+      matchMoveUpDownShortcut({ key: 'ArrowDown', ctrlKey: true }),
       'down',
     );
   });
 
-  it('ignores bare U/D, Cmd/Ctrl chords, and Shift+Option', () => {
-    assert.equal(matchMoveUpDownShortcut({ key: 'u' }), null);
-    assert.equal(matchMoveUpDownShortcut({ key: 'u', metaKey: true }), null);
-    assert.equal(matchMoveUpDownShortcut({ key: 'd', ctrlKey: true }), null);
+  it('matches by code when key is platform-specific', () => {
     assert.equal(
-      matchMoveUpDownShortcut({ key: 'u', altKey: true, shiftKey: true }),
-      null,
+      matchMoveUpDownShortcut({ key: 'Up', code: 'ArrowUp', metaKey: true }),
+      'up',
     );
-    assert.equal(matchMoveUpDownShortcut({ key: 'z', altKey: true }), null);
+    assert.equal(
+      matchMoveUpDownShortcut({
+        key: 'Down',
+        code: 'ArrowDown',
+        ctrlKey: true,
+      }),
+      'down',
+    );
   });
 
-  it('always prevents default for Option+U', () => {
+  it('ignores bare arrows, Option arrows, and Shift+Cmd chords', () => {
+    assert.equal(matchMoveUpDownShortcut({ key: 'ArrowUp' }), null);
+    assert.equal(
+      matchMoveUpDownShortcut({ key: 'ArrowUp', altKey: true }),
+      null,
+    );
+    assert.equal(
+      matchMoveUpDownShortcut({
+        key: 'ArrowUp',
+        metaKey: true,
+        shiftKey: true,
+      }),
+      null,
+    );
+    assert.equal(
+      matchMoveUpDownShortcut({ key: 'u', altKey: true }),
+      null,
+    );
+    assert.equal(
+      matchMoveUpDownShortcut({ key: 'ArrowLeft', metaKey: true }),
+      null,
+    );
+  });
+
+  it('always prevents default for Cmd+ArrowUp', () => {
     const beeps = [];
     const event = {
-      key: 'u',
-      altKey: true,
+      key: 'ArrowUp',
+      metaKey: true,
       preventDefault() {
         event.prevented = true;
       },
@@ -75,8 +104,8 @@ describe('move up/down shortcuts', () => {
     const beeps = [];
     const runs = [];
     const event = {
-      key: 'd',
-      altKey: true,
+      key: 'ArrowDown',
+      metaKey: true,
       preventDefault() {
         event.prevented = true;
       },
@@ -99,8 +128,8 @@ describe('move up/down shortcuts', () => {
     const beeps = [];
     const runs = [];
     const event = {
-      key: 'u',
-      altKey: true,
+      key: 'ArrowUp',
+      metaKey: true,
       preventDefault() {
         event.prevented = true;
       },
@@ -217,13 +246,13 @@ describe('Edit Move Up / Move Down menu', () => {
 });
 
 describe('index.html Edit menu Move Up / Move Down', () => {
-  it('lists Move Up and Move Down with U and D shortcuts after Outdent', () => {
+  it('lists Move Up and Move Down with Cmd/Ctrl arrow shortcuts after Outdent', () => {
     const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
     const editPanel = html.match(/data-menu="edit"[\s\S]*?data-menu="view"/)?.[0] ?? '';
     assert.match(editPanel, /id="menu-move-up"[^>]*>\s*Move Up/);
     assert.match(editPanel, /id="menu-move-down"[^>]*>\s*Move Down/);
-    assert.match(editPanel, /id="menu-move-up"[\s\S]*?data-keys="alt\+u"/);
-    assert.match(editPanel, /id="menu-move-down"[\s\S]*?data-keys="alt\+d"/);
+    assert.match(editPanel, /id="menu-move-up"[\s\S]*?data-keys="mod\+up"/);
+    assert.match(editPanel, /id="menu-move-down"[\s\S]*?data-keys="mod\+down"/);
     assert.ok(editPanel.indexOf('menu-outdent') < editPanel.indexOf('menu-move-up'));
     assert.ok(editPanel.indexOf('menu-move-down') < editPanel.indexOf('menu-promote'));
   });
