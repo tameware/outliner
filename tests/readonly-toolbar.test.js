@@ -10,6 +10,7 @@ describe('read-only toolbar', () => {
         <div class="menu" data-menu="outliner" hidden>
           <button type="button" class="menu-label">Outliner</button>
           <div class="menu-panel">
+            <button type="button" role="menuitem" id="menu-help">How to use this outliner</button>
             <button type="button" role="menuitem" id="menu-about">About…</button>
             <button type="button" role="menuitem" id="menu-version">Version…</button>
             <button type="button" role="menuitem" id="menu-changelog">Change log</button>
@@ -65,6 +66,7 @@ describe('read-only toolbar', () => {
       .filter((btn) => !btn.disabled)
       .map((btn) => btn.id);
     assert.deepEqual(enabled, [
+      'menu-help',
       'menu-about',
       'menu-version',
       'menu-changelog',

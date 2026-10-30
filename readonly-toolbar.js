@@ -1,5 +1,6 @@
 /** Menuitem ids kept enabled in read-only / shared view. */
 export const READONLY_TOOLBAR_IDS = [
+  'menu-help',
   'menu-about',
   'menu-version',
   'menu-changelog',

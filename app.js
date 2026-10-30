@@ -126,7 +126,9 @@ function applyDocumentUpdated(date) {
 }
 
 mountMenubar(menubar);
-mountOutlinerMenu(document);
+const outlinerMenuUi = mountOutlinerMenu(document, {
+  outlineRoot: rootEl,
+});
 applyMenuShortcuts(document);
 syncDocumentUpdatedDisplay(documentUpdatedEl, null);
 
@@ -410,6 +412,7 @@ function applyOpenedLocalOutline(tree, fallbackName, meta = {}) {
   dirty.markClean();
   syncFocusMenus();
   syncRevert();
+  outlinerMenuUi.syncHelpEnabled();
   const firstItem = root.querySelector('[data-item]');
   if (firstItem) focusItem(firstItem);
 }
@@ -678,6 +681,7 @@ async function initCloud() {
         // Title comes from the Drive file name via setTitle (not OPML <head><title>).
         applyDocumentUpdated(tree.dateModified ?? documentUpdatedAt);
         syncFocusMenus();
+        outlinerMenuUi.syncHelpEnabled();
         const item = root.querySelector('[data-item]');
         if (item) focusItem(item);
       },
@@ -737,6 +741,7 @@ async function initCloud() {
         loadOutline(root, tree);
         applyOpenExpansion(root);
         clearLocalFileHandle();
+        outlinerMenuUi.syncHelpEnabled();
         const title = outlineTitleFromFileName(got.title, tree.title);
         if (title) applyDocumentTitle(title);
         applyDocumentUpdated(got.modifiedTime ?? tree.dateModified ?? null);

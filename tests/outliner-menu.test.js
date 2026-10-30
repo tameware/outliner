@@ -7,23 +7,38 @@ import { JSDOM } from 'jsdom';
 import {
   OUTLINER_ABOUT_TEXT,
   OUTLINER_CHANGELOG_URL,
+  OUTLINER_HELP_TITLE,
+  OUTLINER_HELP_URL,
   OUTLINER_ISSUES_MAILTO,
   OUTLINER_PRIVACY_URL,
   OUTLINER_REPO_URL,
   OUTLINER_UPDATED,
   OUTLINER_VERSION,
   outlinerVersionLabel,
+  isDefaultHelpOutlineOpen,
   mountOutlinerMenu,
 } from '../outliner-menu.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-function setupDom() {
-  const dom = new JSDOM(`<!DOCTYPE html><body>
+/**
+ * @param {{ outlineHtml?: string, search?: string }} [options]
+ */
+function setupDom(options = {}) {
+  const outlineHtml =
+    options.outlineHtml ??
+    `<ol class="outline" data-outline-root>
+      <li data-item>
+        <div class="row"><div class="text">${OUTLINER_HELP_TITLE}</div></div>
+      </li>
+    </ol>`;
+  const dom = new JSDOM(
+    `<!DOCTYPE html><body>
     <nav class="menubar">
       <div class="menu" data-menu="outliner">
         <button type="button" class="menu-label">Outliner</button>
         <div class="menu-panel" role="menu">
+          <button type="button" role="menuitem" id="menu-help">How to use this outliner</button>
           <button type="button" role="menuitem" id="menu-about">About…</button>
           <button type="button" role="menuitem" id="menu-version">Version…</button>
           <button type="button" role="menuitem" id="menu-changelog">Change log</button>
@@ -33,6 +48,7 @@ function setupDom() {
         </div>
       </div>
     </nav>
+    ${outlineHtml}
     <dialog id="outliner-message-dialog" class="cloud-dialog">
       <form method="dialog" class="cloud-dialog-form">
         <h2 id="outliner-message-title"></h2>
@@ -42,7 +58,9 @@ function setupDom() {
         </div>
       </form>
     </dialog>
-  </body>`);
+  </body>`,
+    { url: `http://localhost/outliner/${options.search ?? ''}` },
+  );
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   const dialog = document.getElementById('outliner-message-dialog');
@@ -82,12 +100,72 @@ describe('Outliner menu', () => {
     );
     assert.equal(OUTLINER_CHANGELOG_URL, 'changelog.html');
     assert.equal(OUTLINER_PRIVACY_URL, 'privacy.html');
+    assert.equal(OUTLINER_HELP_URL, 'index.html');
     assert.equal(OUTLINER_REPO_URL, 'https://github.com/tameware/outliner');
     assert.equal(OUTLINER_ISSUES_MAILTO, 'mailto:outliner@tameware.com');
     assert.equal(
       OUTLINER_ABOUT_TEXT,
       'Tameware Outliner is a WYSIWYG HTML outliner with expand/collapse editing, OPML import/export, optional Google Drive sync, and special features for bridge players. It was written by Adam Wildavsky using Cursor AI.',
     );
+  });
+
+  it('opens the default outline (index.html, no share params) in a new window for Help', () => {
+    setupDom({
+      outlineHtml: `<ol data-outline-root><li data-item><div class="row"><div class="text">Other doc</div></div></li></ol>`,
+    });
+    opened = [];
+    window.open = (url) => {
+      opened.push(String(url));
+      return null;
+    };
+    mountOutlinerMenu(document);
+    document.getElementById('menu-help').click();
+    assert.deepEqual(opened, [OUTLINER_HELP_URL]);
+  });
+
+  it('isDefaultHelpOutlineOpen when the starter how-to is the top-level first item and URL has no share params', () => {
+    setupDom();
+    const outline = document.querySelector('[data-outline-root]');
+    assert.equal(isDefaultHelpOutlineOpen(outline, { search: '' }), true);
+    assert.equal(isDefaultHelpOutlineOpen(outline, { search: '?view=tok' }), false);
+    assert.equal(isDefaultHelpOutlineOpen(outline, { search: '?edit=tok' }), false);
+    assert.equal(isDefaultHelpOutlineOpen(outline, { search: '?id=file-9' }), false);
+
+    setupDom({
+      outlineHtml: `<ol data-outline-root><li data-item><div class="row"><div class="text">Bridge notes</div></div></li></ol>`,
+    });
+    assert.equal(
+      isDefaultHelpOutlineOpen(document.querySelector('[data-outline-root]'), {
+        search: '',
+      }),
+      false,
+    );
+  });
+
+  it('disables How to use this outliner when the default outline is already open', () => {
+    setupDom();
+    opened = [];
+    window.open = (url) => {
+      opened.push(String(url));
+      return null;
+    };
+    mountOutlinerMenu(document);
+    const help = document.getElementById('menu-help');
+    assert.equal(help.disabled, true);
+    help.click();
+    assert.deepEqual(opened, []);
+  });
+
+  it('enables How to use this outliner after the outline is replaced with another document', () => {
+    setupDom();
+    const ui = mountOutlinerMenu(document);
+    assert.equal(document.getElementById('menu-help').disabled, true);
+
+    const outline = document.querySelector('[data-outline-root]');
+    outline.innerHTML =
+      '<li data-item><div class="row"><div class="text">Deal sheet</div></div></li>';
+    ui.syncHelpEnabled();
+    assert.equal(document.getElementById('menu-help').disabled, false);
   });
 
   it('shows About and Version in an in-app dialog (not window.alert)', () => {
@@ -159,12 +237,14 @@ describe('Outliner menu', () => {
     assert.ok(fileAt > outlinerAt);
 
     const panel = html.slice(outlinerAt, fileAt);
+    assert.match(panel, /id="menu-help"[^>]*>\s*How to use this outliner\s*</);
     assert.match(panel, /id="menu-about"[^>]*>\s*About…\s*</);
     assert.match(panel, /id="menu-version"[^>]*>\s*Version…\s*</);
     assert.match(panel, /id="menu-changelog"[^>]*>\s*Change log\s*</);
     assert.match(panel, /id="menu-open-source"[^>]*>\s*Source code\s*</);
     assert.match(panel, /id="menu-report-issues"[^>]*>\s*Report issues\s*</);
     assert.match(panel, /id="menu-privacy"[^>]*>\s*Privacy\s*</);
+    assert.ok(panel.indexOf('menu-help') < panel.indexOf('menu-about'));
     assert.ok(panel.indexOf('menu-version') < panel.indexOf('menu-changelog'));
     assert.ok(panel.indexOf('menu-report-issues') < panel.indexOf('menu-privacy'));
     assert.doesNotMatch(html, /chrome-privacy/);

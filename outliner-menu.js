@@ -1,7 +1,9 @@
 /** Product / help menu for the Outliner app chrome. */
 
+import { hasRemoteOutlineParams } from './deep-link-boot.js';
+
 /** Display version: major.minor only. */
-export const OUTLINER_VERSION = '1.46';
+export const OUTLINER_VERSION = '1.47';
 
 /** ISO date the shipped code was last updated (bump when shipping meaningful changes). */
 export const OUTLINER_UPDATED = '2026-10-30';
@@ -9,6 +11,12 @@ export const OUTLINER_UPDATED = '2026-10-30';
 export const OUTLINER_CHANGELOG_URL = 'changelog.html';
 
 export const OUTLINER_PRIVACY_URL = 'privacy.html';
+
+/** Fresh app page with the baked-in starter outline (no ?id= / ?view= / ?edit=). */
+export const OUTLINER_HELP_URL = 'index.html';
+
+/** Top-level title of the baked-in starter / help outline. */
+export const OUTLINER_HELP_TITLE = 'How to use this outliner';
 
 export const OUTLINER_REPO_URL = 'https://github.com/tameware/outliner';
 
@@ -20,6 +28,24 @@ export const OUTLINER_ABOUT_TEXT =
 /** @returns {string} */
 export function outlinerVersionLabel() {
   return `${OUTLINER_VERSION} (updated ${OUTLINER_UPDATED})`;
+}
+
+/**
+ * True when this window is already showing the starter how-to outline (not a
+ * Drive/share deep link).
+ * @param {Element | null | undefined} outlineRoot
+ * @param {{ search?: string, hash?: string } | null | undefined} [locationLike]
+ */
+export function isDefaultHelpOutlineOpen(outlineRoot, locationLike) {
+  const loc =
+    locationLike ??
+    (typeof window !== 'undefined' ? window.location : { search: '' });
+  if (hasRemoteOutlineParams(loc)) return false;
+  const text =
+    outlineRoot
+      ?.querySelector?.(':scope > [data-item] > .row .text')
+      ?.textContent?.trim() ?? '';
+  return text === OUTLINER_HELP_TITLE;
 }
 
 /**
@@ -69,10 +95,13 @@ export function showOutlinerMessage(dialog, { title, body }) {
  * @param {{
  *   open?: (url: string) => unknown,
  *   messageDialog?: HTMLDialogElement | HTMLElement | null,
+ *   outlineRoot?: Element | null,
+ *   getLocation?: () => { search?: string, hash?: string },
  * }} [deps]
+ * @returns {{ syncHelpEnabled: () => void }}
  */
 export function mountOutlinerMenu(root, deps = {}) {
-  if (!root) return;
+  if (!root) return { syncHelpEnabled: () => {} };
   const openFn =
     deps.open || ((url) => window.open(url, '_blank', 'noopener,noreferrer'));
   const messageDialog =
@@ -80,7 +109,17 @@ export function mountOutlinerMenu(root, deps = {}) {
     (typeof document !== 'undefined'
       ? document.getElementById('outliner-message-dialog')
       : null);
+  const outlineRoot =
+    deps.outlineRoot ??
+    root.querySelector?.('[data-outline-root]') ??
+    (typeof document !== 'undefined'
+      ? document.querySelector('[data-outline-root]')
+      : null);
+  const getLocation =
+    deps.getLocation ??
+    (() => (typeof window !== 'undefined' ? window.location : { search: '' }));
 
+  const help = root.querySelector('#menu-help');
   const about = root.querySelector('#menu-about');
   const version = root.querySelector('#menu-version');
   const changelog = root.querySelector('#menu-changelog');
@@ -88,6 +127,15 @@ export function mountOutlinerMenu(root, deps = {}) {
   const report = root.querySelector('#menu-report-issues');
   const privacy = root.querySelector('#menu-privacy');
 
+  function syncHelpEnabled() {
+    if (!help) return;
+    help.disabled = isDefaultHelpOutlineOpen(outlineRoot, getLocation());
+  }
+
+  help?.addEventListener('click', () => {
+    if (help.disabled) return;
+    openFn(OUTLINER_HELP_URL);
+  });
   about?.addEventListener('click', () =>
     showOutlinerMessage(messageDialog, {
       title: 'About',
@@ -104,4 +152,11 @@ export function mountOutlinerMenu(root, deps = {}) {
   openSource?.addEventListener('click', () => openFn(OUTLINER_REPO_URL));
   report?.addEventListener('click', () => openFn(OUTLINER_ISSUES_MAILTO));
   privacy?.addEventListener('click', () => openFn(OUTLINER_PRIVACY_URL));
+
+  root
+    .querySelector('[data-menu="outliner"] .menu-label')
+    ?.addEventListener('click', syncHelpEnabled);
+  syncHelpEnabled();
+
+  return { syncHelpEnabled };
 }
