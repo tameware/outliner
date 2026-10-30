@@ -36,7 +36,7 @@ body {
 .chrome {
   max-width: 52rem;
   margin: 0 auto;
-  padding: 1.75rem 1.25rem 0.75rem;
+  padding: 0.85rem 1.25rem 0.75rem;
 }
 
 .chrome h1 {
@@ -47,17 +47,38 @@ body {
   letter-spacing: -0.02em;
 }
 
+/* Brand + menus stay put while the outline scrolls (docs-style sticky chrome). */
+.chrome-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background:
+    linear-gradient(180deg, #fffdf8 0%, var(--paper) 55%, var(--paper) 100%);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(40, 35, 25, 0.03);
+}
+
+.chrome-sticky-inner {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 0.85rem 1.25rem 0.55rem;
+}
+
 .chrome-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem 1rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.35rem;
 }
 
 .chrome-meta h1 {
   margin: 0;
+  font-family: var(--font-ui);
+  font-size: clamp(1.35rem, 3vw, 1.7rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .document-heading {
@@ -155,7 +176,7 @@ body {
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.15rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
   position: relative;
   z-index: 5;
 }
@@ -697,6 +718,7 @@ ol.outline ol {
 
 @media (max-width: 640px) {
   .chrome,
+  .chrome-sticky-inner,
   main {
     padding-left: 0.85rem;
     padding-right: 0.85rem;
@@ -718,6 +740,10 @@ ol.outline ol {
   }
 
   .chrome {
+    display: none !important;
+  }
+
+  .chrome-sticky {
     display: none !important;
   }
 

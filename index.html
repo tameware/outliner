@@ -10,7 +10,8 @@
   <script src="./deep-link-paint.js"></script>
 </head>
 <body>
-  <header class="chrome">
+  <div class="chrome-sticky">
+    <div class="chrome-sticky-inner">
     <div class="chrome-meta">
       <h1>Tameware Outliner</h1>
     </div>
@@ -123,6 +124,9 @@
       </div>
       <input type="file" id="file-open" accept=".opml,application/xml,text/xml,text/x-opml" hidden />
     </nav>
+    </div>
+  </div>
+  <header class="chrome">
     <div class="document-heading">
       <p
         id="document-title"
