@@ -25,8 +25,8 @@ function setupDom() {
   return document.querySelector('[data-outline-root]');
 }
 
-/** Three nesting levels: A → 1 → a (CSS: upper-alpha, arabic, lower-alpha). */
-function deepTree() {
+/** Two top-level heads, each with nested children. */
+function multiTopTree() {
   return {
     items: [
       {
@@ -59,7 +59,36 @@ function deepTree() {
   };
 }
 
-describe('open expansion (arabic-numeral level)', () => {
+/** Single top-level head with second- and third-level children. */
+function singleTopTree() {
+  return {
+    items: [
+      {
+        text: 'Alpha',
+        expanded: false,
+        children: [
+          {
+            text: 'One',
+            expanded: true,
+            children: [
+              { text: 'aye', expanded: true, children: [] },
+              { text: 'bee', expanded: true, children: [] },
+            ],
+          },
+          { text: 'Two', expanded: true, children: [] },
+        ],
+      },
+    ],
+  };
+}
+
+function byText(root, t) {
+  return [...root.querySelectorAll('[data-item]')].find(
+    (el) => el.querySelector('.text')?.textContent === t,
+  );
+}
+
+describe('open expansion', () => {
   /** @type {HTMLElement} */
   let root;
 
@@ -68,7 +97,7 @@ describe('open expansion (arabic-numeral level)', () => {
   });
 
   it('itemOutlineDepth is 0 for top-level, 1 for arabic children, 2 for lower-alpha', () => {
-    loadOutline(root, deepTree());
+    loadOutline(root, multiTopTree());
     const [alpha, one, aye, bee, two, beta, three, cee] = [
       ...root.querySelectorAll('[data-item]'),
     ];
@@ -82,31 +111,31 @@ describe('open expansion (arabic-numeral level)', () => {
     assert.equal(itemOutlineDepth(cee, root), 2);
   });
 
-  it('applyOpenExpansion expands top-level parents and collapses deeper parents', () => {
-    loadOutline(root, deepTree());
+  it('with multiple top-level headlines, shows only the top level', () => {
+    loadOutline(root, multiTopTree());
     applyOpenExpansion(root);
 
-    const byText = (t) =>
-      [...root.querySelectorAll('[data-item]')].find(
-        (el) => el.querySelector('.text')?.textContent === t,
-      );
+    assert.equal(isExpanded(byText(root, 'Alpha')), false);
+    assert.equal(isExpanded(byText(root, 'Beta')), false);
+    assert.equal(byText(root, 'One').closest('ol').hidden, true);
+    assert.equal(byText(root, 'Three').closest('ol').hidden, true);
+  });
 
-    assert.equal(isExpanded(byText('Alpha')), true);
-    assert.equal(isExpanded(byText('Beta')), true);
-    assert.equal(isExpanded(byText('One')), false);
-    assert.equal(isExpanded(byText('Three')), false);
-    assert.equal(hasChildren(byText('Two')), false);
+  it('with a single top-level headline, shows all second-level headlines', () => {
+    loadOutline(root, singleTopTree());
+    applyOpenExpansion(root);
 
-    // Arabic-numeral lines are visible under expanded top-level heads.
-    assert.equal(byText('One').closest('ol').hidden, false);
-    assert.equal(byText('Three').closest('ol').hidden, false);
-    // Lower-alpha grandchildren stay hidden under collapsed arabic parents.
-    assert.equal(byText('aye').closest('ol').hidden, true);
-    assert.equal(byText('cee').closest('ol').hidden, true);
+    assert.equal(isExpanded(byText(root, 'Alpha')), true);
+    assert.equal(byText(root, 'One').closest('ol').hidden, false);
+    assert.equal(byText(root, 'Two').closest('ol').hidden, false);
+    // Third level stays collapsed under second-level parents.
+    assert.equal(isExpanded(byText(root, 'One')), false);
+    assert.equal(byText(root, 'aye').closest('ol').hidden, true);
+    assert.equal(hasChildren(byText(root, 'Two')), false);
   });
 
   it('applyOpenExpansion does not change outline text structure', () => {
-    loadOutline(root, deepTree());
+    loadOutline(root, multiTopTree());
     const before = serializeOutline(root);
     applyOpenExpansion(root);
     assert.deepEqual(serializeOutline(root), before);

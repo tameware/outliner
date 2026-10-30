@@ -80,14 +80,18 @@ export function itemOutlineDepth(item, root) {
 }
 
 /**
- * Default open expansion: show top-level letters and their arabic-numeral
- * children; collapse every deeper parent (a., i., …).
+ * Default open expansion:
+ * - one top-level headline → expand it so second-level headlines show
+ * - multiple top-level headlines → show only the top level
+ * Deeper parents stay collapsed either way.
  * @param {HTMLElement} root
  * @param {{ openDepth?: number }} [options]
  */
 export function applyOpenExpansion(root, options = {}) {
   if (!root) return;
-  const openDepth = options.openDepth ?? 1;
+  const topCount = root.querySelectorAll(':scope > [data-item]').length;
+  const openDepth =
+    options.openDepth ?? (topCount === 1 ? 1 : 0);
   root.querySelectorAll('[data-item]').forEach((item) => {
     if (!hasChildren(item)) return;
     const depth = itemOutlineDepth(item, root);

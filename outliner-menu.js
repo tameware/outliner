@@ -3,7 +3,7 @@
 import { hasRemoteOutlineParams } from './deep-link-boot.js';
 
 /** Display version: major.minor only. */
-export const OUTLINER_VERSION = '1.48';
+export const OUTLINER_VERSION = '1.49';
 
 /** ISO date the shipped code was last updated (bump when shipping meaningful changes). */
 export const OUTLINER_UPDATED = '2026-10-30';
