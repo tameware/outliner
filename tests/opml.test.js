@@ -8,6 +8,8 @@ import {
   toOpml,
   parseOpml,
   loadOutline,
+  insertOutline,
+  getItemText,
 } from '../outliner.js';
 
 function setupDom(html) {
@@ -87,6 +89,29 @@ describe('OPML save and restore', () => {
     assert.match(xml, /<expansionState>1<\/expansionState>/);
   });
 
+  it('can omit expansionState for content-only snapshots used by dirty tracking', () => {
+    const before = toOpml(root, { title: 'T', includeExpansionState: false });
+    assert.match(before, /<expansionState><\/expansionState>/);
+    const fullBefore = toOpml(root, { title: 'T' });
+    assert.notEqual(fullBefore, before);
+    toggleItem(root.querySelector('[data-item]'));
+    const after = toOpml(root, { title: 'T', includeExpansionState: false });
+    assert.equal(after, before);
+    assert.notEqual(toOpml(root, { title: 'T' }), fullBefore);
+  });
+
+  it('writes and parses OPML dateModified', () => {
+    const when = new Date('2026-10-29T15:04:05.000Z');
+    const xml = toOpml(root, { title: 'Dated', dateModified: when });
+    assert.match(xml, /<dateModified>Thu, 29 Oct 2026 15:04:05 GMT<\/dateModified>/);
+    const tree = parseOpml(xml);
+    assert.equal(tree.dateModified?.toISOString(), when.toISOString());
+
+    const bare = parseOpml(`<?xml version="1.0"?>
+      <opml version="2.0"><head><title>X</title></head><body><outline text="A"/></body></opml>`);
+    assert.equal(bare.dateModified, null);
+  });
+
   it('parses OPML back into a tree preserving hierarchy and text', () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
       <opml version="2.0">
@@ -141,5 +166,108 @@ describe('OPML save and restore', () => {
     assert.deepEqual(serializeOutline(root), [
       { text: 'Only', children: [] },
     ]);
+  });
+
+  it('round-trips red hearts and diamonds through OPML', () => {
+    loadOutline(root, {
+      title: 'Suits',
+      items: [
+        {
+          text: `AK♥ vs ♦`,
+          children: [],
+          expanded: true,
+        },
+      ],
+    });
+    const before = root.querySelector('.text');
+    assert.deepEqual(
+      [...before.querySelectorAll('.suit-red')].map((n) => n.textContent),
+      ['♥', '♦'],
+    );
+
+    const xml = toOpml(root, { title: 'Suits' });
+    loadOutline(root, parseOpml(xml));
+    const after = root.querySelector('.text');
+    assert.equal(after.textContent, 'AK♥ vs ♦');
+    assert.deepEqual(
+      [...after.querySelectorAll('.suit-red')].map((n) => n.textContent),
+      ['♥', '♦'],
+    );
+  });
+
+  it('insertOutline inserts imported items after the focused line as siblings', () => {
+    const alpha = root.querySelector('[data-item]');
+    const inserted = insertOutline(
+      root,
+      {
+        title: 'Import me',
+        items: [
+          {
+            text: 'Imported',
+            children: [{ text: 'Child', children: [], expanded: true }],
+            expanded: true,
+          },
+          { text: 'Also', children: [], expanded: true },
+        ],
+      },
+      alpha,
+    );
+    assert.equal(getItemText(inserted), 'Imported');
+    assert.equal(document.activeElement, inserted.querySelector('.text'));
+    // After Alpha (and its subtree), still top-level siblings.
+    assert.deepEqual(serializeOutline(root), [
+      {
+        text: 'Alpha',
+        children: [
+          {
+            text: 'Beta',
+            children: [{ text: 'Gamma & more', children: [] }],
+          },
+        ],
+      },
+      {
+        text: 'Imported',
+        children: [{ text: 'Child', children: [] }],
+      },
+      { text: 'Also', children: [] },
+      { text: 'Epsilon', children: [] },
+    ]);
+  });
+
+  it('insertOutline after a nested line inserts at the same nesting level', () => {
+    const beta = root.querySelector('[data-item] [data-item]');
+    assert.equal(getItemText(beta), 'Beta');
+    insertOutline(
+      root,
+      { items: [{ text: 'Beside Beta', children: [], expanded: true }] },
+      beta,
+    );
+    assert.deepEqual(serializeOutline(root), [
+      {
+        text: 'Alpha',
+        children: [
+          {
+            text: 'Beta',
+            children: [{ text: 'Gamma & more', children: [] }],
+          },
+          { text: 'Beside Beta', children: [] },
+        ],
+      },
+      { text: 'Epsilon', children: [] },
+    ]);
+  });
+
+  it('insertOutline appends to the root when no after item is given', () => {
+    insertOutline(root, {
+      items: [{ text: 'End', children: [], expanded: true }],
+    });
+    const texts = serializeOutline(root).map((n) => n.text);
+    assert.deepEqual(texts, ['Alpha', 'Epsilon', 'End']);
+  });
+
+  it('insertOutline returns null and leaves the outline unchanged for an empty tree', () => {
+    const before = serializeOutline(root);
+    assert.equal(insertOutline(root, { items: [] }, root.querySelector('[data-item]')), null);
+    assert.deepEqual(serializeOutline(root), before);
   });
 });

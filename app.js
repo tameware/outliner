@@ -2,48 +2,137 @@ import {
   boot,
   promoteChildren,
   demoteFollowingSiblings,
+  moveItemUp,
+  moveItemDown,
   toggleItem,
   focusItem,
   downloadOpml,
   readOpmlFile,
   loadOutline,
+  insertOutline,
   toOpml,
   parseOpml,
   setReadOnly,
   clearOutline,
+  applyOpenExpansion,
 } from './outliner.js';
 import {
   isCloudConfigured,
-  createCloudClient,
+  googleClientIdFromConfig,
+  driveWriterServiceAccountFromConfig,
   loadCloudConfig,
   outlineIdFromLocation,
   locationWithOutlineId,
+  isReadOnlyViewFromLocation,
+  isEditableShareFromLocation,
   viewTokenFromLocation,
   editTokenFromLocation,
 } from './cloud.js';
+import { createDriveCloudClient } from './drive-cloud.js';
 import { mountCloudUi } from './cloud-ui.js';
-import { createFirebaseAuth, createNullAuth } from './auth-firebase.js';
+import { createGoogleAuth, createNullAuth } from './auth-google.js';
 import { applyReadOnlyToolbar } from './readonly-toolbar.js';
 import { createOutlineHistory } from './clear-outline-ui.js';
-import { matchPromoteDemoteShortcut } from './promote-demote-keys.js';
+import { handlePromoteDemoteShortcut } from './promote-demote-keys.js';
+import { handleMoveUpDownShortcut } from './move-up-down-keys.js';
+import { systemBeep } from './system-beep.js';
 import { mountIndentOutdentMenu } from './indent-outdent-menu.js';
+import { mountMoveUpDownMenu } from './move-up-down-menu.js';
+import { mountFindReplace } from './find-replace-ui.js';
 import { blankOutlineForDeepLink } from './deep-link-boot.js';
+import {
+  bindDeepLinkOutlineLoad,
+  isSoftDeepLinkLoadError,
+} from './deep-link-load.js';
+import {
+  showOutlineLoading,
+  hideOutlineLoading,
+  isOutlineLoading,
+} from './outline-loading.js';
+import { clearCloudOutlineBinding } from './cloud-binding.js';
 import { mountMenubar } from './menubar.js';
+import { mountOutlinerMenu } from './outliner-menu.js';
 import { applyMenuShortcuts } from './menu-shortcuts.js';
+import {
+  documentTitleLabel,
+  stripDirtyTitleSuffix,
+  syncDocumentTitleDisplay,
+  syncDocumentUpdatedDisplay,
+  coerceDocumentUpdatedAt,
+  mountDocumentTitleEditor,
+  flushDocumentTitleEditor,
+} from './document-title.js';
+import {
+  focusOutlineItem,
+  unfocusOutline,
+  isOutlineFocusActive,
+  syncOutlineFocus,
+} from './outline-focus.js';
 import { createDirtyTracker } from './dirty-tracker.js';
 import {
   offerSaveIfDirty,
   mountUnsavedChangesDialog,
+  bindBeforeUnloadGuard,
 } from './unsaved-changes.js';
 import {
   revertToCleanSnapshot,
   syncRevertMenuItem,
 } from './revert-outline.js';
+import {
+  supportsFileSystemAccess,
+  localSaveMenuLabel,
+  suggestedOpmlFilename,
+  outlineTitleFromFileName,
+  openOpmlWithFilePicker,
+  saveOutlineLocally,
+  isAbortError,
+  isFilePickerUnavailableError,
+} from './local-file.js';
 
 const rootEl = document.querySelector('[data-outline-root]');
 const menubar = document.querySelector('.menubar');
+const documentTitleEl = document.getElementById('document-title');
+const documentUpdatedEl = document.getElementById('document-updated');
+
+/** @type {Date | null} */
+let documentUpdatedAt = null;
+
+function outlineTitleBase() {
+  return documentTitleLabel(stripDirtyTitleSuffix(document.title));
+}
+
+function syncDocumentTitles() {
+  // Share / deep-link opens: keep the heading blank until the real name arrives.
+  if (isOutlineLoading(root)) {
+    if (documentTitleEl) documentTitleEl.textContent = '';
+    return;
+  }
+  syncDocumentTitleDisplay(documentTitleEl, outlineTitleBase(), {
+    dirty: dirty.isDirty(),
+    syncTabTitle: true,
+  });
+}
+
+function applyDocumentTitle(title) {
+  const next = stripDirtyTitleSuffix(String(title ?? '')).trim();
+  if (next) document.title = documentTitleLabel(next);
+  syncDocumentTitles();
+}
+
+/**
+ * @param {Date | string | number | null | undefined} date
+ */
+function applyDocumentUpdated(date) {
+  documentUpdatedAt = coerceDocumentUpdatedAt(date);
+  syncDocumentUpdatedDisplay(documentUpdatedEl, documentUpdatedAt);
+}
+
 mountMenubar(menubar);
+const outlinerMenuUi = mountOutlinerMenu(document, {
+  outlineRoot: rootEl,
+});
 applyMenuShortcuts(document);
+syncDocumentUpdatedDisplay(documentUpdatedEl, null);
 
 const outlineHistory = createOutlineHistory({
   getRoot: () => rootEl,
@@ -54,8 +143,21 @@ const outlineHistory = createOutlineHistory({
   parseOpml,
   loadOutline,
   clearOutline,
-  getTitle: () => document.title || 'Outline',
+  getTitle: () => outlineTitleBase(),
+  setTitle: (title) => {
+    applyDocumentTitle(title);
+  },
   maxDepth: 50,
+  onChange: () => {
+    // Called after dirty exists; syncRevert is a function declaration (hoisted).
+    syncRevert();
+    // Clear / undo / redo / structural edits can enter or leave the starter outline.
+    outlinerMenuUi.syncHelpEnabled();
+    // Promote/demote/delete/move can leave Focus roles stale or blank.
+    syncOutlineFocus(rootEl);
+    const unfocus = document.getElementById('menu-unfocus');
+    if (unfocus) unfocus.disabled = !isOutlineFocusActive(rootEl);
+  },
 });
 
 const api = boot('[data-outline-root]', {
@@ -68,38 +170,23 @@ outlineHistory.bindShortcuts(root);
 let currentOutlineId = outlineIdFromLocation(window.location);
 let currentRevision = null;
 let leaseToken = null;
-const viewToken = viewTokenFromLocation(window.location);
-const editToken = editTokenFromLocation(window.location);
+const viewShareToken = viewTokenFromLocation(window.location);
+const editShareToken = editTokenFromLocation(window.location);
+const readOnlyShare = isReadOnlyViewFromLocation(window.location);
+const editShareMode = isEditableShareFromLocation(window.location);
 /** @type {{ saveCurrent: () => Promise<boolean> } | null} */
 let cloudUi = null;
+/** @type {{ invalidate?: () => void } | null} */
+let deepLinkLoad = null;
 let cloudSaveAvailable = false;
 
-/**
- * When opened via ?edit=, map owner cloud methods onto edit-token endpoints.
- * @param {ReturnType<typeof createCloudClient>} cloud
- * @param {string} token
- */
-function cloudWithEditToken(cloud, token) {
-  return {
-    ...cloud,
-    async getOutline() {
-      const got = await cloud.getEditableOutline(token);
-      return { opml: got.opml, revision: got.revision };
-    },
-    async saveOutline(_id, args) {
-      return cloud.saveEditableOutline(token, args);
-    },
-    async acquireLock() {
-      return cloud.acquireEditLock(token);
-    },
-    async releaseLock(_id, lease) {
-      return cloud.releaseEditLock(token, lease);
-    },
-  };
-}
-
 const dirty = createDirtyTracker({
-  getSnapshot: () => toOpml(root, { title: document.title || 'Outline' }),
+  getContentSnapshot: () =>
+    toOpml(root, {
+      title: outlineTitleBase(),
+      includeExpansionState: false,
+    }),
+  getRevertSnapshot: () => toOpml(root, { title: outlineTitleBase() }),
 });
 const askUnsavedChanges = mountUnsavedChangesDialog(
   document.getElementById('unsaved-dialog'),
@@ -109,10 +196,7 @@ async function saveBeforeReplace() {
   if (cloudSaveAvailable && cloudUi?.saveCurrent) {
     return cloudUi.saveCurrent();
   }
-  const title = document.title || 'Outline';
-  downloadOpml(root, { title, filename: 'outline.opml' });
-  dirty.markClean();
-  return true;
+  return saveLocalOutline();
 }
 
 async function beforeReplace() {
@@ -127,11 +211,24 @@ async function beforeReplace() {
 // Avoid flashing the starter outline while ?id= / ?view= / ?edit= content loads.
 if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
   outlineHistory.discard();
+} else {
+  applyOpenExpansion(root);
 }
 dirty.markClean();
+syncDocumentTitles();
+mountDocumentTitleEditor(documentTitleEl, {
+  onCommit: (title) => {
+    applyDocumentTitle(title);
+    syncRevert();
+  },
+  isReadOnly: () => root.dataset.readonly === 'true',
+});
+bindBeforeUnloadGuard(window, () => dirty.isDirty());
 
 function syncUrl(id) {
   currentOutlineId = id;
+  // Owner bookmarks use ?id= only; keep opaque ?view= / ?edit= share URLs intact.
+  if (viewShareToken || editShareToken) return;
   const next = locationWithOutlineId(window.location, id);
   window.history.replaceState(null, '', next);
 }
@@ -152,6 +249,15 @@ function runPromoteDemote(action) {
   );
 }
 
+/** @param {'up' | 'down'} action */
+function runMoveUpDown(action) {
+  const item = api.getActiveItem();
+  if (!item) return false;
+  return outlineHistory.run(() =>
+    action === 'up' ? moveItemUp(item) : moveItemDown(item),
+  );
+}
+
 document.getElementById('menu-undo').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   outlineHistory.undo();
@@ -168,25 +274,84 @@ mountIndentOutdentMenu({
   isReadOnly: () => root.dataset.readonly === 'true',
 });
 
+mountMoveUpDownMenu({
+  upButton: document.getElementById('menu-move-up'),
+  downButton: document.getElementById('menu-move-down'),
+  getActiveItem: () => api.getActiveItem(),
+  runStructural: (mutate) => outlineHistory.run(mutate),
+  isReadOnly: () => root.dataset.readonly === 'true',
+  beep: systemBeep,
+});
+
+mountFindReplace({
+  dialog: document.getElementById('find-replace-dialog'),
+  findButton: document.getElementById('menu-find'),
+  replaceButton: document.getElementById('menu-replace'),
+  getRoot: () => root,
+  getActiveItem: () => api.getActiveItem(),
+  runStructural: (mutate) => outlineHistory.run(mutate),
+  isReadOnly: () => root.dataset.readonly === 'true',
+  beep: systemBeep,
+});
+
 document.getElementById('menu-promote').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
-  runPromoteDemote('promote');
+  if (!runPromoteDemote('promote')) systemBeep();
 });
 document.getElementById('menu-demote').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
-  runPromoteDemote('demote');
+  if (!runPromoteDemote('demote')) systemBeep();
 });
 
 document.addEventListener(
   'keydown',
   (event) => {
-    if (root.dataset.readonly === 'true') return;
-    const action = matchPromoteDemoteShortcut(event);
-    if (!action) return;
-    if (runPromoteDemote(action)) event.preventDefault();
+    handlePromoteDemoteShortcut(event, {
+      run: runPromoteDemote,
+      beep: systemBeep,
+      isReadOnly: () => root.dataset.readonly === 'true',
+    });
+    handleMoveUpDownShortcut(event, {
+      run: runMoveUpDown,
+      beep: systemBeep,
+      isReadOnly: () => root.dataset.readonly === 'true',
+    });
   },
   true,
 );
+
+const focusButton = document.getElementById('menu-focus');
+const unfocusButton = document.getElementById('menu-unfocus');
+
+function syncFocusMenus() {
+  if (unfocusButton) unfocusButton.disabled = !isOutlineFocusActive(root);
+}
+
+focusButton?.addEventListener('click', () => {
+  const item = api.getActiveItem?.();
+  if (!item) {
+    systemBeep();
+    return;
+  }
+  if (!focusOutlineItem(root, item)) {
+    systemBeep();
+    return;
+  }
+  if (item.dataset.hasChildren === 'true' && item.dataset.state === 'collapsed') {
+    toggleItem(item);
+  }
+  syncFocusMenus();
+});
+
+unfocusButton?.addEventListener('click', () => {
+  if (!unfocusOutline(root)) {
+    systemBeep();
+    return;
+  }
+  syncFocusMenus();
+});
+
+syncFocusMenus();
 
 document.getElementById('menu-expand-all').addEventListener('click', () => {
   root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {
@@ -202,33 +367,184 @@ document.getElementById('menu-collapse-all').addEventListener('click', () => {
 document.getElementById('menu-clear').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   outlineHistory.clear();
+  clearLocalFileHandle();
+  syncFocusMenus();
   const first = root.querySelector('[data-item]');
   if (first) focusItem(first);
 });
 
 const fileInput = document.getElementById('file-open');
+const fileSaveButton = document.getElementById('menu-file-save');
 
-document.getElementById('menu-export').addEventListener('click', () => {
+/** @type {FileSystemFileHandle | null} */
+let localFileHandle = null;
+
+function clearLocalFileHandle() {
+  localFileHandle = null;
+  syncLocalSaveLabel();
+}
+
+function syncLocalSaveLabel() {
+  if (fileSaveButton) {
+    fileSaveButton.textContent = localSaveMenuLabel(Boolean(localFileHandle));
+  }
+}
+
+syncLocalSaveLabel();
+
+/**
+ * @param {{ title?: string, items?: unknown[], dateModified?: Date | null }} tree
+ * @param {string} [fallbackName]
+ * @param {{ updatedAt?: Date | string | number | null }} [meta]
+ */
+function applyOpenedLocalOutline(tree, fallbackName, meta = {}) {
+  hideOutlineLoading(root);
+  deepLinkLoad?.invalidate?.();
+  // File Open replaces the document — do not overwrite the previously opened Drive file.
+  clearCloudOutlineBinding({
+    setOutlineId: (id) => {
+      currentOutlineId = id;
+    },
+    setRevision: (rev) => {
+      currentRevision = rev;
+    },
+    setLeaseToken: (token) => {
+      leaseToken = token;
+    },
+    syncUrl,
+  });
+  cloudUi?.syncSaveLabel?.();
+  loadOutline(root, tree);
+  applyOpenExpansion(root);
+  outlineHistory.discard();
+  const title = outlineTitleFromFileName(fallbackName, tree.title);
+  if (title) applyDocumentTitle(title);
+  applyDocumentUpdated(meta.updatedAt ?? tree.dateModified ?? null);
+  dirty.markClean();
+  syncFocusMenus();
+  syncRevert();
+  outlinerMenuUi.syncHelpEnabled();
+  const firstItem = root.querySelector('[data-item]');
+  if (firstItem) focusItem(firstItem);
+}
+
+function triggerLegacyFileOpen(mode = 'replace') {
+  fileOpenMode = mode;
+  fileInput.click();
+}
+
+async function openLocalOutline() {
   if (root.dataset.readonly === 'true') return;
-  const title = document.title || 'Outline';
-  downloadOpml(root, { title, filename: 'outline.opml' });
+  // Avoid awaiting when clean — showOpenFilePicker needs the click's user gesture.
+  if (dirty.isDirty()) {
+    const allow = await beforeReplace();
+    if (!allow) return;
+  }
+
+  if (supportsFileSystemAccess()) {
+    try {
+      const picked = await openOpmlWithFilePicker();
+      if (!picked) return;
+      showOutlineLoading(root, { loadOutline });
+      const tree = parseOpml(picked.text);
+      localFileHandle = picked.handle;
+      syncLocalSaveLabel();
+      applyOpenedLocalOutline(tree, picked.name, {
+        updatedAt: tree.dateModified ?? picked.lastModified,
+      });
+      return;
+    } catch (error) {
+      hideOutlineLoading(root);
+      if (isAbortError(error)) return;
+      // Cursor's browser and some embeds expose the API but cannot show the picker.
+      if (isFilePickerUnavailableError(error)) {
+        triggerLegacyFileOpen('replace');
+        return;
+      }
+      window.alert('Could not open OPML file: ' + (error?.message || error));
+      return;
+    }
+  }
+
+  triggerLegacyFileOpen('replace');
+}
+
+/**
+ * @param {{ forcePicker?: boolean }} [options]
+ * @returns {Promise<boolean>}
+ */
+async function saveLocalOutline({ forcePicker = false } = {}) {
+  flushDocumentTitleEditor(documentTitleEl);
+  const title = outlineTitleBase();
+  const updatedAt = new Date();
+  const opml = toOpml(root, { title, dateModified: updatedAt });
+  const filename = suggestedOpmlFilename(title);
+
+  try {
+    const result = await saveOutlineLocally({
+      contents: opml,
+      suggestedName: filename,
+      existingHandle: localFileHandle,
+      forcePicker,
+      download: () =>
+        downloadOpml(root, { title, filename, dateModified: updatedAt }),
+    });
+    if (!result.ok) return false;
+    if (result.handle) {
+      localFileHandle = result.handle;
+      syncLocalSaveLabel();
+    }
+    applyDocumentUpdated(updatedAt);
+    dirty.markClean();
+    syncRevert();
+    return true;
+  } catch (error) {
+    window.alert('Could not save OPML file: ' + (error?.message || error));
+    return false;
+  }
+}
+
+document.getElementById('menu-file-open')?.addEventListener('click', () => {
+  void openLocalOutline();
 });
 
-const revertButton = document.getElementById('menu-revert');
+document.getElementById('menu-file-save')?.addEventListener('click', () => {
+  void saveLocalOutline();
+});
+
+document.getElementById('menu-file-save-as')?.addEventListener('click', () => {
+  void saveLocalOutline({ forcePicker: true });
+});
+
+const revertButtons = [
+  document.getElementById('menu-revert'),
+  document.getElementById('menu-cloud-revert'),
+].filter(Boolean);
+
 function syncRevert() {
-  if (root.dataset.readonly === 'true') {
-    if (revertButton) revertButton.disabled = true;
-    return;
+  const dirtyNow = () => dirty.isDirty();
+  for (const btn of revertButtons) {
+    if (root.dataset.readonly === 'true') {
+      btn.disabled = true;
+      continue;
+    }
+    syncRevertMenuItem(btn, dirtyNow);
   }
-  syncRevertMenuItem(revertButton, () => dirty.isDirty());
+  syncDocumentTitles();
 }
 syncRevert();
 document
   .querySelector('[data-menu="file"] .menu-label')
   ?.addEventListener('click', syncRevert);
-root.addEventListener('input', syncRevert);
+document
+  .querySelector('[data-menu="cloud"] .menu-label')
+  ?.addEventListener('click', syncRevert);
+root.addEventListener('input', () => {
+  applyDocumentUpdated(new Date());
+  syncRevert();
+});
 
-document.getElementById('menu-revert').addEventListener('click', () => {
+function onRevert() {
   if (root.dataset.readonly === 'true') return;
   const ok = revertToCleanSnapshot({
     isDirty: () => dirty.isDirty(),
@@ -237,22 +553,49 @@ document.getElementById('menu-revert').addEventListener('click', () => {
     parseOpml,
     loadOutline,
     setTitle: (title) => {
-      if (title) document.title = title;
+      applyDocumentTitle(title);
     },
     run: (mutate) => outlineHistory.run(mutate),
   });
   if (ok) {
+    syncFocusMenus();
     const first = root.querySelector('[data-item]');
     if (first) focusItem(first);
   }
   syncRevert();
-});
+}
 
-document.getElementById('menu-import').addEventListener('click', () => {
+document.getElementById('menu-revert')?.addEventListener('click', onRevert);
+document.getElementById('menu-cloud-revert')?.addEventListener('click', onRevert);
+
+/** @type {'replace' | 'insert'} */
+let fileOpenMode = 'replace';
+
+document.getElementById('menu-insert-import')?.addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
-  void beforeReplace().then((allow) => {
-    if (allow) fileInput.click();
-  });
+  if (supportsFileSystemAccess()) {
+    void (async () => {
+      try {
+        const picked = await openOpmlWithFilePicker();
+        if (!picked) return;
+        const tree = parseOpml(picked.text);
+        outlineHistory.run(() => {
+          const after = api.getActiveItem?.() ?? null;
+          return Boolean(insertOutline(root, tree, after));
+        });
+        syncRevert();
+      } catch (error) {
+        if (isAbortError(error)) return;
+        if (isFilePickerUnavailableError(error)) {
+          triggerLegacyFileOpen('insert');
+          return;
+        }
+        window.alert('Could not open OPML file: ' + (error?.message || error));
+      }
+    })();
+    return;
+  }
+  triggerLegacyFileOpen('insert');
 });
 
 fileInput.addEventListener('change', async () => {
@@ -260,15 +603,25 @@ fileInput.addEventListener('change', async () => {
   const file = fileInput.files?.[0];
   fileInput.value = '';
   if (!file) return;
+  const mode = fileOpenMode;
+  fileOpenMode = 'replace';
   try {
+    if (mode === 'replace') showOutlineLoading(root, { loadOutline });
     const tree = await readOpmlFile(file);
-    loadOutline(root, tree);
-    outlineHistory.discard();
-    if (tree.title) document.title = tree.title;
-    dirty.markClean();
-    const first = root.querySelector('[data-item]');
-    if (first) focusItem(first);
+    if (mode === 'insert') {
+      outlineHistory.run(() => {
+        const after = api.getActiveItem?.() ?? null;
+        return Boolean(insertOutline(root, tree, after));
+      });
+      syncRevert();
+      return;
+    }
+    clearLocalFileHandle();
+    applyOpenedLocalOutline(tree, file.name, {
+      updatedAt: tree.dateModified ?? file.lastModified,
+    });
   } catch (error) {
+    hideOutlineLoading(root);
     window.alert('Could not open OPML file: ' + (error?.message || error));
   }
 });
@@ -283,62 +636,16 @@ async function initCloud() {
   let cloud = null;
 
   if (configured) {
-    cloud = createCloudClient({
-      apiBase: cloudConfig.apiBase,
-      getIdToken: () => auth.getIdToken(),
+    auth = createGoogleAuth({ clientId: googleClientIdFromConfig(cloudConfig) });
+    cloud = createDriveCloudClient({
+      getAccessToken: () => auth.getAccessToken(),
+      driveWriterServiceAccount: driveWriterServiceAccountFromConfig(cloudConfig),
+      shareAccess: editShareToken
+        ? { mode: 'edit', token: editShareToken }
+        : viewShareToken
+          ? { mode: 'view', token: viewShareToken }
+          : null,
     });
-  }
-
-  if (configured && cloudConfig.firebase && !viewToken && !editToken) {
-    try {
-      const [{ initializeApp }, authMod] = await Promise.all([
-        import('https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js'),
-        import('https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js'),
-      ]);
-      auth = await createFirebaseAuth(cloudConfig.firebase, {
-        app: { initializeApp },
-        auth: authMod,
-      });
-      cloud = createCloudClient({
-        apiBase: cloudConfig.apiBase,
-        getIdToken: () => auth.getIdToken(),
-      });
-    } catch (error) {
-      console.error('Firebase Auth failed to initialize', error);
-    }
-  }
-
-  if (configured && cloud && viewToken) {
-    try {
-      const got = await cloud.getSharedOutline(viewToken);
-      const tree = parseOpml(got.opml);
-      loadOutline(root, tree);
-      setReadOnly(root, true);
-      applyReadOnlyToolbar(document.querySelector('.menubar'));
-      if (got.title) document.title = got.title;
-      dirty.markClean();
-    } catch (error) {
-      console.warn('Could not load shared outline', error);
-      window.alert('Could not open read-only link: ' + (error?.message || error));
-    }
-  }
-
-  if (configured && cloud && editToken && !viewToken) {
-    try {
-      const got = await cloud.getEditableOutline(editToken);
-      const tree = parseOpml(got.opml);
-      loadOutline(root, tree);
-      if (got.id) currentOutlineId = got.id;
-      currentRevision = got.revision ?? null;
-      leaseToken = null;
-      if (got.title) document.title = got.title;
-      dirty.markClean();
-      const item = root.querySelector('[data-item]');
-      if (item) focusItem(item);
-    } catch (error) {
-      console.warn('Could not load editable outline', error);
-      window.alert('Could not open editable link: ' + (error?.message || error));
-    }
   }
 
   const nullCloud = {
@@ -350,41 +657,63 @@ async function initCloud() {
     async releaseLock() {},
     async createShareLink() { return { token: '', urlPath: '' }; },
     async createEditShareLink() { return { token: '', urlPath: '' }; },
-    async getSharedOutline() { return { opml: '', title: null }; },
-    async getEditableOutline() {
-      return { opml: '', title: null, revision: null, id: null };
-    },
-    async saveEditableOutline() { return {}; },
-    async acquireEditLock() { return { token: '' }; },
-    async releaseEditLock() {},
+    async deleteOutline() {},
   };
-
-  let sessionCloud = cloud || nullCloud;
-  if (cloud && editToken && !viewToken) {
-    sessionCloud = cloudWithEditToken(cloud, editToken);
-  }
 
   cloudSaveAvailable = configured;
   cloudUi = mountCloudUi({
     configured,
-    readOnlyView: Boolean(viewToken),
-    editShareMode: Boolean(editToken) && !viewToken,
+    readOnlyView: readOnlyShare,
+    editShareMode,
     auth,
-    cloud: sessionCloud,
+    cloud: cloud || nullCloud,
     outline: {
       root,
-      toOpml: () => toOpml(root, { title: document.title || 'Outline' }),
+      toOpml: (opts = {}) =>
+        toOpml(root, {
+          title: opts.title ?? outlineTitleBase(),
+          dateModified: opts.dateModified ?? documentUpdatedAt ?? new Date(),
+        }),
       parseOpml,
-      loadOutline: (tree) => {
-        loadOutline(root, tree);
+      beginLoading: () => {
+        deepLinkLoad?.invalidate?.();
+        showOutlineLoading(root, { loadOutline });
         outlineHistory.discard();
-        if (tree.title) document.title = tree.title;
+        dirty.markClean();
+        syncDocumentTitles();
+      },
+      hideLoading: () => {
+        hideOutlineLoading(root);
+      },
+      loadOutline: (tree) => {
+        hideOutlineLoading(root);
+        clearLocalFileHandle();
+        loadOutline(root, tree);
+        applyOpenExpansion(root);
+        outlineHistory.discard();
+        // Title comes from the Drive file name via setTitle (not OPML <head><title>).
+        // Prefer OPML date when present; callers (Cloud Open) set Drive time afterward.
+        // Do not fall back to documentUpdatedAt — that can keep a previous file's stamp.
+        applyDocumentUpdated(tree.dateModified ?? null);
+        syncFocusMenus();
+        outlinerMenuUi.syncHelpEnabled();
         const item = root.querySelector('[data-item]');
         if (item) focusItem(item);
       },
-      getTitle: () => document.title || 'Outline',
+      setUpdatedAt: (date) => {
+        applyDocumentUpdated(date);
+      },
+      insertOutline: (tree) => {
+        outlineHistory.run(() => {
+          const after = api.getActiveItem?.() ?? null;
+          return Boolean(insertOutline(root, tree, after));
+        });
+        syncRevert();
+      },
+      getTitle: () => outlineTitleBase(),
+      flushTitle: () => flushDocumentTitleEditor(documentTitleEl),
       setTitle: (title) => {
-        if (title) document.title = title;
+        applyDocumentTitle(title);
       },
       getOutlineId: () => currentOutlineId,
       setOutlineId: (id) => {
@@ -398,34 +727,66 @@ async function initCloud() {
       setLeaseToken: (token) => {
         leaseToken = token;
       },
-      syncUrl: editToken
-        ? () => {
-            /* keep ?edit= in the address bar */
-          }
-        : syncUrl,
+      syncUrl: (id) => syncUrl(id),
       beforeReplace,
-      markClean: () => dirty.markClean(),
+      isDirty: () => dirty.isDirty(),
+      markClean: () => {
+        dirty.markClean();
+        syncDocumentTitles();
+      },
     },
   });
 
-  if (configured && cloud && currentOutlineId && !viewToken && !editToken) {
-    auth.onAuthStateChanged(async (user) => {
-      if (!user || !currentOutlineId) return;
-      try {
-        const got = await cloud.getOutline(currentOutlineId);
-        const opml = typeof got === 'string' ? got : got.opml;
-        const tree = parseOpml(opml);
+  if (readOnlyShare) {
+    setReadOnly(root, true);
+    applyReadOnlyToolbar(document.querySelector('.menubar'));
+  }
+
+  const deepLinkKey = editShareToken || viewShareToken || currentOutlineId;
+  if (configured && cloud && deepLinkKey) {
+    // Eager load (public anyone-with-link or existing token). Also retry when
+    // auth later delivers a signed-in user — do not depend only on a change event.
+    // Eager load runs in the background; applyOutline/onError handle completion.
+    // `ready` is for tests — do not await here or Cloud UI boot waits on Drive.
+    deepLinkLoad = bindDeepLinkOutlineLoad({
+      auth,
+      cloud,
+      getOutlineId: () =>
+        editShareToken || viewShareToken || currentOutlineId,
+      applyOutline: async (got) => {
+        const tree = parseOpml(got.opml);
+        hideOutlineLoading(root);
         loadOutline(root, tree);
-        if (tree.title) document.title = tree.title;
-        currentRevision =
-          typeof got === 'string' ? null : (got.revision ?? null);
+        applyOpenExpansion(root);
+        clearLocalFileHandle();
+        outlinerMenuUi.syncHelpEnabled();
+        const title = outlineTitleFromFileName(got.title, tree.title);
+        if (title) applyDocumentTitle(title);
+        applyDocumentUpdated(got.modifiedTime ?? tree.dateModified ?? null);
+        // Match Cloud Open: keep currentOutlineId + owner ?id= URL in sync.
+        // Share ?view= / ?edit= URLs stay opaque (syncUrl no-ops the history rewrite).
+        if (got.fileId) syncUrl(got.fileId);
+        currentRevision = got.revision ?? null;
         leaseToken = null;
         dirty.markClean();
+        syncDocumentTitles();
+        syncFocusMenus();
+        if (readOnlyShare) {
+          setReadOnly(root, true);
+          applyReadOnlyToolbar(document.querySelector('.menubar'));
+        }
         const item = root.querySelector('[data-item]');
         if (item) focusItem(item);
-      } catch (error) {
-        console.warn('Could not load outline from URL', error);
-      }
+      },
+      onError: (error) => {
+        console.warn('Could not load outline from Google Drive', error);
+        // 401 / Failed to fetch: wait for proxy success or sign-in retry.
+        if (isSoftDeepLinkLoadError(error)) return;
+        hideOutlineLoading(root);
+        window.alert(
+          'Could not open outline from Google Drive: ' + (error?.message || error),
+        );
+      },
     });
   }
 }

@@ -1,11 +1,16 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import {
   cloudSaveMenuLabel,
   mountMenubar,
   syncCloudSaveMenuLabel,
 } from '../menubar.js';
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><body>
@@ -88,5 +93,46 @@ describe('menubar', () => {
     assert.match(html, /class="menu-label"/);
     assert.doesNotMatch(html, /<summary>/);
     assert.doesNotMatch(html, /<details/);
+  });
+});
+
+describe('sticky chrome menubar', () => {
+  it('keeps brand + menus in .chrome-sticky above the document title in index.html', () => {
+    const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
+    const { document } = new JSDOM(html).window;
+    const sticky = document.querySelector('.chrome-sticky');
+    assert.ok(sticky, 'expected .chrome-sticky wrapper');
+    assert.ok(sticky.querySelector('.chrome-meta'));
+    assert.ok(sticky.querySelector('.menubar'));
+    assert.equal(sticky.querySelector('.document-heading'), null);
+    const heading = document.querySelector('.document-heading');
+    assert.ok(heading);
+    assert.equal(sticky.compareDocumentPosition(heading) & 4, 4);
+  });
+
+  it('pins .chrome-sticky with an opaque bar so menus stay visible while the outline scrolls', () => {
+    const css = readFileSync(join(repoRoot, 'styles.css'), 'utf8');
+    assert.match(
+      css,
+      /\.chrome-sticky\s*\{[^}]*position\s*:\s*sticky/s,
+    );
+    assert.match(css, /\.chrome-sticky\s*\{[^}]*top\s*:\s*0/s);
+    assert.match(css, /\.chrome-sticky\s*\{[^}]*z-index\s*:\s*\d+/s);
+    assert.match(
+      css,
+      /\.chrome-sticky\s*\{[^}]*background[^;]*;/s,
+    );
+    assert.match(
+      css,
+      /\.chrome-sticky\s*\{[^}]*border-bottom\s*:/s,
+    );
+  });
+
+  it('places .chrome-sticky as a direct body child so sticky survives past the header', () => {
+    const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
+    const { document } = new JSDOM(html).window;
+    const sticky = document.querySelector('.chrome-sticky');
+    assert.equal(sticky.parentElement, document.body);
+    assert.ok(document.querySelector('header.chrome .document-heading'));
   });
 });

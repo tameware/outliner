@@ -35,6 +35,7 @@ describe('print styles', () => {
     const block = printBlock(css);
     assert.ok(block, 'expected @media print { ... }');
     assert.match(block, /\.chrome\s*\{[^}]*display\s*:\s*none/);
+    assert.match(block, /\.chrome-sticky\s*\{[^}]*display\s*:\s*none/);
   });
 
   it('keeps the outline root printable (not display:none)', () => {

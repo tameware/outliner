@@ -6,24 +6,21 @@ describe('resolveCloudConfig', () => {
   it('uses the base config when no local override exists', () => {
     assert.equal(resolveCloudConfig(null, undefined), null);
     assert.deepEqual(
-      resolveCloudConfig({ apiBase: 'https://a.example' }, undefined),
-      { apiBase: 'https://a.example' },
+      resolveCloudConfig({ googleClientId: 'a.apps.googleusercontent.com' }, undefined),
+      { googleClientId: 'a.apps.googleusercontent.com' },
     );
   });
 
-  it('prefers a local override when provided', () => {
+  it('prefers an explicit local config including null', () => {
     assert.deepEqual(
       resolveCloudConfig(
-        { apiBase: 'https://public.example' },
-        { apiBase: 'https://local.example', firebase: { apiKey: 'secret' } },
+        { googleClientId: 'public.apps.googleusercontent.com' },
+        { googleClientId: 'local.apps.googleusercontent.com' },
       ),
-      { apiBase: 'https://local.example', firebase: { apiKey: 'secret' } },
+      { googleClientId: 'local.apps.googleusercontent.com' },
     );
-  });
-
-  it('treats explicit local null as local-only', () => {
     assert.equal(
-      resolveCloudConfig({ apiBase: 'https://a.example' }, null),
+      resolveCloudConfig({ googleClientId: 'a.apps.googleusercontent.com' }, null),
       null,
     );
   });

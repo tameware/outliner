@@ -4,22 +4,39 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Tameware Outliner</title>
+  <link rel="icon" type="image/png" sizes="120x120" href="logo.png" />
+  <link rel="apple-touch-icon" href="logo.png" />
   <link rel="stylesheet" href="styles.css" />
+  <script src="./deep-link-paint.js"></script>
 </head>
 <body>
-  <header class="chrome">
-    <h1>Tameware Outliner</h1>
+  <div class="chrome-sticky">
+    <div class="chrome-sticky-inner">
+    <div class="chrome-meta">
+      <h1>Tameware Outliner</h1>
+    </div>
     <nav class="menubar" role="menubar" aria-label="Outline menus">
+      <div class="menu" data-menu="outliner">
+        <button type="button" class="menu-label" aria-haspopup="menu" aria-expanded="false">Outliner</button>
+        <div class="menu-panel" role="menu" hidden>
+          <button type="button" role="menuitem" id="menu-help">How to use this outliner</button>
+          <button type="button" role="menuitem" id="menu-about">About…</button>
+          <button type="button" role="menuitem" id="menu-version">Version…</button>
+          <button type="button" role="menuitem" id="menu-changelog">Change log</button>
+          <button type="button" role="menuitem" id="menu-open-source">Source code</button>
+          <button type="button" role="menuitem" id="menu-report-issues">Report issues</button>
+          <button type="button" role="menuitem" id="menu-privacy">Privacy</button>
+        </div>
+      </div>
       <div class="menu" data-menu="file">
         <button type="button" class="menu-label" aria-haspopup="menu" aria-expanded="false">File</button>
         <div class="menu-panel" role="menu" hidden>
-          <button type="button" role="menuitem" id="menu-open" disabled>Open…</button>
-          <button type="button" role="menuitem" id="menu-save" disabled>Save…</button>
-          <button type="button" role="menuitem" id="menu-save-as" disabled>Save As…</button>
-          <button type="button" role="menuitem" id="menu-revert" disabled>Revert</button>
+          <button type="button" role="menuitem" id="menu-file-open">Open…</button>
+          <button type="button" role="menuitem" id="menu-insert-import">Insert…</button>
+          <button type="button" role="menuitem" id="menu-file-save">Save…</button>
+          <button type="button" role="menuitem" id="menu-file-save-as">Save As…</button>
           <hr class="menu-sep" />
-          <button type="button" role="menuitem" id="menu-import">Import…</button>
-          <button type="button" role="menuitem" id="menu-export">Export…</button>
+          <button type="button" role="menuitem" id="menu-revert" disabled>Revert</button>
         </div>
       </div>
       <div class="menu" data-menu="edit">
@@ -39,11 +56,25 @@
             Outdent<span class="menu-shortcut" data-keys="shift+tab"></span>
           </button>
           <hr class="menu-sep" />
+          <button type="button" role="menuitem" id="menu-move-up">
+            Move Up<span class="menu-shortcut" data-keys="mod+up"></span>
+          </button>
+          <button type="button" role="menuitem" id="menu-move-down">
+            Move Down<span class="menu-shortcut" data-keys="mod+down"></span>
+          </button>
+          <hr class="menu-sep" />
           <button type="button" role="menuitem" id="menu-promote">
             Promote<span class="menu-shortcut" data-keys="mod+["></span>
           </button>
           <button type="button" role="menuitem" id="menu-demote">
             Demote<span class="menu-shortcut" data-keys="mod+]"></span>
+          </button>
+          <hr class="menu-sep" />
+          <button type="button" role="menuitem" id="menu-find">
+            Find…<span class="menu-shortcut" data-keys="mod+f"></span>
+          </button>
+          <button type="button" role="menuitem" id="menu-replace">
+            Replace…<span class="menu-shortcut" data-keys="mod+alt+f"></span>
           </button>
           <hr class="menu-sep" />
           <button type="button" role="menuitem" id="menu-clear">Clear Outline</button>
@@ -52,23 +83,69 @@
       <div class="menu" data-menu="view">
         <button type="button" class="menu-label" aria-haspopup="menu" aria-expanded="false">View</button>
         <div class="menu-panel" role="menu" hidden>
+          <button type="button" role="menuitem" id="menu-focus">Focus</button>
+          <button type="button" role="menuitem" id="menu-unfocus" disabled>Unfocus</button>
+          <hr class="menu-sep" />
           <button type="button" role="menuitem" id="menu-expand-all">Expand All</button>
           <button type="button" role="menuitem" id="menu-collapse-all">Collapse All</button>
         </div>
       </div>
+      <div class="menu" data-menu="cloud" hidden>
+        <button type="button" class="menu-label" aria-haspopup="menu" aria-expanded="false">Cloud</button>
+        <div class="menu-panel" role="menu" hidden>
+          <button type="button" role="menuitem" id="menu-cloud-auth">Sign in with Google</button>
+          <hr class="menu-sep" />
+          <button type="button" role="menuitem" id="menu-open" disabled>Open…</button>
+          <button type="button" role="menuitem" id="menu-insert" disabled>Insert…</button>
+          <button type="button" role="menuitem" id="menu-save" disabled>Save…</button>
+          <button type="button" role="menuitem" id="menu-save-as" disabled>Save As…</button>
+          <button type="button" role="menuitem" id="menu-delete" disabled>Delete…</button>
+          <button type="button" role="menuitem" id="menu-cloud-revert" disabled>Revert</button>
+          <hr class="menu-sep" />
+          <button
+            type="button"
+            role="menuitem"
+            id="menu-cloud-share"
+            disabled
+            title="Copy a read-only link to this outline"
+          >
+            Copy read-only link
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            id="menu-cloud-share-edit"
+            disabled
+            title="Copy a link that allows editing via Google Drive sharing"
+          >
+            Copy editable link
+          </button>
+        </div>
+      </div>
       <input type="file" id="file-open" accept=".opml,application/xml,text/xml,text/x-opml" hidden />
     </nav>
+    </div>
+  </div>
+  <header class="chrome">
+    <div class="document-heading">
+      <p
+        id="document-title"
+        class="document-title"
+        contenteditable="plaintext-only"
+        spellcheck="false"
+        role="textbox"
+        aria-label="Document name"
+        aria-live="polite"
+      ></p>
+      <time id="document-updated" class="document-updated" hidden></time>
+    </div>
     <div class="cloud-bar" data-cloud-bar hidden>
-      <button type="button" id="btn-sign-in">Sign in with Google</button>
-      <button type="button" id="btn-sign-out" hidden>Sign out</button>
       <span id="cloud-user" class="cloud-user" hidden></span>
-      <button type="button" id="btn-cloud-share" disabled title="Copy a read-only link to this outline">Copy read-only link</button>
-      <button type="button" id="btn-cloud-share-edit" disabled title="Copy a link that allows editing without signing in">Copy editable link</button>
       <p id="cloud-status" class="cloud-status" role="status"></p>
     </div>
     <dialog id="cloud-save-dialog" class="cloud-dialog">
       <form method="dialog" class="cloud-dialog-form" id="cloud-save-form">
-        <h2>Save to cloud</h2>
+        <h2>Save to Google Drive</h2>
         <label class="cloud-save-label" for="cloud-save-name">Name</label>
         <input
           id="cloud-save-name"
@@ -87,20 +164,17 @@
     </dialog>
     <dialog id="cloud-open-dialog" class="cloud-dialog">
       <form method="dialog" class="cloud-dialog-form">
-        <h2>Open from cloud</h2>
+        <h2>Open from Google Drive</h2>
         <ul id="cloud-outline-list" class="cloud-outline-list"></ul>
         <button type="button" id="btn-cloud-open-cancel" value="cancel">Cancel</button>
       </form>
     </dialog>
-    <dialog id="cloud-share-dialog" class="cloud-dialog">
+    <dialog id="cloud-delete-dialog" class="cloud-dialog">
       <form method="dialog" class="cloud-dialog-form">
-        <h2 id="cloud-share-heading">Read-only link</h2>
-        <p id="cloud-share-hint" class="cloud-share-hint">Anyone with this link can view the outline but not edit it.</p>
-        <input id="cloud-share-url" class="cloud-save-input" type="text" readonly />
-        <div class="cloud-dialog-actions">
-          <button type="button" id="btn-cloud-share-copy">Copy</button>
-          <button type="button" id="btn-cloud-share-close" value="cancel">Close</button>
-        </div>
+        <h2>Delete from Google Drive</h2>
+        <p class="cloud-share-hint">Choose an outline to move to Google Drive trash.</p>
+        <ul id="cloud-delete-list" class="cloud-outline-list"></ul>
+        <button type="button" id="btn-cloud-delete-cancel" value="cancel">Cancel</button>
       </form>
     </dialog>
     <dialog id="unsaved-dialog" class="cloud-dialog">
@@ -114,9 +188,65 @@
         </div>
       </form>
     </dialog>
+    <dialog id="outliner-message-dialog" class="cloud-dialog">
+      <form method="dialog" class="cloud-dialog-form">
+        <h2 id="outliner-message-title"></h2>
+        <p id="outliner-message-body" class="cloud-share-hint"></p>
+        <div class="cloud-dialog-actions">
+          <button type="submit" id="outliner-message-ok" autofocus>OK</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="find-replace-dialog" class="cloud-dialog find-replace-dialog" data-mode="find">
+      <form class="cloud-dialog-form find-replace-form" id="find-replace-form">
+        <h2>Find</h2>
+        <label class="cloud-save-label" for="find-replace-find">Find</label>
+        <input
+          id="find-replace-find"
+          name="find"
+          type="text"
+          autocomplete="off"
+          class="cloud-save-input"
+        />
+        <label class="cloud-save-label" for="find-replace-replace" hidden>Replace</label>
+        <input
+          id="find-replace-replace"
+          name="replace"
+          type="text"
+          autocomplete="off"
+          class="cloud-save-input"
+          hidden
+        />
+        <div class="find-replace-options">
+          <label class="find-replace-check"
+            ><input type="checkbox" id="find-replace-grep" /> Grep</label
+          >
+          <label class="find-replace-check"
+            ><input type="checkbox" id="find-replace-case" /> Case sensitive</label
+          >
+          <label class="find-replace-check"
+            ><input type="checkbox" id="find-replace-whole" /> Whole word</label
+          >
+          <label class="find-replace-check"
+            ><input type="checkbox" id="find-replace-wrap" checked /> Wrap around</label
+          >
+        </div>
+        <div class="cloud-dialog-actions find-replace-actions">
+          <button type="button" id="find-replace-prev">Previous</button>
+          <button type="submit" id="find-replace-next">Next</button>
+          <button type="button" id="find-replace-show">Replace</button>
+          <button type="button" id="find-replace-one" hidden>Replace</button>
+          <button type="button" id="find-replace-and-find" hidden>Replace &amp; Find</button>
+          <button type="button" id="find-replace-all" hidden>Replace All</button>
+          <button type="button" id="find-replace-close" value="cancel">Close</button>
+        </div>
+        <p id="find-replace-status" class="find-replace-status" role="status"></p>
+      </form>
+    </dialog>
   </header>
 
   <main>
+    <p id="outline-loading" class="outline-loading" hidden>Loading your outline…</p>
     <ol class="outline" data-outline-root>
       <li data-item data-state="expanded">
         <div class="row">
@@ -128,6 +258,12 @@
             <div class="row">
               <button type="button" class="toggle" aria-label="Toggle"></button>
               <div class="text" contenteditable="true">Click any line to edit it. Type freely — this is a nested outline, not a flat document.</div>
+            </div>
+          </li>
+          <li data-item>
+            <div class="row">
+              <button type="button" class="toggle" aria-label="Toggle"></button>
+              <div class="text" contenteditable="true">Click ▸ or ▾ beside a parent to show or hide its children</div>
             </div>
           </li>
           <li data-item data-state="expanded">
@@ -175,7 +311,7 @@
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">!c !d !h !s — insert ♣ <span class="suit suit-red">♦</span> <span class="suit suit-red">♥</span> ♠</div>
+                  <div class="text" contenteditable="true">!c !d !h !s — insert ♣ <span class="suit suit-red" contenteditable="false">♦</span> <span class="suit suit-red" contenteditable="false">♥</span> ♠</div>
                 </div>
               </li>
               <li data-item>
@@ -187,7 +323,7 @@
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">Backspace on an empty line — delete that line</div>
+                  <div class="text" contenteditable="true">Backspace at the start of a line — merge with the line above</div>
                 </div>
               </li>
             </ol>
@@ -201,12 +337,6 @@
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">Click ▸ or ▾ beside a parent to show or hide its children</div>
-                </div>
-              </li>
-              <li data-item>
-                <div class="row">
-                  <button type="button" class="toggle" aria-label="Toggle"></button>
                   <div class="text" contenteditable="true">Use View → Expand All / Collapse All for the whole outline</div>
                 </div>
               </li>
@@ -215,25 +345,25 @@
           <li data-item data-state="expanded">
             <div class="row">
               <button type="button" class="toggle" aria-label="Toggle"></button>
-              <div class="text" contenteditable="true">Save and open</div>
+              <div class="text" contenteditable="true">Open and Save</div>
             </div>
             <ol>
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">File → Import… / Export… — OPML on your computer</div>
+                  <div class="text" contenteditable="true">File → Open… / Save — OPML on your computer (re-saves in place when the browser supports it)</div>
                 </div>
               </li>
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">File → Open… / Save / Save As… — cloud outlines after Sign in with Google</div>
+                  <div class="text" contenteditable="true">Cloud → Open… / Save / Save As… / Delete… — Google Drive outlines after Sign in with Google</div>
                 </div>
               </li>
               <li data-item>
                 <div class="row">
                   <button type="button" class="toggle" aria-label="Toggle"></button>
-                  <div class="text" contenteditable="true">Copy read-only or editable link — share a saved cloud outline (view-only or anyone can edit)</div>
+                  <div class="text" contenteditable="true">Cloud → Copy read-only / editable link — distinct opaque share URLs (not interchangeable)</div>
                 </div>
               </li>
             </ol>

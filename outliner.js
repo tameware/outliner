@@ -4,12 +4,13 @@
  * Supports expand/collapse, inline editing, add/remove, promote/demote.
  */
 
-import { tryInsertSuitShortcut } from './suit-shortcuts.js';
+import { fillTextWithSuits, tryInsertSuitShortcut } from './suit-shortcuts.js';
 import {
   bindDealDiagrams,
   isDealDiagramItem,
   syncAllDealDiagrams,
 } from './deal-diagram.js';
+import { clearOutlineFocus } from './outline-focus.js';
 
 function childList(item) {
   return item.querySelector(':scope > ol');
@@ -60,6 +61,50 @@ export function hasChildren(item) {
 
 export function isExpanded(item) {
   return item.dataset.state !== 'collapsed';
+}
+
+/**
+ * Nesting depth under the outline root: 0 = top-level (A.), 1 = arabic (1.), 2 = a., …
+ * @param {HTMLElement} item
+ * @param {HTMLElement | null | undefined} [root]
+ * @returns {number}
+ */
+export function itemOutlineDepth(item, root) {
+  let depth = 0;
+  let el = item.parentElement?.closest('[data-item]');
+  while (el && (!root || root.contains(el))) {
+    depth += 1;
+    el = el.parentElement?.closest('[data-item]');
+  }
+  return depth;
+}
+
+/**
+ * Default open expansion:
+ * - one top-level headline → expand it so second-level headlines show
+ * - multiple top-level headlines → show only the top level
+ * Deeper parents stay collapsed either way.
+ * @param {HTMLElement} root
+ * @param {{ openDepth?: number }} [options]
+ */
+export function applyOpenExpansion(root, options = {}) {
+  if (!root) return;
+  const topCount = root.querySelectorAll(':scope > [data-item]').length;
+  const openDepth =
+    options.openDepth ?? (topCount === 1 ? 1 : 0);
+  root.querySelectorAll('[data-item]').forEach((item) => {
+    if (!hasChildren(item)) return;
+    const depth = itemOutlineDepth(item, root);
+    const list = childList(item);
+    if (depth < openDepth) {
+      item.dataset.state = 'expanded';
+      if (list) list.hidden = false;
+    } else {
+      item.dataset.state = 'collapsed';
+      if (list) list.hidden = true;
+    }
+    syncItemMeta(item);
+  });
 }
 
 function syncItemMeta(item) {
@@ -116,7 +161,7 @@ export function createItem(text = '') {
   textNode.setAttribute('contenteditable', 'true');
   textNode.contentEditable = 'true';
   textNode.spellcheck = true;
-  textNode.textContent = text;
+  fillTextWithSuits(textNode, text);
 
   row.append(btn, textNode);
   li.append(row);
@@ -193,6 +238,116 @@ export function removeItem(item) {
   if (root) syncTree(root);
   if (focusTarget) focusItem(focusTarget);
   return null;
+}
+
+/**
+ * Place a collapsed caret at a UTF-16 offset within a contenteditable line.
+ * @param {HTMLElement | null | undefined} el
+ * @param {number} offset
+ */
+function setCaretAtTextOffset(el, offset) {
+  if (!el) return;
+  el.focus();
+  const sel = window.getSelection?.();
+  if (!sel) return;
+  /** @type {Text[]} */
+  const texts = [];
+  function collect(node) {
+    if (node.nodeType === Node.TEXT_NODE) texts.push(/** @type {Text} */ (node));
+    else {
+      for (const child of node.childNodes) collect(child);
+    }
+  }
+  collect(el);
+  let remaining = Math.max(0, offset);
+  for (const text of texts) {
+    const len = text.length;
+    if (remaining <= len) {
+      const range = document.createRange();
+      range.setStart(text, remaining);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return;
+    }
+    remaining -= len;
+  }
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+/**
+ * Previous visible outline line in document order, or null.
+ * @param {HTMLElement} item
+ * @param {HTMLElement} root
+ */
+function previousVisibleItem(item, root) {
+  const visible = visibleOutlineItems(root);
+  const idx = visible.indexOf(item);
+  if (idx <= 0) return null;
+  return visible[idx - 1];
+}
+
+/**
+ * Merge `item` into the previous visible line: append text, reparent children,
+ * remove `item`, and leave the caret at the join point.
+ * Empty-line Backspace is the special case where appended text is empty.
+ * @param {HTMLElement} item
+ * @returns {boolean}
+ */
+export function mergeWithPreviousLine(item) {
+  const root = item.closest('[data-outline-root]');
+  if (!root) return false;
+
+  const prev = previousVisibleItem(item, root);
+  if (!prev) {
+    if (getItemText(item) === '') {
+      removeItem(item);
+      return true;
+    }
+    return false;
+  }
+
+  const prevEl = textEl(prev);
+  const curEl = textEl(item);
+  const joinAt = prevEl?.textContent?.length ?? 0;
+  if (prevEl) {
+    // textContent concat would drop .suit-red; re-wrap ♥/♦ like OPML restore.
+    fillTextWithSuits(
+      prevEl,
+      `${prevEl.textContent || ''}${curEl?.textContent || ''}`,
+    );
+  }
+
+  const kids = directChildItems(item);
+  const parentItem = item.parentElement?.closest('[data-item]');
+  if (parentItem === prev) {
+    for (const kid of kids) {
+      item.before(kid);
+      syncItemMeta(kid);
+    }
+  } else if (kids.length) {
+    const list = ensureChildList(prev);
+    for (const kid of kids) {
+      list.appendChild(kid);
+      syncItemMeta(kid);
+    }
+    prev.dataset.state = 'expanded';
+    list.hidden = false;
+  }
+
+  item.remove();
+  if (parentItem) {
+    pruneEmptyLists(parentItem);
+    syncItemMeta(parentItem);
+  }
+  syncItemMeta(prev);
+  syncTree(root);
+  setCaretAtTextOffset(prevEl, joinAt);
+  return true;
 }
 
 /**
@@ -315,6 +470,33 @@ export function promoteChildren(item) {
 }
 
 /**
+ * Move among same-level siblings (children stay nested under the item).
+ * @param {HTMLElement} item
+ * @returns {boolean}
+ */
+export function moveItemUp(item) {
+  const prev = item.previousElementSibling;
+  if (!prev || !prev.matches('[data-item]')) return false;
+  return withoutFocusChange(item, () => {
+    prev.before(item);
+    return true;
+  });
+}
+
+/**
+ * @param {HTMLElement} item
+ * @returns {boolean}
+ */
+export function moveItemDown(item) {
+  const next = item.nextElementSibling;
+  if (!next || !next.matches('[data-item]')) return false;
+  return withoutFocusChange(item, () => {
+    next.after(item);
+    return true;
+  });
+}
+
+/**
  * Toolbar Demote: pull following same-level siblings under this item as children.
  * Tab/Shift+Tab still use promoteItem/demoteItem.
  */
@@ -391,6 +573,9 @@ function outlineDepth(item, root) {
  * @param {HTMLElement} root
  */
 function isVisibleOutlineItem(item, root) {
+  if (item.dataset?.focusRole === 'hidden' || item.dataset?.focusRole === 'ancestor') {
+    return false;
+  }
   let el = item.parentElement;
   while (el && el !== root) {
     if (el.matches?.('ol') && el.hidden) return false;
@@ -567,9 +752,9 @@ function createKeydownHandler(options = {}, outlineRoot = null) {
       return;
     }
 
-    if (event.key === 'Backspace' && getItemText(item) === '' && isCaretAtStart(text)) {
+    if (event.key === 'Backspace' && isCaretAtStart(text)) {
       event.preventDefault();
-      removeItem(item);
+      runStructural(() => mergeWithPreviousLine(item));
       return;
     }
 
@@ -650,6 +835,8 @@ export function mountOutliner(root, options = {}) {
     demoteItem,
     promoteChildren,
     demoteFollowingSiblings,
+    moveItemUp,
+    moveItemDown,
     toggleItem,
     focusSameLevelSibling,
     focusAdjacentItem,
@@ -729,16 +916,35 @@ function outlineElementsXml(list, indent) {
   return xml;
 }
 
+/**
+ * @param {Date | string | number | null | undefined} date
+ * @returns {string}
+ */
+function opmlDateModified(date) {
+  if (date == null || date === '') return '';
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(+d)) return '';
+  return d.toUTCString();
+}
+
 /** Serialize the live outline DOM to an OPML 2.0 document string. */
 export function toOpml(root, options = {}) {
   const title = escapeXml(options.title ?? 'Outline');
-  const expansionState = buildExpansionState(root);
+  const expansionState =
+    options.includeExpansionState === false
+      ? ''
+      : buildExpansionState(root);
+  const modified = opmlDateModified(options.dateModified);
+  const dateModifiedLine = modified
+    ? `    <dateModified>${escapeXml(modified)}</dateModified>\n`
+    : '';
   const body = outlineElementsXml(root, 2);
   return (
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<opml version="2.0">\n` +
     `  <head>\n` +
     `    <title>${title}</title>\n` +
+    dateModifiedLine +
     `    <expansionState>${expansionState}</expansionState>\n` +
     `  </head>\n` +
     `  <body>\n` +
@@ -789,6 +995,13 @@ export function parseOpml(xml) {
     throw new Error('Invalid OPML: missing opml root');
   }
   const title = opml.querySelector('head > title')?.textContent ?? 'Outline';
+  const dateModifiedRaw =
+    opml.querySelector('head > dateModified')?.textContent?.trim() || '';
+  const dateModifiedParsed = dateModifiedRaw ? new Date(dateModifiedRaw) : null;
+  const dateModified =
+    dateModifiedParsed && !Number.isNaN(+dateModifiedParsed)
+      ? dateModifiedParsed
+      : null;
   const expansionRaw = opml.querySelector('head > expansionState')?.textContent ?? '';
   // Presence of expansionState means we honor it (empty => all parents collapsed).
   const expansionPresent = Boolean(opml.querySelector('head > expansionState'));
@@ -806,7 +1019,7 @@ export function parseOpml(xml) {
   const items = top.map((el) =>
     parseOutlineElement(el, expandedSet, indexRef, expansionPresent),
   );
-  return { title, items };
+  return { title, items, dateModified };
 }
 
 function renderItem(node) {
@@ -824,6 +1037,7 @@ function renderItem(node) {
 
 /** Replace the contents of an outline root with a parsed tree. */
 export function loadOutline(root, tree) {
+  clearOutlineFocus(root);
   const items = tree?.items ?? [];
   root.replaceChildren();
   if (items.length === 0) {
@@ -835,6 +1049,42 @@ export function loadOutline(root, tree) {
   syncAllDealDiagrams(root);
   if (isReadOnly(root)) setReadOnly(root, true);
   return root;
+}
+
+/**
+ * Insert a parsed OPML tree into `root` as siblings immediately after `afterItem`
+ * (same nesting level). When `afterItem` is omitted or not in the outline, append
+ * at the top level. Does not change the document title.
+ * @param {HTMLElement} root
+ * @param {{ items?: Array<{ text?: string, children?: unknown[], expanded?: boolean }> }} tree
+ * @param {HTMLElement | null} [afterItem]
+ * @returns {HTMLElement | null} first inserted item, or null if nothing to insert
+ */
+export function insertOutline(root, tree, afterItem = null) {
+  const items = tree?.items ?? [];
+  if (!items.length) return null;
+
+  const nodes = items.map((node) => renderItem(node));
+  const anchor =
+    afterItem && root.contains(afterItem) && afterItem.matches?.('[data-item]')
+      ? afterItem
+      : null;
+
+  if (anchor) {
+    let prev = anchor;
+    for (const li of nodes) {
+      prev.after(li);
+      prev = li;
+    }
+  } else {
+    nodes.forEach((li) => root.appendChild(li));
+  }
+
+  syncTree(root);
+  syncAllDealDiagrams(root);
+  if (isReadOnly(root)) setReadOnly(root, true);
+  focusItem(nodes[0]);
+  return nodes[0];
 }
 
 /**

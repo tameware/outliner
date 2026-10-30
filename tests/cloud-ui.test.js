@@ -1,21 +1,32 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { mountCloudUi } from '../cloud-ui.js';
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><html><body>
     <nav class="menubar">
+      <div class="menu" data-menu="cloud" hidden>
+        <button type="button" class="menu-label">Cloud</button>
+        <div class="menu-panel" role="menu">
+          <button type="button" role="menuitem" id="menu-cloud-auth">Sign in with Google</button>
+          <button type="button" role="menuitem" id="menu-cloud-share" disabled>Copy read-only link</button>
+          <button type="button" role="menuitem" id="menu-cloud-share-edit" disabled>Copy editable link</button>
+        </div>
+      </div>
       <button type="button" id="menu-open" disabled>Open…</button>
+      <button type="button" id="menu-insert" disabled>Insert…</button>
       <button type="button" id="menu-save" disabled>Save…</button>
       <button type="button" id="menu-save-as" disabled>Save As…</button>
+      <button type="button" id="menu-delete" disabled>Delete…</button>
     </nav>
     <div class="cloud-bar" data-cloud-bar hidden>
-      <button type="button" id="btn-sign-in">Sign in</button>
-      <button type="button" id="btn-sign-out" hidden>Sign out</button>
       <span id="cloud-user" hidden></span>
-      <button type="button" id="btn-cloud-share" disabled>Copy read-only link</button>
-      <button type="button" id="btn-cloud-share-edit" disabled>Copy editable link</button>
       <dialog id="cloud-save-dialog">
         <form method="dialog" id="cloud-save-form">
           <h2>Save to cloud</h2>
@@ -25,15 +36,13 @@ function setupDom() {
         </form>
       </dialog>
       <dialog id="cloud-open-dialog">
+        <h2>Open from Google Drive</h2>
         <ul id="cloud-outline-list"></ul>
         <button type="button" id="btn-cloud-open-cancel">Cancel</button>
       </dialog>
-      <dialog id="cloud-share-dialog">
-        <h2 id="cloud-share-heading">Read-only link</h2>
-        <p id="cloud-share-hint" class="cloud-share-hint"></p>
-        <input id="cloud-share-url" readonly />
-        <button type="button" id="btn-cloud-share-copy">Copy</button>
-        <button type="button" id="btn-cloud-share-close">Close</button>
+      <dialog id="cloud-delete-dialog">
+        <ul id="cloud-delete-list"></ul>
+        <button type="button" id="btn-cloud-delete-cancel">Cancel</button>
       </dialog>
       <p id="cloud-status" role="status"></p>
     </div>
@@ -43,7 +52,7 @@ function setupDom() {
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.HTMLDialogElement = dom.window.HTMLDialogElement;
-  for (const id of ['cloud-save-dialog', 'cloud-open-dialog', 'cloud-share-dialog']) {
+  for (const id of ['cloud-save-dialog', 'cloud-open-dialog', 'cloud-delete-dialog']) {
     const el = document.getElementById(id);
     el.showModal = () => {
       el.setAttribute('open', '');
@@ -63,14 +72,26 @@ describe('cloud UI', () => {
   let signedInUser;
   let createdCalls;
   let savedCalls;
+  let deletedCalls;
   let outlineId;
+  let syncUrlCalls;
+  let outlineDirty;
+  let alerts;
 
   beforeEach(() => {
     dom = setupDom();
     signedInUser = { uid: 'u1', displayName: 'Ada', email: 'ada@example.com' };
     createdCalls = [];
     savedCalls = [];
+    deletedCalls = [];
+    syncUrlCalls = [];
     outlineId = null;
+    outlineDirty = false;
+    alerts = [];
+    window.confirm = () => true;
+    window.alert = (msg) => {
+      alerts.push(String(msg));
+    };
     const listeners = [];
     auth = {
       onAuthStateChanged(cb) {
@@ -113,12 +134,16 @@ describe('cloud UI', () => {
         token: 'share-tok',
         urlPath: `/outliner/?view=share-tok&from=${id}`,
       }),
+      deleteOutline: async (id) => {
+        deletedCalls.push(id);
+      },
     };
     outline = {
       root: document.querySelector('[data-outline-root]'),
       toOpml: () => '<opml></opml>',
       parseOpml: () => ({ title: 'Bridge notes', items: [] }),
       loadOutline: () => {},
+      insertOutline: () => {},
       getTitle: () => 'Untitled outline',
       setTitle: (t) => {
         outline._title = t;
@@ -131,11 +156,14 @@ describe('cloud UI', () => {
       setRevision: () => {},
       getLeaseToken: () => null,
       setLeaseToken: () => {},
-      syncUrl: () => {},
+      syncUrl: (id) => {
+        syncUrlCalls.push(id);
+      },
+      isDirty: () => outlineDirty,
     };
   });
 
-  it('shows the cloud bar when configured and enables save after sign-in', async () => {
+  it('shows Cloud menu and status bar when configured; auth item becomes Sign out', async () => {
     signedInUser = null;
     const ui = mountCloudUi({
       auth,
@@ -144,19 +172,24 @@ describe('cloud UI', () => {
       configured: true,
     });
     const bar = document.querySelector('[data-cloud-bar]');
+    const cloudMenu = document.querySelector('[data-menu="cloud"]');
     assert.equal(bar.hidden, false);
+    assert.equal(cloudMenu.hidden, false);
     assert.equal(document.getElementById('menu-save').disabled, true);
+    const authItem = document.getElementById('menu-cloud-auth');
+    assert.equal(authItem.textContent, 'Sign in with Google');
 
-    document.getElementById('btn-sign-in').click();
+    authItem.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(document.getElementById('menu-save').disabled, false);
     assert.equal(document.getElementById('menu-save').textContent, 'Save…');
+    assert.equal(authItem.textContent, 'Sign out');
     assert.equal(document.getElementById('cloud-user').hidden, false);
     assert.match(document.getElementById('cloud-user').textContent, /Ada/);
     ui.destroy();
   });
 
-  it('keeps the cloud bar hidden when not configured', () => {
+  it('keeps Cloud menu and status bar hidden when not configured', () => {
     mountCloudUi({
       auth,
       cloud,
@@ -164,6 +197,7 @@ describe('cloud UI', () => {
       configured: false,
     });
     assert.equal(document.querySelector('[data-cloud-bar]').hidden, true);
+    assert.equal(document.querySelector('[data-menu="cloud"]').hidden, true);
   });
 
   it('asks for a name before saving a new outline to the cloud', async () => {
@@ -198,13 +232,154 @@ describe('cloud UI', () => {
 
     const dialog = document.getElementById('cloud-open-dialog');
     assert.ok(dialog.hasAttribute('open'));
+    assert.match(dialog.querySelector('h2').textContent, /Open from Google Drive/);
     const labels = [...document.querySelectorAll('#cloud-outline-list button')].map(
       (b) => b.textContent,
     );
     assert.deepEqual(labels, ['Bridge notes', 'Shopping']);
   });
 
-  it('stores server revision when opening so a later save can send If-Match', async () => {
+  it('keeps Drive modifiedTime as Updated even when OPML has dateModified', async () => {
+    const driveTime = '2026-10-29T15:04:05.000Z';
+    const opmlTime = new Date('2020-01-01T00:00:00.000Z');
+    const updates = [];
+    outline.parseOpml = () => ({
+      title: 'Bridge notes',
+      items: [],
+      dateModified: opmlTime,
+    });
+    outline.loadOutline = () => {
+      updates.push('loadOutline');
+      // Mimic app.js applying OPML date during load (must not win over Drive).
+      outline.setUpdatedAt?.(opmlTime);
+    };
+    outline.setUpdatedAt = (d) => {
+      updates.push(d);
+    };
+    cloud.getOutline = async () => ({
+      opml: '<?xml version="1.0"?><opml version="2.0"><body></body></opml>',
+      revision: 4,
+      title: 'Bridge notes',
+      modifiedTime: driveTime,
+    });
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-open').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-outline-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.ok(updates.includes('loadOutline'));
+    assert.equal(updates.at(-1), driveTime);
+    assert.ok(
+      updates.indexOf('loadOutline') < updates.length - 1,
+      'setUpdatedAt(Drive) must run after loadOutline',
+    );
+  });
+
+  it('enables Insert… with Open when signed in', async () => {
+    signedInUser = null;
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    assert.equal(document.getElementById('menu-insert').disabled, true);
+    document.getElementById('menu-cloud-auth').click();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(document.getElementById('menu-insert').disabled, false);
+    assert.equal(document.getElementById('menu-open').disabled, false);
+  });
+
+  it('lists Drive outlines for Insert… and inserts without replacing the current outline', async () => {
+    outlineId = 'current-1';
+    outline._title = 'Current';
+    outline.getTitle = () => outline._title;
+    const inserts = [];
+    const loads = [];
+    outline.insertOutline = (tree) => {
+      inserts.push(tree);
+    };
+    outline.loadOutline = () => {
+      loads.push(1);
+    };
+    outline.beforeReplace = async () => {
+      throw new Error('Insert must not ask beforeReplace');
+    };
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-insert').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const dialog = document.getElementById('cloud-open-dialog');
+    assert.ok(dialog.hasAttribute('open'));
+    assert.match(dialog.querySelector('h2').textContent, /Insert from Google Drive/);
+    const labels = [...document.querySelectorAll('#cloud-outline-list button')].map(
+      (b) => b.textContent,
+    );
+    assert.deepEqual(labels, ['Bridge notes', 'Shopping']);
+
+    document.querySelector('#cloud-outline-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(inserts.length, 1);
+    assert.equal(loads.length, 0);
+    assert.equal(outlineId, 'current-1');
+    assert.equal(outline._title, 'Current');
+    assert.equal(syncUrlCalls.length, 0);
+    assert.equal(dialog.hasAttribute('open'), false);
+    assert.match(document.getElementById('cloud-status').textContent, /Inserted/);
+  });
+
+  it('lists saved outlines when deleting and trashes the chosen file after confirm', async () => {
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-delete').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const dialog = document.getElementById('cloud-delete-dialog');
+    assert.ok(dialog.hasAttribute('open'));
+    const labels = [...document.querySelectorAll('#cloud-delete-list button')].map(
+      (b) => b.textContent,
+    );
+    assert.deepEqual(labels, ['Bridge notes', 'Shopping']);
+
+    document.querySelector('#cloud-delete-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.deepEqual(deletedCalls, ['o1']);
+    assert.equal(dialog.hasAttribute('open'), false);
+    assert.match(document.getElementById('cloud-status').textContent, /deleted/i);
+  });
+
+  it('does not delete when the user cancels the confirm', async () => {
+    window.confirm = () => false;
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-delete').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-delete-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.deepEqual(deletedCalls, []);
+    assert.ok(document.getElementById('cloud-delete-dialog').hasAttribute('open'));
+  });
+
+  it('clears the current outline id when deleting the open file', async () => {
+    outlineId = 'o1';
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-delete').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-delete-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(outlineId, null);
+    assert.ok(syncUrlCalls.includes(null));
+  });
+
+  it('stores server revision when opening when Drive provides one', async () => {
     let revision = null;
     outline.setRevision = (rev) => {
       revision = rev;
@@ -247,11 +422,19 @@ describe('cloud UI', () => {
     outlineId = 'existing-1';
     outline.getTitle = () => 'Same name';
     outline.getRevision = () => 2;
-    outline.getLeaseToken = () => 'stale-lease';
     const lockCalls = [];
+    const releaseCalls = [];
+    let leaseHeld = 'stale-lease';
+    outline.getLeaseToken = () => leaseHeld;
+    outline.setLeaseToken = (tok) => {
+      leaseHeld = tok;
+    };
     cloud.acquireLock = async (id) => {
       lockCalls.push(id);
       return { token: 'fresh-lease', leaseUntil: '2099-01-01' };
+    };
+    cloud.releaseLock = async (id, token) => {
+      releaseCalls.push({ id, token });
     };
     mountCloudUi({ auth, cloud, outline, configured: true });
 
@@ -268,6 +451,149 @@ describe('cloud UI', () => {
     assert.equal(savedCalls[0].id, 'existing-1');
     assert.deepEqual(lockCalls, ['existing-1']);
     assert.equal(savedCalls[0].leaseToken, 'fresh-lease');
+    assert.deepEqual(releaseCalls, [{ id: 'existing-1', token: 'fresh-lease' }]);
+    assert.equal(leaseHeld, null);
+  });
+
+  it('releases the edit lock when Save fails after acquiring it', async () => {
+    outlineId = 'existing-1';
+    outline.getTitle = () => 'Same name';
+    outline.getRevision = () => 2;
+    const releaseCalls = [];
+    let leaseHeld = null;
+    outline.getLeaseToken = () => leaseHeld;
+    outline.setLeaseToken = (tok) => {
+      leaseHeld = tok;
+    };
+    cloud.acquireLock = async () => ({ token: 'held-lease', leaseUntil: '2099-01-01' });
+    cloud.releaseLock = async (id, token) => {
+      releaseCalls.push({ id, token });
+    };
+    cloud.saveOutline = async () => {
+      throw new Error('Drive write failed');
+    };
+    const alerts = [];
+    window.alert = (msg) => {
+      alerts.push(String(msg));
+    };
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(savedCalls.length, 0);
+    assert.deepEqual(releaseCalls, [{ id: 'existing-1', token: 'held-lease' }]);
+    assert.equal(leaseHeld, null);
+    assert.match(alerts[0] || '', /Drive write failed/);
+  });
+
+  it('does not keep a new title or Updated time when Cloud Save fails', async () => {
+    outlineId = 'existing-1';
+    let title = 'Original name';
+    let updatedAt = 'prior-stamp';
+    const opmlCalls = [];
+    outline.getTitle = () => title;
+    outline.setTitle = (t) => {
+      title = t;
+    };
+    outline.setUpdatedAt = (d) => {
+      updatedAt = d;
+    };
+    outline.getRevision = () => 2;
+    outline.toOpml = (opts = {}) => {
+      opmlCalls.push(opts);
+      return '<opml></opml>';
+    };
+    cloud.createOutline = async () => {
+      throw new Error('Drive create failed');
+    };
+    window.alert = () => {};
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-save-as').click();
+    await new Promise((r) => setTimeout(r, 0));
+    document.getElementById('cloud-save-name').value = 'Renamed on Drive';
+    document.getElementById('cloud-save-form').dispatchEvent(
+      new dom.window.Event('submit', { bubbles: true, cancelable: true }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(title, 'Original name');
+    assert.equal(updatedAt, 'prior-stamp');
+    assert.equal(outlineId, 'existing-1');
+    assert.equal(opmlCalls[0]?.title, 'Renamed on Drive');
+    assert.ok(opmlCalls[0]?.dateModified instanceof Date);
+  });
+
+  it('does not advance Updated when an in-place Cloud Save fails', async () => {
+    outlineId = 'existing-1';
+    let title = 'Same name';
+    let updatedAt = 'prior-stamp';
+    outline.getTitle = () => title;
+    outline.setTitle = (t) => {
+      title = t;
+    };
+    outline.setUpdatedAt = (d) => {
+      updatedAt = d;
+    };
+    outline.getRevision = () => 2;
+    cloud.saveOutline = async () => {
+      throw new Error('Drive write failed');
+    };
+    window.alert = () => {};
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(title, 'Same name');
+    assert.equal(updatedAt, 'prior-stamp');
+  });
+
+  it('Save after detaching a cloud id creates a new Drive file instead of overwriting', async () => {
+    outlineId = 'original-cloud-id';
+    outline.getTitle = () => 'Imported outline';
+    const { clearCloudOutlineBinding } = await import('../cloud-binding.js');
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    clearCloudOutlineBinding(outline);
+
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.ok(document.getElementById('cloud-save-dialog').hasAttribute('open'));
+    document.getElementById('cloud-save-name').value = 'Imported outline';
+    document.getElementById('cloud-save-form').dispatchEvent(
+      new dom.window.Event('submit', { bubbles: true, cancelable: true }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(savedCalls.length, 0);
+    assert.equal(createdCalls.length, 1);
+    assert.equal(createdCalls[0].title, 'Imported outline');
+    assert.equal(outlineId, 'new-1');
+  });
+
+  it('Save works without a revision (Drive v3 often has no ETag)', async () => {
+    outlineId = 'existing-1';
+    outline.getTitle = () => 'Same name';
+    outline.getRevision = () => null;
+    cloud.getOutline = async () => ({
+      opml: '<?xml version="1.0"?><opml version="2.0"><body></body></opml>',
+      revision: null,
+    });
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(savedCalls.length, 1);
+    assert.equal(savedCalls[0].id, 'existing-1');
+    assert.equal(savedCalls[0].revision, null);
+    assert.equal(document.getElementById('cloud-status').textContent, '');
   });
 
   function mockClipboard() {
@@ -288,47 +614,154 @@ describe('cloud UI', () => {
     return written;
   }
 
-  it('creates a read-only share link for the current saved outline', async () => {
+  it('copies a read-only share link to the clipboard without a dialog', async () => {
     outlineId = 'existing-1';
     const written = mockClipboard();
     cloud.createShareLink = async () => ({
-      token: 'share-tok',
-      urlPath: '/outliner/?view=share-tok',
+      token: 'view-opaque',
+      urlPath: '/outliner/?view=view-opaque',
     });
     mountCloudUi({ auth, cloud, outline, configured: true });
-    document.getElementById('btn-cloud-share').click();
+    document.getElementById('menu-cloud-share').click();
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
 
-    const dialog = document.getElementById('cloud-share-dialog');
-    assert.ok(dialog.hasAttribute('open'));
-    assert.match(document.getElementById('cloud-share-url').value, /view=share-tok/);
-    assert.match(document.getElementById('cloud-share-heading').textContent, /read-only/i);
     assert.equal(written.length, 1);
-    assert.match(written[0], /view=share-tok/);
+    assert.match(written[0], /[?&]view=view-opaque/);
+    assert.doesNotMatch(written[0], /[?&]id=/);
+    assert.match(document.getElementById('cloud-status').textContent, /read-only link copied/i);
   });
 
-  it('creates an editable share link for the current saved outline', async () => {
+  it('asks to save before a read-only link when the outline has no Drive id', async () => {
+    outlineId = null;
+    const shareCalls = [];
+    cloud.createShareLink = async (id) => {
+      shareCalls.push(id);
+      return { token: 'x', urlPath: '/outliner/?view=x' };
+    };
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-cloud-share').click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(shareCalls.length, 0);
+    assert.equal(alerts.length, 1);
+    assert.match(alerts[0], /Save this outline to Google Drive before creating a read-only link/i);
+  });
+
+  it('asks to save before a read-only link when the outline is dirty', async () => {
+    outlineId = 'stale-other-doc';
+    outlineDirty = true;
+    const shareCalls = [];
+    cloud.createShareLink = async (id) => {
+      shareCalls.push(id);
+      return { token: 'x', urlPath: `/outliner/?view=x&from=${id}` };
+    };
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-cloud-share').click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(shareCalls.length, 0);
+    assert.equal(alerts.length, 1);
+    assert.match(alerts[0], /Save this outline to Google Drive before creating a read-only link/i);
+  });
+
+  it('copies an editable share link to the clipboard without a dialog', async () => {
     outlineId = 'existing-1';
     const written = mockClipboard();
     cloud.createEditShareLink = async () => ({
-      token: 'edit-tok',
-      urlPath: '/outliner/?edit=edit-tok',
+      token: 'edit-opaque',
+      urlPath: '/outliner/?edit=edit-opaque',
     });
     mountCloudUi({ auth, cloud, outline, configured: true });
-    document.getElementById('btn-cloud-share-edit').click();
+    document.getElementById('menu-cloud-share-edit').click();
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
 
-    assert.ok(document.getElementById('cloud-share-dialog').hasAttribute('open'));
-    assert.match(document.getElementById('cloud-share-url').value, /edit=edit-tok/);
-    assert.match(document.getElementById('cloud-share-heading').textContent, /editable/i);
-    assert.match(document.getElementById('cloud-share-hint').textContent, /edit/i);
     assert.equal(written.length, 1);
-    assert.match(written[0], /edit=edit-tok/);
+    assert.match(written[0], /[?&]edit=edit-opaque/);
+    assert.doesNotMatch(written[0], /[?&]id=/);
+    assert.doesNotMatch(written[0], /view=/);
+    assert.match(document.getElementById('cloud-status').textContent, /editable link copied/i);
   });
 
-  it('in editShareMode enables Save without sign-in and hides share/open chrome', async () => {
+  it('Open uses the Drive file name as the outline title, not the OPML head title', async () => {
+    const titles = [];
+    outline.setTitle = (t) => {
+      titles.push(t);
+      outline._title = t;
+    };
+    outline.parseOpml = () => ({
+      title: 'OPML head title',
+      items: [],
+    });
+    cloud.getOutline = async () => ({
+      opml: '<?xml version="1.0"?><opml version="2.0"><head><title>OPML head title</title></head><body></body></opml>',
+      revision: 1,
+      title: 'Renamed on Drive',
+    });
+    cloud.listOutlines = async () => [
+      { id: 'o1', title: 'Renamed on Drive' },
+    ];
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-open').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-outline-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.deepEqual(titles, ['Renamed on Drive']);
+    assert.equal(outline._title, 'Renamed on Drive');
+  });
+
+  it('Open prefers getOutline title from Drive when the list title is missing', async () => {
+    const titles = [];
+    outline.setTitle = (t) => {
+      titles.push(t);
+    };
+    outline.parseOpml = () => ({ title: 'OPML only', items: [] });
+    cloud.getOutline = async () => ({
+      opml: '<opml></opml>',
+      revision: 1,
+      title: 'From Drive meta',
+    });
+    cloud.listOutlines = async () => [{ id: 'o1' }];
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-open').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-outline-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.deepEqual(titles, ['From Drive meta']);
+  });
+
+  it('wires outlineTitleFromFileName for Drive Open in cloud-ui.js', () => {
+    const src = readFileSync(join(repoRoot, 'cloud-ui.js'), 'utf8');
+    assert.match(src, /outlineTitleFromFileName/);
+    assert.match(
+      src,
+      /outlineTitleFromFileName\(\s*listedTitle\s*\|\|\s*[^,]+,\s*tree\.title\s*\)/,
+    );
+  });
+
+  it('asks to save before an editable link when the outline is dirty', async () => {
+    outlineId = 'stale-other-doc';
+    outlineDirty = true;
+    const shareCalls = [];
+    cloud.createEditShareLink = async (id) => {
+      shareCalls.push(id);
+      return { token: 'x', urlPath: `/outliner/?edit=x&from=${id}` };
+    };
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-cloud-share-edit').click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(shareCalls.length, 0);
+    assert.equal(alerts.length, 1);
+    assert.match(alerts[0], /Save this outline to Google Drive before creating an editable link/i);
+  });
+
+  it('in editShareMode enables Save without sign-in and hides owner Cloud chrome', async () => {
     signedInUser = null;
     outlineId = 'shared-edit-1';
     mountCloudUi({
@@ -338,13 +771,38 @@ describe('cloud UI', () => {
       configured: true,
       editShareMode: true,
     });
-    assert.equal(document.getElementById('btn-sign-in').hidden, true);
-    assert.equal(document.getElementById('btn-cloud-share').hidden, true);
-    assert.equal(document.getElementById('btn-cloud-share-edit').hidden, true);
+    assert.equal(document.querySelector('[data-menu="cloud"]').hidden, false);
+    assert.equal(document.getElementById('menu-cloud-auth').hidden, true);
+    assert.equal(document.getElementById('menu-cloud-share').hidden, true);
     assert.equal(document.getElementById('menu-open').hidden, true);
+    assert.equal(document.getElementById('menu-insert').hidden, true);
+    assert.equal(document.getElementById('menu-delete').hidden, true);
     assert.equal(document.getElementById('menu-save-as').hidden, true);
     assert.equal(document.getElementById('menu-save').disabled, false);
     assert.equal(document.getElementById('menu-save').hidden, false);
+  });
+
+  it('in editShareMode Save overwrites the same outline id even if the title changed', async () => {
+    signedInUser = null;
+    outlineId = 'shared-edit-1';
+    outline.getTitle = () => 'Old title';
+    outline.getRevision = () => null;
+    mountCloudUi({
+      auth,
+      cloud,
+      outline,
+      configured: true,
+      editShareMode: true,
+    });
+    // Title differs from previous — must not create a new owner outline.
+    outline.getTitle = () => 'Renamed by guest';
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(createdCalls.length, 0);
+    assert.equal(savedCalls.length, 1);
+    assert.equal(savedCalls[0].id, 'shared-edit-1');
+    assert.equal(outlineId, 'shared-edit-1');
   });
 
   it('asks beforeReplace before opening a listed outline and aborts when denied', async () => {

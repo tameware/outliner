@@ -25,22 +25,33 @@ export function formatMenuShortcut(spec, options = {}) {
 
   const hasMod = parts.includes('mod');
   const hasShift = parts.includes('shift');
+  const hasAlt = parts.includes('alt');
   const key = parts.find((p) => p !== 'mod' && p !== 'shift' && p !== 'alt' && p !== 'ctrl');
+
+  /** @param {string | undefined} k */
+  function formatKey(k) {
+    if (!k) return '';
+    if (k === 'tab') return mac ? '⇥' : 'Tab';
+    if (k === 'up' || k === 'arrowup') return mac ? '↑' : 'Up';
+    if (k === 'down' || k === 'arrowdown') return mac ? '↓' : 'Down';
+    return k.length === 1 ? k.toUpperCase() : k;
+  }
 
   if (mac) {
     let out = '';
+    if (hasAlt) out += '⌥';
     if (hasShift) out += '⇧';
     if (hasMod) out += '⌘';
-    if (key === 'tab') out += '⇥';
-    else if (key) out += key.length === 1 ? key.toUpperCase() : key;
+    out += formatKey(key);
     return out;
   }
 
   const bits = [];
   if (hasMod) bits.push('Ctrl');
+  if (hasAlt) bits.push('Alt');
   if (hasShift) bits.push('Shift');
-  if (key === 'tab') bits.push('Tab');
-  else if (key) bits.push(key.length === 1 ? key.toUpperCase() : key);
+  const keyLabel = formatKey(key);
+  if (keyLabel) bits.push(keyLabel);
   return bits.join('+');
 }
 

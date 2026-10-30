@@ -1,5 +1,5 @@
 /**
- * File / Edit / View menubar helpers (classic dropdown menus).
+ * Outliner / File / Edit / View menubar helpers (classic dropdown menus).
  */
 
 /** @param {string | null | undefined} outlineId */

@@ -12,6 +12,7 @@ import {
   demoteFollowingSiblings,
   demoteItem,
   promoteItem,
+  addItemAfter,
 } from '../outliner.js';
 import { createOutlineHistory } from '../clear-outline-ui.js';
 
@@ -79,6 +80,29 @@ describe('clear outline', () => {
     assert.deepEqual(getItemTexts(root), ['']);
     assert.equal(history.undo(), true);
     assert.deepEqual(getItemTexts(root), ['Alpha', 'Beta']);
+  });
+
+  it('notifies onChange after run, undo, and redo', () => {
+    const calls = [];
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+      onChange: () => calls.push('change'),
+    });
+    assert.equal(calls.length, 0);
+    history.run(() => {
+      promoteChildren(root.querySelector('[data-item]'));
+      return true;
+    });
+    assert.equal(calls.length, 1);
+    history.undo();
+    assert.equal(calls.length, 2);
+    history.redo();
+    assert.equal(calls.length, 3);
   });
 
   it('handles Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z shortcuts', () => {
@@ -340,6 +364,242 @@ describe('multi-step undo/redo stack', () => {
     assert.equal(undoBtn.disabled, true);
     assert.equal(redoBtn.disabled, false);
   });
+
+  it('enables Undo after typing and undoes the whole typing burst', () => {
+    const undoBtn = document.createElement('button');
+    document.body.append(undoBtn);
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+      undoButton: undoBtn,
+    });
+    history.bindShortcuts(root);
+    const text = root.querySelector('.text');
+    text.focus();
+    const before = getItemTexts(root);
+
+    text.dispatchEvent(
+      new window.InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: 'x',
+      }),
+    );
+    text.textContent = `x${text.textContent}`;
+    assert.equal(history.canUndo(), true);
+    assert.equal(undoBtn.disabled, false);
+
+    text.dispatchEvent(
+      new window.InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: 'y',
+      }),
+    );
+    text.textContent = `y${text.textContent}`;
+    assert.equal(history.undoDepth(), 1, 'coalesce one burst into one undo entry');
+
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), before);
+    assert.equal(undoBtn.disabled, true);
+  });
+
+  it('starts a new undo entry after blur between typing bursts', () => {
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    history.bindShortcuts(root);
+    const text = root.querySelector('.text');
+    text.focus();
+    text.dispatchEvent(
+      new window.InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: 'a',
+      }),
+    );
+    text.blur();
+    text.focus();
+    text.dispatchEvent(
+      new window.InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: 'b',
+      }),
+    );
+    assert.equal(history.undoDepth(), 2);
+  });
+
+  it('enables Undo from input events when beforeinput does not fire', () => {
+    const undoBtn = document.createElement('button');
+    document.body.append(undoBtn);
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+      undoButton: undoBtn,
+    });
+    history.bindShortcuts(root);
+    const text = root.querySelector('.text');
+    text.focus();
+    const before = getItemTexts(root);
+
+    // Some environments (incl. Chromium embed) emit input without beforeinput.
+    text.textContent = `Z${text.textContent}`;
+    text.dispatchEvent(
+      new window.InputEvent('input', {
+        bubbles: true,
+        cancelable: false,
+        inputType: 'insertText',
+        data: 'Z',
+      }),
+    );
+    assert.equal(history.canUndo(), true);
+    assert.equal(undoBtn.disabled, false);
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), before);
+  });
+
+  it('undoes unrecorded typing after Enter before undoing the new line', () => {
+    loadOutline(root, { items: [{ text: 'Alpha', children: [] }] });
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    history.bindShortcuts(root);
+    const first = root.querySelector('[data-item]');
+    history.run(() => {
+      addItemAfter(first, '');
+      return true;
+    });
+    assert.deepEqual(getItemTexts(root), ['Alpha', '']);
+    assert.equal(history.undoDepth(), 1);
+
+    // Typing that never emits beforeinput/input (IME/embeds) must not be wiped
+    // together with the structural Enter step on the first Cmd+Z.
+    const newLine = [...root.querySelectorAll('[data-item] .text')][1];
+    newLine.textContent = 'hello';
+    assert.deepEqual(getItemTexts(root), ['Alpha', 'hello']);
+
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), ['Alpha', '']);
+    assert.equal(history.undoDepth(), 1, 'Enter remains undoable');
+
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), ['Alpha']);
+  });
+
+  it('does not treat expand/collapse as unrecorded typing for undo', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'Parent',
+          expanded: true,
+          children: [{ text: 'Child', children: [] }],
+        },
+      ],
+    });
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    history.bindShortcuts(root);
+    const parent = root.querySelector('[data-item]');
+    history.run(() => {
+      addItemAfter(parent, 'Sibling');
+      return true;
+    });
+    assert.equal(history.undoDepth(), 1);
+    parent.dataset.state = 'collapsed';
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), ['Parent', 'Child']);
+    assert.equal(history.undoDepth(), 0);
+  });
+
+  it('refreshes the input baseline after a structural run so later input undoes only typing', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'Parent',
+          children: [{ text: 'Child', children: [] }],
+        },
+      ],
+    });
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    history.bindShortcuts(root);
+    const parent = root.querySelector('[data-item]');
+    history.run(() => {
+      promoteChildren(parent);
+      return true;
+    });
+    assert.deepEqual(getItemTexts(root), ['Parent', 'Child']);
+    assert.equal(history.undoDepth(), 1);
+
+    // input without beforeinput must use the post-promote baseline, not the pre-promote outline.
+    const childText = [...root.querySelectorAll('[data-item] .text')][1];
+    childText.textContent = 'Child edited';
+    childText.dispatchEvent(
+      new window.InputEvent('input', { bubbles: true, inputType: 'insertText', data: ' edited' }),
+    );
+    assert.equal(history.undoDepth(), 2);
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), ['Parent', 'Child']);
+    assert.equal(history.undoDepth(), 1, 'promote remains undoable');
+  });
+
+  it('refuses undo and redo while the outline is read-only', () => {
+    loadOutline(root, { items: [{ text: 'Alpha', children: [] }] });
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    history.bindShortcuts(root);
+    history.run(() => {
+      addItemAfter(root.querySelector('[data-item]'), 'Beta');
+      return true;
+    });
+    root.dataset.readonly = 'true';
+    root.querySelector('[data-item] .text').textContent = 'mutated';
+    assert.equal(history.undo(), false);
+    assert.deepEqual(getItemTexts(root), ['mutated', 'Beta']);
+    root.dataset.readonly = 'false';
+    assert.equal(history.undo(), true);
+  });
 });
 
 describe('Tab / Shift+Tab undo', () => {
@@ -598,5 +858,34 @@ describe('undo/redo preserves focus', () => {
     assert.deepEqual(getItemTexts(root), ['A', 'B']);
     assert.equal(focusedText(), 'A');
     assert.equal(caretOffset(), 1);
+  });
+
+  it('keeps red hearts and diamonds after undoing an inserted line', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'Lead ♥', children: [] },
+        { text: 'Discard ♦', children: [] },
+      ],
+    });
+    const lines = [...root.querySelectorAll('[data-item] .text')];
+    assert.equal(lines[0].querySelector('.suit-red')?.textContent, '♥');
+    assert.equal(lines[1].querySelector('.suit-red')?.textContent, '♦');
+
+    const first = root.querySelector('[data-item]');
+    placeCaret(first.querySelector('.text'), 1);
+    first.querySelector('.text').dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.deepEqual(getItemTexts(root), ['Lead ♥', '', 'Discard ♦']);
+
+    history.undo();
+    assert.deepEqual(getItemTexts(root), ['Lead ♥', 'Discard ♦']);
+    const restored = [...root.querySelectorAll('[data-item] .text')];
+    assert.equal(restored[0].querySelector('.suit-red')?.textContent, '♥');
+    assert.equal(restored[1].querySelector('.suit-red')?.textContent, '♦');
   });
 });

@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
+import { JSDOM } from 'jsdom';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -34,6 +35,30 @@ describe('index.html CSP-safe entry', () => {
     assert.doesNotMatch(html, /to hide or show its children/);
   });
 
+  it('places the expand/collapse tip as item 2 under How to use this outliner', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    const dom = new JSDOM(html);
+    const outline = dom.window.document.querySelector('[data-outline-root]');
+    const howTo = [...outline.children].find((el) =>
+      /How to use this outliner/.test(
+        el.querySelector(':scope > .row .text')?.textContent ?? '',
+      ),
+    );
+    assert.ok(howTo, 'expected How to use this outliner top-level item');
+    const kids = [...(howTo.querySelector(':scope > ol')?.children ?? [])].filter(
+      (el) => el.matches?.('[data-item]'),
+    );
+    assert.ok(kids.length >= 2, `expected ≥2 children under How to use, got ${kids.length}`);
+    assert.match(
+      kids[0].querySelector(':scope > .row .text')?.textContent ?? '',
+      /Click any line to edit it/,
+    );
+    assert.match(
+      kids[1].querySelector(':scope > .row .text')?.textContent ?? '',
+      /Click ▸ or ▾ beside a parent to show or hide its children/,
+    );
+  });
+
   it('how-to outline does not mention undo/redo shortcuts', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     const tips = [...html.matchAll(/class="text" contenteditable="true">([^<]*)</g)].map(
@@ -56,8 +81,9 @@ describe('index.html CSP-safe entry', () => {
       /class="text" contenteditable="true">(!c !d !h !s[\s\S]*?)<\/div>/,
     )?.[1];
     assert.ok(tip, 'expected !c !d !h !s tip');
-    assert.match(tip, /<span class="suit suit-red">♦<\/span>/);
-    assert.match(tip, /<span class="suit suit-red">♥<\/span>/);
+    assert.match(tip, /<span class="suit suit-red"[^>]*>♦<\/span>/);
+    assert.match(tip, /<span class="suit suit-red"[^>]*>♥<\/span>/);
+    assert.match(tip, /contenteditable="false"/);
     assert.doesNotMatch(tip, /red for hearts/i);
   });
 
@@ -79,17 +105,110 @@ describe('index.html CSP-safe entry', () => {
     assert.match(appJs, /blankOutlineForDeepLink/);
   });
 
-  it('provides File, Edit, and View dropdown menus', () => {
+  it('provides Outliner, File, Edit, View, and Cloud dropdown menus', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
+    assert.match(html, /data-menu="outliner"/);
     assert.match(html, /data-menu="file"/);
     assert.match(html, /data-menu="edit"/);
     assert.match(html, /data-menu="view"/);
+    assert.match(html, /data-menu="cloud"/);
+    assert.ok(html.indexOf('data-menu="outliner"') < html.indexOf('data-menu="file"'));
+    assert.ok(html.indexOf('data-menu="view"') < html.indexOf('data-menu="cloud"'));
     assert.match(html, /class="menu-label"/);
     assert.doesNotMatch(html, /<details/);
     assert.match(html, /id="menu-save"/);
     assert.match(html, /id="menu-save-as"/);
     assert.match(html, /id="menu-revert"/);
-    assert.match(html, /id="menu-import"/);
-    assert.match(html, /id="menu-export"/);
+    assert.match(html, /id="menu-insert"/);
+    assert.match(html, />Insert…</);
+    const fileAt = html.indexOf('data-menu="file"');
+    const editAt = html.indexOf('data-menu="edit"');
+    const cloudAt = html.indexOf('data-menu="cloud"');
+    const filePanel = html.slice(fileAt, editAt);
+    const cloudPanel = html.slice(cloudAt);
+    assert.match(cloudPanel, /id="menu-open"/);
+    assert.match(cloudPanel, /id="menu-insert"/);
+    assert.match(cloudPanel, /id="menu-save"/);
+    assert.match(cloudPanel, /id="menu-save-as"/);
+    assert.match(cloudPanel, /id="menu-delete"/);
+    assert.match(cloudPanel, /id="menu-cloud-revert"/);
+    assert.doesNotMatch(filePanel, /id="menu-open"/);
+    assert.doesNotMatch(filePanel, /id="menu-save"/);
+    assert.ok(
+      cloudPanel.indexOf('id="menu-open"') < cloudPanel.indexOf('id="menu-insert"') &&
+        cloudPanel.indexOf('id="menu-insert"') < cloudPanel.indexOf('id="menu-save"'),
+      'Insert… should sit between Open and Save in Cloud',
+    );
+    assert.ok(
+      cloudPanel.indexOf('id="menu-delete"') < cloudPanel.indexOf('id="menu-cloud-revert"') &&
+        cloudPanel.indexOf('id="menu-cloud-revert"') < cloudPanel.indexOf('id="menu-cloud-share"'),
+      'Cloud Revert should sit between Delete and share links',
+    );
+    assert.match(filePanel, /id="menu-file-open"/);
+    assert.match(filePanel, /id="menu-file-save"/);
+    assert.match(filePanel, /id="menu-file-save-as"/);
+    assert.match(filePanel, /id="menu-revert"/);
+    assert.match(html, /id="menu-insert-import"/);
+    assert.match(filePanel, /id="menu-insert-import"[^>]*>\s*Insert…\s*</);
+    assert.doesNotMatch(filePanel, /Insert Import/);
+    assert.doesNotMatch(filePanel, /id="menu-import"/);
+    assert.doesNotMatch(filePanel, /id="menu-export"/);
+    assert.ok(
+      filePanel.indexOf('id="menu-file-open"') < filePanel.indexOf('id="menu-insert-import"') &&
+        filePanel.indexOf('id="menu-insert-import"') < filePanel.indexOf('id="menu-file-save"') &&
+        filePanel.indexOf('id="menu-file-save"') < filePanel.indexOf('id="menu-file-save-as"'),
+      'File order should be Open, Insert, Save, Save As',
+    );
+    assert.match(html, /id="menu-cloud-auth"/);
+    assert.match(html, /id="menu-cloud-share"/);
+    assert.match(html, /id="menu-cloud-share-edit"/);
+    assert.doesNotMatch(html, /id="btn-sign-in"/);
+    assert.doesNotMatch(html, /id="btn-cloud-share"/);
+  });
+
+  it('wires File Insert… through insertOutline without replacing the outline', () => {
+    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    assert.match(appJs, /menu-insert-import/);
+    assert.match(appJs, /insertOutline/);
+    assert.match(appJs, /triggerLegacyFileOpen\(['"]insert['"]\)/);
+    assert.match(appJs, /mode === 'insert'/);
+  });
+
+  it('wires Drive Insert… through outline.insertOutline', () => {
+    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    const cloudUi = readFileSync(join(root, 'cloud-ui.js'), 'utf8');
+    assert.match(appJs, /insertOutline:\s*\(tree\)\s*=>/);
+    assert.match(cloudUi, /menu-insert/);
+    assert.match(cloudUi, /insertOutline/);
+    assert.match(cloudUi, /Insert from Google Drive/);
+  });
+
+  it('wires File and Cloud Revert to the same revert handler', () => {
+    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    assert.match(appJs, /menu-cloud-revert/);
+    assert.match(appJs, /function onRevert\b/);
+    assert.match(appJs, /getElementById\('menu-revert'\)[\s\S]*?onRevert/);
+    assert.match(appJs, /getElementById\('menu-cloud-revert'\)[\s\S]*?onRevert/);
+  });
+
+  it('includes Find & Replace dialog and Edit menu items', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    assert.match(html, /id="menu-find"/);
+    assert.match(html, /id="menu-replace"/);
+    assert.match(html, /id="find-replace-dialog"/);
+    assert.match(html, /id="find-replace-grep"/);
+    assert.match(html, /id="find-replace-whole"/);
+    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    assert.match(appJs, /mountFindReplace/);
+  });
+
+  it('links to a privacy policy page from the Outliner menu', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    assert.match(html, /id="menu-privacy"[^>]*>\s*Privacy\s*</);
+    assert.doesNotMatch(html, /chrome-privacy/);
+    const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
+    assert.match(privacy, /Privacy Policy/i);
+    assert.match(privacy, /Google Drive/i);
+    assert.match(privacy, /drive\.file/);
   });
 });

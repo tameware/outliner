@@ -11,10 +11,13 @@ import {
   addItemAfter,
   addItemBelow,
   removeItem,
+  mergeWithPreviousLine,
   demoteItem,
   promoteItem,
   promoteChildren,
   demoteFollowingSiblings,
+  moveItemUp,
+  moveItemDown,
   serializeOutline,
   setReadOnly,
   isReadOnly,
@@ -22,6 +25,26 @@ import {
   focusSameLevelSibling,
   focusAdjacentItem,
 } from '../outliner.js';
+
+function placeCaretAtStart(textEl) {
+  textEl.focus();
+  const range = document.createRange();
+  range.selectNodeContents(textEl);
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function caretOffsetIn(textEl) {
+  const sel = window.getSelection();
+  if (!sel?.rangeCount) return -1;
+  const range = sel.getRangeAt(0);
+  const pre = range.cloneRange();
+  pre.selectNodeContents(textEl);
+  pre.setEnd(range.startContainer, range.startOffset);
+  return pre.toString().length;
+}
 
 function setupDom(html) {
   const dom = new JSDOM(`<!DOCTYPE html><html><body>${html}</body></html>`, {
@@ -238,6 +261,70 @@ describe('WYSIWYG HTML outliner', () => {
     assert.equal(directFirstChild(alpha)?.querySelector('.text')?.textContent, 'Beta');
   });
 
+  it('mergeWithPreviousLine appends text into the previous visible line and places the caret at the join', () => {
+    const delta = items[3];
+    const gamma = items[2];
+    assert.equal(getItemText(delta), 'Delta');
+    assert.equal(getItemText(gamma), 'Gamma');
+    assert.equal(mergeWithPreviousLine(delta), true);
+    assert.equal(getItemText(gamma), 'GammaDelta');
+    assert.equal(root.querySelectorAll('[data-item]').length, 4);
+    assert.equal(document.activeElement.closest('[data-item]'), gamma);
+    assert.equal(caretOffsetIn(gamma.querySelector('.text')), 'Gamma'.length);
+  });
+
+  it('mergeWithPreviousLine into a parent reparents the merged line’s children', () => {
+    const alpha = items[0];
+    const beta = items[1];
+    assert.equal(mergeWithPreviousLine(beta), true);
+    assert.equal(getItemText(alpha), 'AlphaBeta');
+    const kids = [...(childListOf(alpha)?.querySelectorAll(':scope > [data-item]') || [])].map(
+      getItemText,
+    );
+    assert.deepEqual(kids, ['Gamma', 'Delta']);
+    assert.equal(caretOffsetIn(alpha.querySelector('.text')), 'Alpha'.length);
+  });
+
+  it('Backspace at the start of a non-empty line merges with the line above', () => {
+    const epsilon = items[4];
+    const epsilonText = epsilon.querySelector('.text');
+    placeCaretAtStart(epsilonText);
+    const event = new window.KeyboardEvent('keydown', {
+      key: 'Backspace',
+      bubbles: true,
+      cancelable: true,
+    });
+    epsilonText.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(getItemText(items[3]), 'DeltaEpsilon');
+    assert.equal(
+      [...root.querySelectorAll('[data-item]')].map(getItemText).includes('Epsilon'),
+      false,
+    );
+  });
+
+  it('mergeWithPreviousLine is a no-op at the first top-level line with text', () => {
+    assert.equal(mergeWithPreviousLine(items[0]), false);
+    assert.equal(getItemText(items[0]), 'Alpha');
+  });
+
+  it('mergeWithPreviousLine keeps red suit spans when joining lines', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'AK♥', children: [] },
+        { text: ' vs ♦2', children: [] },
+      ],
+    });
+    const [first, second] = root.querySelectorAll('[data-item]');
+    assert.equal(first.querySelectorAll('.suit-red').length, 1);
+    assert.equal(second.querySelectorAll('.suit-red').length, 1);
+    assert.equal(mergeWithPreviousLine(second), true);
+    assert.equal(getItemText(first), 'AK♥ vs ♦2');
+    const reds = [...first.querySelectorAll('.suit-red')].map((el) => el.textContent);
+    assert.deepEqual(reds, ['♥', '♦']);
+    assert.equal(caretOffsetIn(first.querySelector('.text')), 'AK♥'.length);
+  });
+
   it('removes an item and keeps siblings intact', () => {
     removeItem(items[3]); // Delta
     assert.deepEqual(getItemTexts(root), ['Alpha', 'Beta', 'Gamma', 'Epsilon']);
@@ -360,6 +447,64 @@ describe('WYSIWYG HTML outliner', () => {
   it('toolbar demote does nothing when there are no following siblings', () => {
     assert.equal(demoteFollowingSiblings(items[3]), false); // Delta is last under Alpha
     assert.equal(demoteFollowingSiblings(items[4]), false); // Epsilon is last top-level
+  });
+
+  it('moves an item up among same-level siblings, keeping children nested', () => {
+    assert.equal(moveItemUp(items[4]), true); // Epsilon above Alpha
+    assert.deepEqual(serializeOutline(root), [
+      { text: 'Epsilon', children: [] },
+      {
+        text: 'Alpha',
+        children: [
+          {
+            text: 'Beta',
+            children: [{ text: 'Gamma', children: [] }],
+          },
+          { text: 'Delta', children: [] },
+        ],
+      },
+    ]);
+  });
+
+  it('moves an item down among same-level siblings with its subtree', () => {
+    assert.equal(moveItemDown(items[0]), true); // Alpha below Epsilon
+    assert.deepEqual(serializeOutline(root), [
+      { text: 'Epsilon', children: [] },
+      {
+        text: 'Alpha',
+        children: [
+          {
+            text: 'Beta',
+            children: [{ text: 'Gamma', children: [] }],
+          },
+          { text: 'Delta', children: [] },
+        ],
+      },
+    ]);
+  });
+
+  it('moves a nested item among its siblings without changing level', () => {
+    assert.equal(moveItemDown(items[1]), true); // Beta below Delta under Alpha
+    assert.deepEqual(serializeOutline(root), [
+      {
+        text: 'Alpha',
+        children: [
+          { text: 'Delta', children: [] },
+          {
+            text: 'Beta',
+            children: [{ text: 'Gamma', children: [] }],
+          },
+        ],
+      },
+      { text: 'Epsilon', children: [] },
+    ]);
+  });
+
+  it('cannot move the first sibling up or the last sibling down', () => {
+    assert.equal(moveItemUp(items[0]), false); // Alpha
+    assert.equal(moveItemUp(items[1]), false); // Beta first under Alpha
+    assert.equal(moveItemDown(items[3]), false); // Delta last under Alpha
+    assert.equal(moveItemDown(items[4]), false); // Epsilon last top-level
   });
 
   function placeCaret(el, offset) {

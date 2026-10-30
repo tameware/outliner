@@ -4,6 +4,9 @@ import { JSDOM } from 'jsdom';
 import {
   matchSuitShortcut,
   tryInsertSuitShortcut,
+  fillTextWithSuits,
+  expandSuitBangShortcuts,
+  tryInsertSuitShortcutInInput,
   SUIT_GLYPHS,
 } from '../suit-shortcuts.js';
 import { mountOutliner, getItemText } from '../outliner.js';
@@ -22,6 +25,59 @@ describe('suit shortcuts', () => {
     assert.equal(matchSuitShortcut('!c', 'c'), null);
     assert.equal(matchSuitShortcut('!', 'x'), null);
     assert.equal(matchSuitShortcut('', 'c'), null);
+  });
+
+  it('expandSuitBangShortcuts turns !c !d !h !s into glyphs', () => {
+    assert.equal(
+      expandSuitBangShortcuts('Lead !h then !d vs !s!c'),
+      `Lead ${SUIT_GLYPHS.hearts} then ${SUIT_GLYPHS.diamonds} vs ${SUIT_GLYPHS.spades}${SUIT_GLYPHS.clubs}`,
+    );
+    assert.equal(expandSuitBangShortcuts('!H !D'), `${SUIT_GLYPHS.hearts} ${SUIT_GLYPHS.diamonds}`);
+    assert.equal(expandSuitBangShortcuts('plain'), 'plain');
+  });
+
+  it('tryInsertSuitShortcutInInput replaces ! plus letter in a text input', () => {
+    const dom = new JSDOM('<!DOCTYPE html><body><input id="r" /></body>', {
+      url: 'http://localhost/',
+    });
+    globalThis.document = dom.window.document;
+    const input = document.getElementById('r');
+    input.value = 'AK!';
+    input.selectionStart = 3;
+    input.selectionEnd = 3;
+    assert.equal(tryInsertSuitShortcutInInput(input, 'h'), true);
+    assert.equal(input.value, `AK${SUIT_GLYPHS.hearts}`);
+    assert.equal(input.selectionStart, 3);
+  });
+
+  describe('fillTextWithSuits', () => {
+    it('wraps hearts and diamonds in red while leaving black suits as text', () => {
+      const dom = new JSDOM('<!DOCTYPE html><body><div class="text"></div></body>', {
+        url: 'http://localhost/',
+      });
+      globalThis.document = dom.window.document;
+      const el = document.querySelector('.text');
+      const plain = `A${SUIT_GLYPHS.spades}K${SUIT_GLYPHS.hearts} vs ${SUIT_GLYPHS.diamonds}${SUIT_GLYPHS.clubs}`;
+      fillTextWithSuits(el, plain);
+      assert.equal(el.textContent, plain);
+      const reds = [...el.querySelectorAll('.suit-red')].map((n) => n.textContent);
+      assert.deepEqual(reds, [SUIT_GLYPHS.hearts, SUIT_GLYPHS.diamonds]);
+      const red = el.querySelector('.suit-red');
+      assert.equal(red?.className, 'suit suit-red');
+      assert.equal(red?.getAttribute('contenteditable'), 'false');
+    });
+
+    it('clears the element when given empty text', () => {
+      const dom = new JSDOM(
+        `<!DOCTYPE html><body><div class="text"><span class="suit suit-red">${SUIT_GLYPHS.hearts}</span></div></body>`,
+        { url: 'http://localhost/' },
+      );
+      globalThis.document = dom.window.document;
+      const el = document.querySelector('.text');
+      fillTextWithSuits(el, '');
+      assert.equal(el.textContent, '');
+      assert.equal(el.childNodes.length, 0);
+    });
   });
 
   describe('DOM insertion', () => {
@@ -75,6 +131,31 @@ describe('suit shortcuts', () => {
       sel.addRange(range);
       assert.equal(tryInsertSuitShortcut(text, 'd'), true);
       assert.equal(text.querySelector('.suit-red').textContent, SUIT_GLYPHS.diamonds);
+    });
+
+    it('keeps following typed text outside the red suit span', () => {
+      assert.equal(tryInsertSuitShortcut(text, 'h'), true);
+      const heart = text.querySelector('.suit-red');
+      assert.ok(heart);
+      assert.equal(heart.getAttribute('contenteditable'), 'false');
+
+      const sel = window.getSelection();
+      const caret = sel.getRangeAt(0);
+      assert.equal(
+        heart.contains(caret.startContainer),
+        false,
+        'caret must sit after the suit, not inside .suit-red',
+      );
+
+      caret.insertNode(document.createTextNode('QJT'));
+      assert.equal(heart.textContent, SUIT_GLYPHS.hearts);
+      assert.equal(text.textContent, `AK${SUIT_GLYPHS.hearts}QJT`);
+      assert.equal(heart.querySelector('*'), null);
+      assert.ok(
+        [...text.childNodes].some(
+          (n) => n.nodeType === Node.TEXT_NODE && n.textContent.includes('QJT'),
+        ),
+      );
     });
 
     it('keeps every heart and diamond on the line wrapped in red', () => {
