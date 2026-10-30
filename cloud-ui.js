@@ -412,8 +412,9 @@ export function mountCloudUi({
       const tree = outline.parseOpml(opml);
       const modifiedTime =
         typeof got === 'string' ? null : got.modifiedTime || tree.dateModified;
-      outline.setUpdatedAt?.(modifiedTime ?? null);
       outline.loadOutline(tree);
+      // After loadOutline: Drive Last-Modified wins over any OPML dateModified.
+      outline.setUpdatedAt?.(modifiedTime ?? null);
       outline.setOutlineId?.(id);
       outline.setRevision?.(revision ?? tree.revision ?? null);
       outline.setLeaseToken?.(null);

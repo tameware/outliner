@@ -158,6 +158,18 @@ describe('open expansion', () => {
     );
   });
 
+  it('cloud loadOutline does not reuse a stale documentUpdatedAt for Updated', () => {
+    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    assert.match(
+      appJs,
+      /loadOutline:\s*\(tree\)\s*=>\s*\{[\s\S]*?applyDocumentUpdated\(tree\.dateModified\s*\?\?\s*null\)/,
+    );
+    assert.doesNotMatch(
+      appJs,
+      /loadOutline:\s*\(tree\)\s*=>\s*\{[\s\S]*?applyDocumentUpdated\(tree\.dateModified\s*\?\?\s*documentUpdatedAt\)/,
+    );
+  });
+
   it('app.js applies open expansion for the starter outline when not deep-linking', () => {
     const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
     assert.match(

@@ -681,7 +681,9 @@ async function initCloud() {
         applyOpenExpansion(root);
         outlineHistory.discard();
         // Title comes from the Drive file name via setTitle (not OPML <head><title>).
-        applyDocumentUpdated(tree.dateModified ?? documentUpdatedAt);
+        // Prefer OPML date when present; callers (Cloud Open) set Drive time afterward.
+        // Do not fall back to documentUpdatedAt — that can keep a previous file's stamp.
+        applyDocumentUpdated(tree.dateModified ?? null);
         syncFocusMenus();
         outlinerMenuUi.syncHelpEnabled();
         const item = root.querySelector('[data-item]');

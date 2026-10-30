@@ -239,6 +239,46 @@ describe('cloud UI', () => {
     assert.deepEqual(labels, ['Bridge notes', 'Shopping']);
   });
 
+  it('keeps Drive modifiedTime as Updated even when OPML has dateModified', async () => {
+    const driveTime = '2026-10-29T15:04:05.000Z';
+    const opmlTime = new Date('2020-01-01T00:00:00.000Z');
+    const updates = [];
+    outline.parseOpml = () => ({
+      title: 'Bridge notes',
+      items: [],
+      dateModified: opmlTime,
+    });
+    outline.loadOutline = () => {
+      updates.push('loadOutline');
+      // Mimic app.js applying OPML date during load (must not win over Drive).
+      outline.setUpdatedAt?.(opmlTime);
+    };
+    outline.setUpdatedAt = (d) => {
+      updates.push(d);
+    };
+    cloud.getOutline = async () => ({
+      opml: '<?xml version="1.0"?><opml version="2.0"><body></body></opml>',
+      revision: 4,
+      title: 'Bridge notes',
+      modifiedTime: driveTime,
+    });
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-open').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-outline-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.ok(updates.includes('loadOutline'));
+    assert.equal(updates.at(-1), driveTime);
+    assert.ok(
+      updates.indexOf('loadOutline') < updates.length - 1,
+      'setUpdatedAt(Drive) must run after loadOutline',
+    );
+  });
+
   it('enables Insert… with Open when signed in', async () => {
     signedInUser = null;
     mountCloudUi({ auth, cloud, outline, configured: true });
