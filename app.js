@@ -74,7 +74,7 @@ import {
   supportsFileSystemAccess,
   localSaveMenuLabel,
   suggestedOpmlFilename,
-  outlineTitleForLocalOpen,
+  outlineTitleFromFileName,
   openOpmlWithFilePicker,
   saveOutlineLocally,
   isAbortError,
@@ -367,7 +367,7 @@ function applyOpenedLocalOutline(tree, fallbackName, meta = {}) {
   cloudUi?.syncSaveLabel?.();
   loadOutline(root, tree);
   outlineHistory.discard();
-  const title = outlineTitleForLocalOpen(fallbackName, tree.title);
+  const title = outlineTitleFromFileName(fallbackName, tree.title);
   if (title) applyDocumentTitle(title);
   applyDocumentUpdated(meta.updatedAt ?? tree.dateModified ?? null);
   dirty.markClean();
@@ -637,7 +637,7 @@ async function initCloud() {
         clearLocalFileHandle();
         loadOutline(root, tree);
         outlineHistory.discard();
-        if (tree.title) applyDocumentTitle(tree.title);
+        // Title comes from the Drive file name via setTitle (not OPML <head><title>).
         applyDocumentUpdated(tree.dateModified ?? documentUpdatedAt);
         syncFocusMenus();
         const item = root.querySelector('[data-item]');
@@ -698,7 +698,8 @@ async function initCloud() {
         hideOutlineLoading(root);
         loadOutline(root, tree);
         clearLocalFileHandle();
-        if (got.title || tree.title) applyDocumentTitle(got.title || tree.title);
+        const title = outlineTitleFromFileName(got.title, tree.title);
+        if (title) applyDocumentTitle(title);
         applyDocumentUpdated(got.modifiedTime ?? tree.dateModified ?? null);
         // Match Cloud Open: keep currentOutlineId + owner ?id= URL in sync.
         // Share ?view= / ?edit= URLs stay opaque (syncUrl no-ops the history rewrite).

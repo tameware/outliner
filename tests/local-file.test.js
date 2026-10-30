@@ -9,7 +9,7 @@ import {
   localSaveMenuLabel,
   suggestedOpmlFilename,
   titleFromOpmlFileName,
-  outlineTitleForLocalOpen,
+  outlineTitleFromFileName,
   openOpmlWithFilePicker,
   saveOpmlWithFilePicker,
   writeOpmlToFileHandle,
@@ -82,20 +82,20 @@ describe('local file (File System Access)', () => {
     assert.equal(titleFromOpmlFileName(null), '');
   });
 
-  it('prefers the file name over the OPML head title when opening locally', () => {
+  it('prefers the file name over the OPML head title when opening locally or from Drive', () => {
     assert.equal(
-      outlineTitleForLocalOpen('Bridge notes.opml', 'Different OPML title'),
+      outlineTitleFromFileName('Bridge notes.opml', 'Different OPML title'),
       'Bridge notes',
     );
     assert.equal(
-      outlineTitleForLocalOpen('notes.opml', ''),
+      outlineTitleFromFileName('notes.opml', ''),
       'notes',
     );
     assert.equal(
-      outlineTitleForLocalOpen('', 'OPML only title'),
+      outlineTitleFromFileName('', 'OPML only title'),
       'OPML only title',
     );
-    assert.equal(outlineTitleForLocalOpen('.opml', 'Fallback'), 'Fallback');
+    assert.equal(outlineTitleFromFileName('.opml', 'Fallback'), 'Fallback');
   });
 
   it('declares OPML accept types for the pickers', () => {
@@ -294,11 +294,11 @@ describe('index.html File Open / Save', () => {
     assert.match(appJs, /supportsFileSystemAccess|openOpmlWithFilePicker/);
     assert.match(
       appJs,
-      /outlineTitleForLocalOpen\(fallbackName,\s*tree\.title\)/,
+      /outlineTitleFromFileName\(fallbackName,\s*tree\.title\)/,
     );
     assert.match(
       appJs,
-      /const title = outlineTitleForLocalOpen\(fallbackName,\s*tree\.title\);\s*\n\s*if \(title\) applyDocumentTitle\(title\);/,
+      /const title = outlineTitleFromFileName\(fallbackName,\s*tree\.title\);\s*\n\s*if \(title\) applyDocumentTitle\(title\);/,
     );
   });
 });

@@ -1,7 +1,12 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { mountCloudUi } from '../cloud-ui.js';
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><html><body>
@@ -529,6 +534,66 @@ describe('cloud UI', () => {
     assert.doesNotMatch(written[0], /[?&]id=/);
     assert.doesNotMatch(written[0], /view=/);
     assert.match(document.getElementById('cloud-status').textContent, /editable link copied/i);
+  });
+
+  it('Open uses the Drive file name as the outline title, not the OPML head title', async () => {
+    const titles = [];
+    outline.setTitle = (t) => {
+      titles.push(t);
+      outline._title = t;
+    };
+    outline.parseOpml = () => ({
+      title: 'OPML head title',
+      items: [],
+    });
+    cloud.getOutline = async () => ({
+      opml: '<?xml version="1.0"?><opml version="2.0"><head><title>OPML head title</title></head><body></body></opml>',
+      revision: 1,
+      title: 'Renamed on Drive',
+    });
+    cloud.listOutlines = async () => [
+      { id: 'o1', title: 'Renamed on Drive' },
+    ];
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-open').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-outline-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.deepEqual(titles, ['Renamed on Drive']);
+    assert.equal(outline._title, 'Renamed on Drive');
+  });
+
+  it('Open prefers getOutline title from Drive when the list title is missing', async () => {
+    const titles = [];
+    outline.setTitle = (t) => {
+      titles.push(t);
+    };
+    outline.parseOpml = () => ({ title: 'OPML only', items: [] });
+    cloud.getOutline = async () => ({
+      opml: '<opml></opml>',
+      revision: 1,
+      title: 'From Drive meta',
+    });
+    cloud.listOutlines = async () => [{ id: 'o1' }];
+    mountCloudUi({ auth, cloud, outline, configured: true });
+    document.getElementById('menu-open').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    document.querySelector('#cloud-outline-list button').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.deepEqual(titles, ['From Drive meta']);
+  });
+
+  it('wires outlineTitleFromFileName for Drive Open in cloud-ui.js', () => {
+    const src = readFileSync(join(repoRoot, 'cloud-ui.js'), 'utf8');
+    assert.match(src, /outlineTitleFromFileName/);
+    assert.match(
+      src,
+      /outlineTitleFromFileName\(\s*listedTitle\s*\|\|\s*[^,]+,\s*tree\.title\s*\)/,
+    );
   });
 
   it('asks to save before an editable link when the outline is dirty', async () => {

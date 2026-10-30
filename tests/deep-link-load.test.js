@@ -124,4 +124,21 @@ describe('bindDeepLinkOutlineLoad', () => {
       /applyOutline:\s*async\s*\(got\)\s*=>\s*\{[\s\S]*?if\s*\(got\.fileId\)\s*currentOutlineId\s*=\s*got\.fileId/,
     );
   });
+
+  it('app.js prefers the Drive file title over the OPML head title on deep-link load', () => {
+    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    assert.match(appJs, /outlineTitleFromFileName/);
+    assert.match(
+      appJs,
+      /outlineTitleFromFileName\(\s*got\.title\s*,\s*tree\.title\s*\)/,
+    );
+    assert.doesNotMatch(
+      appJs,
+      /if \(got\.title \|\| tree\.title\) applyDocumentTitle\(got\.title \|\| tree\.title\)/,
+    );
+    assert.doesNotMatch(
+      appJs,
+      /loadOutline:\s*\(tree\)\s*=>\s*\{[^}]*if \(tree\.title\) applyDocumentTitle/,
+    );
+  });
 });

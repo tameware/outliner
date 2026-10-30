@@ -3,6 +3,7 @@
  */
 
 import { syncCloudSaveMenuLabel } from './menubar.js';
+import { outlineTitleFromFileName } from './local-file.js';
 
 /**
  * @param {object} options
@@ -397,6 +398,8 @@ export function mountCloudUi({
       const got = await cloud.getOutline(id);
       const opml = typeof got === 'string' ? got : got.opml;
       const revision = typeof got === 'string' ? null : got.revision;
+      const driveTitle =
+        typeof got === 'string' ? null : got.title;
       const tree = outline.parseOpml(opml);
       const modifiedTime =
         typeof got === 'string' ? null : got.modifiedTime || tree.dateModified;
@@ -405,7 +408,7 @@ export function mountCloudUi({
       outline.setOutlineId?.(id);
       outline.setRevision?.(revision ?? tree.revision ?? null);
       outline.setLeaseToken?.(null);
-      const title = listedTitle || tree.title;
+      const title = outlineTitleFromFileName(listedTitle || driveTitle, tree.title);
       outline.setTitle?.(title);
       if (outline.syncUrl) outline.syncUrl(id);
       syncSaveLabel();

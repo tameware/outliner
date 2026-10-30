@@ -71,14 +71,15 @@ export function titleFromOpmlFileName(name) {
 }
 
 /**
- * Local File → Open uses the file name as the outline name, not `<head><title>`.
- * Falls back to the OPML title only when the file name is missing or just `.opml`.
+ * File → Open (local or Drive) uses the file name as the outline name, not
+ * `<head><title>`. Falls back to the OPML title only when the file name is
+ * missing or just `.opml`.
  *
  * @param {string | null | undefined} fileName
  * @param {string | null | undefined} opmlTitle
  * @returns {string}
  */
-export function outlineTitleForLocalOpen(fileName, opmlTitle) {
+export function outlineTitleFromFileName(fileName, opmlTitle) {
   return titleFromOpmlFileName(fileName) || String(opmlTitle ?? '').trim();
 }
 
