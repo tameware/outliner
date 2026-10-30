@@ -93,9 +93,11 @@ export function mountCloudUi({
     }
     const canMutate =
       !busy && !readOnlyView && (editShareMode || signedIn);
+    const dirty = outline.isDirty ? outline.isDirty() : true;
     if (btnSave) {
       btnSave.hidden = readOnlyView;
-      btnSave.disabled = !canMutate;
+      // Save is a no-op when clean; keep it disabled like Revert.
+      btnSave.disabled = !canMutate || !dirty;
       syncSaveLabel();
     }
     if (btnSaveAs) {
@@ -569,6 +571,8 @@ export function mountCloudUi({
       if (typeof unsub === 'function') unsub();
     },
     syncSaveLabel,
+    /** Re-evaluate Save enabled/label after dirty or outline-id changes. */
+    syncSaveState: syncAuthUi,
     saveCurrent,
   };
 }

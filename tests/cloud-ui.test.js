@@ -75,6 +75,7 @@ describe('cloud UI', () => {
   let deletedCalls;
   let outlineId;
   let syncUrlCalls;
+  /** @type {boolean} */
   let outlineDirty;
   let alerts;
 
@@ -86,7 +87,9 @@ describe('cloud UI', () => {
     deletedCalls = [];
     syncUrlCalls = [];
     outlineId = null;
-    outlineDirty = false;
+    // Dirty by default so Save is enabled in save-path tests; share-success
+    // tests set outlineDirty = false when they need a clean Drive snapshot.
+    outlineDirty = true;
     alerts = [];
     window.confirm = () => true;
     window.alert = (msg) => {
@@ -160,6 +163,9 @@ describe('cloud UI', () => {
         syncUrlCalls.push(id);
       },
       isDirty: () => outlineDirty,
+      markClean: () => {
+        outlineDirty = false;
+      },
     };
   });
 
@@ -186,6 +192,30 @@ describe('cloud UI', () => {
     assert.equal(authItem.textContent, 'Sign out');
     assert.equal(document.getElementById('cloud-user').hidden, false);
     assert.match(document.getElementById('cloud-user').textContent, /Ada/);
+    ui.destroy();
+  });
+
+  it('disables Save when the outline is clean and uses ellipsis only when a name dialog is needed', () => {
+    outlineId = null;
+    outlineDirty = false;
+    const ui = mountCloudUi({ auth, cloud, outline, configured: true });
+    assert.equal(document.getElementById('menu-save').disabled, true);
+    assert.equal(document.getElementById('menu-save').textContent, 'Save…');
+
+    outlineDirty = true;
+    ui.syncSaveState();
+    assert.equal(document.getElementById('menu-save').disabled, false);
+    assert.equal(document.getElementById('menu-save').textContent, 'Save…');
+
+    outlineId = 'existing-1';
+    ui.syncSaveState();
+    assert.equal(document.getElementById('menu-save').textContent, 'Save');
+    assert.equal(document.getElementById('menu-save').disabled, false);
+
+    outlineDirty = false;
+    ui.syncSaveState();
+    assert.equal(document.getElementById('menu-save').disabled, true);
+    assert.equal(document.getElementById('menu-save').textContent, 'Save');
     ui.destroy();
   });
 
@@ -616,6 +646,7 @@ describe('cloud UI', () => {
 
   it('copies a read-only share link to the clipboard without a dialog', async () => {
     outlineId = 'existing-1';
+    outlineDirty = false;
     const written = mockClipboard();
     cloud.createShareLink = async () => ({
       token: 'view-opaque',
@@ -667,6 +698,7 @@ describe('cloud UI', () => {
 
   it('copies an editable share link to the clipboard without a dialog', async () => {
     outlineId = 'existing-1';
+    outlineDirty = false;
     const written = mockClipboard();
     cloud.createEditShareLink = async () => ({
       token: 'edit-opaque',

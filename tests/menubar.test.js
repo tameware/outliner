@@ -46,7 +46,7 @@ describe('menubar', () => {
     setupDom();
   });
 
-  it('labels Save… when unsaved and Save when an outline id exists', () => {
+  it('labels Save… only when Save will open a name dialog (no outline id yet)', () => {
     assert.equal(cloudSaveMenuLabel(null), 'Save…');
     assert.equal(cloudSaveMenuLabel(''), 'Save…');
     assert.equal(cloudSaveMenuLabel('abc'), 'Save');

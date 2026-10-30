@@ -531,6 +531,7 @@ function syncRevert() {
     syncRevertMenuItem(btn, dirtyNow);
   }
   syncDocumentTitles();
+  cloudUi?.syncSaveState?.();
 }
 syncRevert();
 document
@@ -733,9 +734,11 @@ async function initCloud() {
       markClean: () => {
         dirty.markClean();
         syncDocumentTitles();
+        cloudUi?.syncSaveState?.();
       },
     },
   });
+  syncRevert();
 
   if (readOnlyShare) {
     setReadOnly(root, true);
@@ -771,6 +774,7 @@ async function initCloud() {
         dirty.markClean();
         syncDocumentTitles();
         syncFocusMenus();
+        cloudUi?.syncSaveState?.();
         if (readOnlyShare) {
           setReadOnly(root, true);
           applyReadOnlyToolbar(document.querySelector('.menubar'));
