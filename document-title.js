@@ -34,6 +34,16 @@ export function documentTitleLabel(title, options = {}) {
 
 /**
  * @param {Element | null | undefined} el
+ * @returns {boolean}
+ */
+function isEditingDocumentTitle(el) {
+  if (!el || typeof document === 'undefined') return false;
+  const active = document.activeElement;
+  return active === el || Boolean(el.contains?.(active));
+}
+
+/**
+ * @param {Element | null | undefined} el
  * @param {string | null | undefined} [title]
  * @param {{ dirty?: boolean, syncTabTitle?: boolean }} [options]
  */
@@ -45,10 +55,108 @@ export function syncDocumentTitleDisplay(el, title, options = {}) {
         ? document.title
         : '';
   const labeled = documentTitleLabel(source, { dirty: Boolean(options.dirty) });
-  if (el) el.textContent = labeled;
+  if (el && !isEditingDocumentTitle(el)) el.textContent = labeled;
   if (options.syncTabTitle && typeof document !== 'undefined') {
     document.title = labeled;
   }
+}
+
+/**
+ * Click-to-rename for the document name under the menubar.
+ *
+ * @param {HTMLElement | null | undefined} el
+ * @param {{
+ *   onCommit?: (title: string) => void,
+ *   isReadOnly?: () => boolean,
+ * }} [options]
+ * @returns {() => void} unbind
+ */
+export function mountDocumentTitleEditor(el, options = {}) {
+  if (!el) return () => {};
+
+  const onCommit = options.onCommit;
+  const isReadOnly = options.isReadOnly ?? (() => false);
+
+  /** @type {string} */
+  let editBaseline = '';
+  let suppressCommit = false;
+
+  function syncEditable() {
+    const editable = !isReadOnly();
+    if (editable) {
+      el.setAttribute('contenteditable', 'plaintext-only');
+      // Older engines reject plaintext-only; fall back to true.
+      if (!el.isContentEditable) {
+        el.setAttribute('contenteditable', 'true');
+      }
+    } else {
+      el.setAttribute('contenteditable', 'false');
+    }
+    el.setAttribute('role', 'textbox');
+    el.setAttribute('aria-label', 'Document name');
+    el.spellcheck = false;
+  }
+
+  function selectAll() {
+    const sel = window.getSelection?.();
+    if (!sel || !el) return;
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function onFocus() {
+    if (isReadOnly()) {
+      el.blur?.();
+      return;
+    }
+    suppressCommit = false;
+    editBaseline = stripDirtyTitleSuffix(el.textContent).trim() || UNTITLED_DOCUMENT_TITLE;
+    el.textContent = editBaseline;
+    selectAll();
+  }
+
+  function commitFromEditor() {
+    const next =
+      stripDirtyTitleSuffix(el.textContent).trim() || UNTITLED_DOCUMENT_TITLE;
+    onCommit?.(next);
+  }
+
+  function onBlur() {
+    if (suppressCommit || isReadOnly()) return;
+    commitFromEditor();
+  }
+
+  function onKeyDown(event) {
+    if (isReadOnly()) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      el.blur?.();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      suppressCommit = true;
+      el.textContent = editBaseline;
+      el.blur?.();
+    }
+  }
+
+  syncEditable();
+  el.addEventListener('focus', onFocus);
+  el.addEventListener('blur', onBlur);
+  el.addEventListener('keydown', onKeyDown);
+
+  return () => {
+    el.removeEventListener('focus', onFocus);
+    el.removeEventListener('blur', onBlur);
+    el.removeEventListener('keydown', onKeyDown);
+  };
 }
 
 /**

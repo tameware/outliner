@@ -11,6 +11,7 @@ import {
   documentTitleLabel,
   stripDirtyTitleSuffix,
   syncDocumentTitleDisplay,
+  mountDocumentTitleEditor,
   formatDocumentUpdatedLabel,
   syncDocumentUpdatedDisplay,
 } from '../document-title.js';
@@ -104,15 +105,108 @@ describe('document title display', () => {
     assert.match(html, /class="document-heading"/);
     assert.match(html, /id="document-title"/);
     assert.match(html, /id="document-updated"/);
+    assert.match(html, /id="document-title"[^>]*contenteditable/);
   });
 
-  it('wires syncDocumentTitleDisplay from app.js', () => {
+  it('wires syncDocumentTitleDisplay and mountDocumentTitleEditor from app.js', () => {
     const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
     assert.match(appJs, /syncDocumentTitleDisplay/);
     assert.match(appJs, /syncDocumentUpdatedDisplay/);
+    assert.match(appJs, /mountDocumentTitleEditor/);
     assert.match(appJs, /from ['"]\.\/document-title\.js['"]/);
     assert.match(appJs, /dirty:\s*dirty\.isDirty\(\)|\{[^}]*dirty:/);
     assert.match(appJs, /syncTabTitle:\s*true/);
+  });
+});
+
+describe('document title editor', () => {
+  /** @type {HTMLElement} */
+  let el;
+  /** @type {string[]} */
+  let commits;
+  /** @type {() => void} */
+  let unbind;
+
+  beforeEach(() => {
+    const dom = new JSDOM(
+      `<!DOCTYPE html><html><head><title>Bridge notes</title></head>
+       <body><p id="document-title" class="document-title" contenteditable="true">Bridge notes •</p></body>`,
+      { url: 'http://localhost/', pretendToBeVisual: true },
+    );
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.Node = dom.window.Node;
+    el = document.getElementById('document-title');
+    commits = [];
+    unbind = mountDocumentTitleEditor(el, {
+      onCommit: (title) => {
+        commits.push(title);
+      },
+      isReadOnly: () => false,
+    });
+  });
+
+  it('strips the dirty bullet while editing and commits the trimmed name on blur', () => {
+    el.focus();
+    assert.equal(el.textContent, 'Bridge notes');
+    el.textContent = '  Renamed outline  ';
+    el.blur();
+    assert.deepEqual(commits, ['Renamed outline']);
+  });
+
+  it('commits Untitled when the edited name is cleared', () => {
+    el.focus();
+    el.textContent = '   ';
+    el.blur();
+    assert.deepEqual(commits, [UNTITLED_DOCUMENT_TITLE]);
+  });
+
+  it('Escape restores the pre-edit name without committing', () => {
+    el.focus();
+    el.textContent = 'Scratch';
+    el.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(el.textContent, 'Bridge notes');
+    assert.deepEqual(commits, []);
+  });
+
+  it('Enter commits and blurs', () => {
+    el.focus();
+    el.textContent = 'Deal sheet';
+    el.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.deepEqual(commits, ['Deal sheet']);
+  });
+
+  it('does not overwrite the field while it is being edited', () => {
+    el.focus();
+    el.textContent = 'Typing';
+    syncDocumentTitleDisplay(el, 'Other', { dirty: true });
+    assert.equal(el.textContent, 'Typing');
+  });
+
+  it('disables editing while read-only', () => {
+    unbind();
+    commits = [];
+    mountDocumentTitleEditor(el, {
+      onCommit: (title) => commits.push(title),
+      isReadOnly: () => true,
+    });
+    assert.equal(el.getAttribute('contenteditable'), 'false');
+    el.focus();
+    el.textContent = 'Nope';
+    el.blur();
+    assert.deepEqual(commits, []);
   });
 });
 

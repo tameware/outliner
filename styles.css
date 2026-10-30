@@ -76,6 +76,18 @@ body {
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
+  cursor: text;
+  outline: none;
+  border-radius: 0.2rem;
+  max-width: 100%;
+}
+
+.document-title:focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.document-title[contenteditable='false'] {
+  cursor: default;
 }
 
 .document-updated {

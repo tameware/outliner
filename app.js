@@ -53,6 +53,7 @@ import {
   syncDocumentTitleDisplay,
   syncDocumentUpdatedDisplay,
   coerceDocumentUpdatedAt,
+  mountDocumentTitleEditor,
 } from './document-title.js';
 import {
   focusOutlineItem,
@@ -189,6 +190,13 @@ if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
 }
 dirty.markClean();
 syncDocumentTitles();
+mountDocumentTitleEditor(documentTitleEl, {
+  onCommit: (title) => {
+    applyDocumentTitle(title);
+    syncRevert();
+  },
+  isReadOnly: () => root.dataset.readonly === 'true',
+});
 bindBeforeUnloadGuard(window, () => dirty.isDirty());
 
 function syncUrl(id) {
