@@ -12,6 +12,7 @@ import {
   demoteFollowingSiblings,
   demoteItem,
   promoteItem,
+  addItemAfter,
 } from '../outliner.js';
 import { createOutlineHistory } from '../clear-outline-ui.js';
 
@@ -473,6 +474,39 @@ describe('multi-step undo/redo stack', () => {
     assert.equal(undoBtn.disabled, false);
     assert.equal(history.undo(), true);
     assert.deepEqual(getItemTexts(root), before);
+  });
+
+  it('undoes unrecorded typing after Enter before undoing the new line', () => {
+    loadOutline(root, { items: [{ text: 'Alpha', children: [] }] });
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    history.bindShortcuts(root);
+    const first = root.querySelector('[data-item]');
+    history.run(() => {
+      addItemAfter(first, '');
+      return true;
+    });
+    assert.deepEqual(getItemTexts(root), ['Alpha', '']);
+    assert.equal(history.undoDepth(), 1);
+
+    // Typing that never emits beforeinput/input (IME/embeds) must not be wiped
+    // together with the structural Enter step on the first Cmd+Z.
+    const newLine = [...root.querySelectorAll('[data-item] .text')][1];
+    newLine.textContent = 'hello';
+    assert.deepEqual(getItemTexts(root), ['Alpha', 'hello']);
+
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), ['Alpha', '']);
+    assert.equal(history.undoDepth(), 1, 'Enter remains undoable');
+
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), ['Alpha']);
   });
 });
 

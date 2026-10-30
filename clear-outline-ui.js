@@ -57,6 +57,13 @@ export function createOutlineHistory({
   /** Pre-edit snapshot for environments that emit `input` without `beforeinput`. */
   /** @type {HistoryEntry | null} */
   let textBaseline = null;
+  /**
+   * OPML last known to history (after a push/apply, or when a text gesture ends).
+   * Typing that never emits beforeinput/input diverges from this; undo reverts that
+   * first so Cmd+Z does not skip ahead to a structural snapshot and discard the text.
+   * @type {string | null}
+   */
+  let lastKnownOpml = null;
 
   if (button) {
     button.title = 'Remove all lines (⌘Z / Ctrl+Z to undo)';
@@ -125,6 +132,11 @@ export function createOutlineHistory({
   /**
    * @param {HistoryEntry | string} entry
    */
+  function syncLastKnown() {
+    const root = getRoot();
+    lastKnownOpml = root ? snapshot() : null;
+  }
+
   function applyEntry(entry) {
     const root = getRoot();
     const opml = typeof entry === 'string' ? entry : entry.opml;
@@ -133,6 +145,7 @@ export function createOutlineHistory({
     loadOutline(root, tree);
     if (tree.title && setTitle) setTitle(tree.title);
     restoreFocus(root, focus);
+    syncLastKnown();
   }
 
   function trimUndo() {
@@ -159,6 +172,7 @@ export function createOutlineHistory({
 
   function endTextGesture() {
     textGestureActive = false;
+    syncLastKnown();
     captureTextBaseline();
   }
 
@@ -172,6 +186,7 @@ export function createOutlineHistory({
     redoStack.length = 0;
     syncButtons();
     notifyChange();
+    syncLastKnown();
   }
 
   /** Push current outline onto the undo stack (call before a structural mutation). */
@@ -238,9 +253,24 @@ export function createOutlineHistory({
   }
 
   function undo() {
+    const root = getRoot();
+    if (!root) return false;
+
+    // Prefer reverting unrecorded text (no beforeinput/input) over popping a
+    // structural step that would silently discard that typing.
+    if (!textGestureActive && lastKnownOpml != null) {
+      const current = snapshot();
+      if (current !== lastKnownOpml) {
+        redoStack.push({ opml: current, focus: captureFocus(root) });
+        applyEntry({ opml: lastKnownOpml, focus: captureFocus(root) });
+        syncButtons();
+        notifyChange();
+        return true;
+      }
+    }
+
     endTextGesture();
     if (!undoStack.length) return false;
-    const root = getRoot();
     redoStack.push({ opml: snapshot(), focus: captureFocus(root) });
     applyEntry(undoStack.pop());
     syncButtons();
@@ -265,6 +295,7 @@ export function createOutlineHistory({
     undoStack.length = 0;
     redoStack.length = 0;
     syncButtons();
+    syncLastKnown();
   }
 
   /**
@@ -363,6 +394,7 @@ export function createOutlineHistory({
     outlineRoot.addEventListener('focusin', onFocusIn);
     outlineRoot.addEventListener('focusout', onFocusOut);
     captureTextBaseline();
+    syncLastKnown();
     return () => {
       keyTarget.removeEventListener('keydown', onKeyDown, true);
       outlineRoot.removeEventListener('beforeinput', onBeforeInput, true);
