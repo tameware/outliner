@@ -8,6 +8,8 @@ import {
   supportsFileSystemAccess,
   localSaveMenuLabel,
   suggestedOpmlFilename,
+  titleFromOpmlFileName,
+  outlineTitleForLocalOpen,
   openOpmlWithFilePicker,
   saveOpmlWithFilePicker,
   writeOpmlToFileHandle,
@@ -69,6 +71,31 @@ describe('local file (File System Access)', () => {
     assert.equal(suggestedOpmlFilename('Deal.opml'), 'Deal.opml');
     assert.equal(suggestedOpmlFilename(''), 'outline.opml');
     assert.equal(suggestedOpmlFilename('Tameware Outliner'), 'outline.opml');
+  });
+
+  it('derives the outline name from the on-disk file name, stripping .opml', () => {
+    assert.equal(titleFromOpmlFileName('Bridge notes.opml'), 'Bridge notes');
+    assert.equal(titleFromOpmlFileName('Deal.OPML'), 'Deal');
+    assert.equal(titleFromOpmlFileName('  shopping list.opml  '), 'shopping list');
+    assert.equal(titleFromOpmlFileName('.opml'), '');
+    assert.equal(titleFromOpmlFileName(''), '');
+    assert.equal(titleFromOpmlFileName(null), '');
+  });
+
+  it('prefers the file name over the OPML head title when opening locally', () => {
+    assert.equal(
+      outlineTitleForLocalOpen('Bridge notes.opml', 'Different OPML title'),
+      'Bridge notes',
+    );
+    assert.equal(
+      outlineTitleForLocalOpen('notes.opml', ''),
+      'notes',
+    );
+    assert.equal(
+      outlineTitleForLocalOpen('', 'OPML only title'),
+      'OPML only title',
+    );
+    assert.equal(outlineTitleForLocalOpen('.opml', 'Fallback'), 'Fallback');
   });
 
   it('declares OPML accept types for the pickers', () => {
@@ -265,5 +292,13 @@ describe('index.html File Open / Save', () => {
     assert.match(appJs, /menu-file-save-as/);
     assert.match(appJs, /forcePicker\s*:\s*true|saveLocalOutline\(\s*\{\s*forcePicker/);
     assert.match(appJs, /supportsFileSystemAccess|openOpmlWithFilePicker/);
+    assert.match(
+      appJs,
+      /outlineTitleForLocalOpen\(fallbackName,\s*tree\.title\)/,
+    );
+    assert.match(
+      appJs,
+      /const title = outlineTitleForLocalOpen\(fallbackName,\s*tree\.title\);\s*\n\s*if \(title\) applyDocumentTitle\(title\);/,
+    );
   });
 });

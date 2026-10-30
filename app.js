@@ -74,6 +74,7 @@ import {
   supportsFileSystemAccess,
   localSaveMenuLabel,
   suggestedOpmlFilename,
+  outlineTitleForLocalOpen,
   openOpmlWithFilePicker,
   saveOutlineLocally,
   isAbortError,
@@ -366,11 +367,8 @@ function applyOpenedLocalOutline(tree, fallbackName, meta = {}) {
   cloudUi?.syncSaveLabel?.();
   loadOutline(root, tree);
   outlineHistory.discard();
-  if (tree.title) applyDocumentTitle(tree.title);
-  else if (fallbackName) {
-    const base = String(fallbackName).replace(/\.opml$/i, '').trim();
-    if (base) applyDocumentTitle(base);
-  }
+  const title = outlineTitleForLocalOpen(fallbackName, tree.title);
+  if (title) applyDocumentTitle(title);
   applyDocumentUpdated(meta.updatedAt ?? tree.dateModified ?? null);
   dirty.markClean();
   syncFocusMenus();

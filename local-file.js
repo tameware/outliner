@@ -59,6 +59,30 @@ export function suggestedOpmlFilename(title) {
 }
 
 /**
+ * Outline display name from an on-disk OPML file name (strips .opml).
+ * @param {string | null | undefined} name
+ * @returns {string}
+ */
+export function titleFromOpmlFileName(name) {
+  return String(name ?? '')
+    .trim()
+    .replace(/\.opml$/i, '')
+    .trim();
+}
+
+/**
+ * Local File → Open uses the file name as the outline name, not `<head><title>`.
+ * Falls back to the OPML title only when the file name is missing or just `.opml`.
+ *
+ * @param {string | null | undefined} fileName
+ * @param {string | null | undefined} opmlTitle
+ * @returns {string}
+ */
+export function outlineTitleForLocalOpen(fileName, opmlTitle) {
+  return titleFromOpmlFileName(fileName) || String(opmlTitle ?? '').trim();
+}
+
+/**
  * @param {unknown} error
  * @returns {boolean}
  */
