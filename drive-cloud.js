@@ -233,6 +233,7 @@ export function createDriveCloudClient({
       opml,
       revision: etag || null,
       title: titleFromName(meta.name),
+      fileId: id,
       modifiedTime: meta.modifiedTime || null,
     };
   }

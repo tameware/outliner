@@ -743,6 +743,8 @@ async function initCloud() {
   if (configured && cloud && deepLinkKey) {
     // Eager load (public anyone-with-link or existing token). Also retry when
     // auth later delivers a signed-in user — do not depend only on a change event.
+    // Eager load runs in the background; applyOutline/onError handle completion.
+    // `ready` is for tests — do not await here or Cloud UI boot waits on Drive.
     deepLinkLoad = bindDeepLinkOutlineLoad({
       auth,
       cloud,

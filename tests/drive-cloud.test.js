@@ -138,6 +138,7 @@ describe('Drive cloud client', () => {
     assert.equal(got.revision, '"e2"');
     assert.equal(got.title, 'Demo');
     assert.equal(got.modifiedTime, '2026-10-29T15:04:05.000Z');
+    assert.equal(got.fileId, 'file-9', 'authed getOutline must return fileId like the public path');
   });
 
   it('loads a publicly shared outline without an access token via same-origin proxy', async () => {
@@ -153,6 +154,7 @@ describe('Drive cloud client', () => {
           headers: {
             'Content-Type': 'application/xml',
             'Last-Modified': 'Thu, 29 Oct 2026 19:57:45 GMT',
+            'X-Outliner-File-Id': 'file-public',
           },
         },
       );
@@ -161,6 +163,7 @@ describe('Drive cloud client', () => {
     assert.match(got.opml, /<opml/);
     assert.equal(got.revision, null);
     assert.equal(got.modifiedTime, 'Thu, 29 Oct 2026 19:57:45 GMT');
+    assert.equal(got.fileId, 'file-public');
     assert.equal(urls.length, 1);
   });
 
