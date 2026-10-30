@@ -14,6 +14,7 @@ import {
   parseOpml,
   setReadOnly,
   clearOutline,
+  applyOpenExpansion,
 } from './outliner.js';
 import {
   isCloudConfigured,
@@ -198,6 +199,8 @@ async function beforeReplace() {
 // Avoid flashing the starter outline while ?id= / ?view= / ?edit= content loads.
 if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
   outlineHistory.discard();
+} else {
+  applyOpenExpansion(root);
 }
 dirty.markClean();
 syncDocumentTitles();
@@ -399,6 +402,7 @@ function applyOpenedLocalOutline(tree, fallbackName, meta = {}) {
   });
   cloudUi?.syncSaveLabel?.();
   loadOutline(root, tree);
+  applyOpenExpansion(root);
   outlineHistory.discard();
   const title = outlineTitleFromFileName(fallbackName, tree.title);
   if (title) applyDocumentTitle(title);
@@ -669,6 +673,7 @@ async function initCloud() {
         hideOutlineLoading(root);
         clearLocalFileHandle();
         loadOutline(root, tree);
+        applyOpenExpansion(root);
         outlineHistory.discard();
         // Title comes from the Drive file name via setTitle (not OPML <head><title>).
         applyDocumentUpdated(tree.dateModified ?? documentUpdatedAt);
@@ -730,6 +735,7 @@ async function initCloud() {
         const tree = parseOpml(got.opml);
         hideOutlineLoading(root);
         loadOutline(root, tree);
+        applyOpenExpansion(root);
         clearLocalFileHandle();
         const title = outlineTitleFromFileName(got.title, tree.title);
         if (title) applyDocumentTitle(title);

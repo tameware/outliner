@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
+import { JSDOM } from 'jsdom';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -32,6 +33,30 @@ describe('index.html CSP-safe entry', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     assert.match(html, /to show or hide its children/);
     assert.doesNotMatch(html, /to hide or show its children/);
+  });
+
+  it('places the expand/collapse tip as item 2 under How to use this outliner', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    const dom = new JSDOM(html);
+    const outline = dom.window.document.querySelector('[data-outline-root]');
+    const howTo = [...outline.children].find((el) =>
+      /How to use this outliner/.test(
+        el.querySelector(':scope > .row .text')?.textContent ?? '',
+      ),
+    );
+    assert.ok(howTo, 'expected How to use this outliner top-level item');
+    const kids = [...(howTo.querySelector(':scope > ol')?.children ?? [])].filter(
+      (el) => el.matches?.('[data-item]'),
+    );
+    assert.ok(kids.length >= 2, `expected ≥2 children under How to use, got ${kids.length}`);
+    assert.match(
+      kids[0].querySelector(':scope > .row .text')?.textContent ?? '',
+      /Click any line to edit it/,
+    );
+    assert.match(
+      kids[1].querySelector(':scope > .row .text')?.textContent ?? '',
+      /Click ▸ or ▾ beside a parent to show or hide its children/,
+    );
   });
 
   it('how-to outline does not mention undo/redo shortcuts', () => {

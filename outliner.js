@@ -63,6 +63,46 @@ export function isExpanded(item) {
   return item.dataset.state !== 'collapsed';
 }
 
+/**
+ * Nesting depth under the outline root: 0 = top-level (A.), 1 = arabic (1.), 2 = a., …
+ * @param {HTMLElement} item
+ * @param {HTMLElement | null | undefined} [root]
+ * @returns {number}
+ */
+export function itemOutlineDepth(item, root) {
+  let depth = 0;
+  let el = item.parentElement?.closest('[data-item]');
+  while (el && (!root || root.contains(el))) {
+    depth += 1;
+    el = el.parentElement?.closest('[data-item]');
+  }
+  return depth;
+}
+
+/**
+ * Default open expansion: show top-level letters and their arabic-numeral
+ * children; collapse every deeper parent (a., i., …).
+ * @param {HTMLElement} root
+ * @param {{ openDepth?: number }} [options]
+ */
+export function applyOpenExpansion(root, options = {}) {
+  if (!root) return;
+  const openDepth = options.openDepth ?? 1;
+  root.querySelectorAll('[data-item]').forEach((item) => {
+    if (!hasChildren(item)) return;
+    const depth = itemOutlineDepth(item, root);
+    const list = childList(item);
+    if (depth < openDepth) {
+      item.dataset.state = 'expanded';
+      if (list) list.hidden = false;
+    } else {
+      item.dataset.state = 'collapsed';
+      if (list) list.hidden = true;
+    }
+    syncItemMeta(item);
+  });
+}
+
 function syncItemMeta(item) {
   const kids = hasChildren(item);
   item.dataset.hasChildren = kids ? 'true' : 'false';
