@@ -14,14 +14,13 @@
     var hasEdit = Boolean(edit && String(edit).trim());
     if (!hasId && !hasView && !hasEdit) return;
 
-    var main =
-      (document.currentScript && document.currentScript.parentElement) ||
-      document.querySelector('main');
-    if (main && main.tagName === 'MAIN') {
-      main.setAttribute('data-loading', 'true');
-    }
+    var main = document.querySelector('main');
+    if (main) main.setAttribute('data-loading', 'true');
     var loading = document.getElementById('outline-loading');
     if (loading) loading.hidden = false;
+    // Clear before app.js so share links never flash "Untitled".
+    var title = document.getElementById('document-title');
+    if (title) title.textContent = '';
   } catch (_) {
     /* ignore */
   }

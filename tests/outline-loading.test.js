@@ -20,6 +20,11 @@ function setupDom(starter = true) {
     ? `<li data-item><div class="row"><button type="button" class="toggle"></button><div class="text">Starter tip</div></div></li>`
     : '';
   const dom = new JSDOM(`<!DOCTYPE html><body>
+    <header>
+      <div class="document-heading">
+        <p id="document-title" class="document-title">Untitled</p>
+      </div>
+    </header>
     <main>
       <p id="outline-loading" class="outline-loading" hidden>${OUTLINE_LOADING_MESSAGE}</p>
       <ol class="outline" data-outline-root>${tip}</ol>
@@ -32,6 +37,7 @@ function setupDom(starter = true) {
     main: document.querySelector('main'),
     root: document.querySelector('[data-outline-root]'),
     loading: document.getElementById('outline-loading'),
+    title: document.getElementById('document-title'),
   };
 }
 
@@ -50,6 +56,35 @@ describe('outline loading panel', () => {
     assert.equal(els.main.getAttribute('data-loading'), 'true');
     assert.equal(isOutlineLoading(els.root), true);
     assert.deepEqual(getItemTexts(els.root), ['']);
+  });
+
+  it('clears the document title so Untitled does not flash while opening', () => {
+    assert.equal(els.title.textContent, 'Untitled');
+    showOutlineLoading(els.root, { loadOutline });
+    assert.equal(els.title.textContent, '');
+  });
+
+  it('deep-link boot clears Untitled for opaque view and edit share links', () => {
+    assert.equal(
+      blankOutlineForDeepLink(
+        els.root,
+        { search: '?view=opaque-share' },
+        { loadOutline },
+      ),
+      true,
+    );
+    assert.equal(els.title.textContent, '');
+
+    els = setupDom();
+    assert.equal(
+      blankOutlineForDeepLink(
+        els.root,
+        { search: '?edit=opaque-edit' },
+        { loadOutline },
+      ),
+      true,
+    );
+    assert.equal(els.title.textContent, '');
   });
 
   it('hideOutlineLoading restores the outline panel', () => {
@@ -103,12 +138,33 @@ describe('outline loading panel', () => {
     assert.match(html, /<script\s+src="\.\/deep-link-paint\.js"><\/script>/);
     assert.doesNotMatch(html, /<script\s+type="module"\s+src="\.\/deep-link-paint/);
     const paintAt = html.indexOf('deep-link-paint.js');
+    const titleAt = html.indexOf('id="document-title"');
     const outlineAt = html.indexOf('data-outline-root');
     assert.ok(paintAt >= 0 && paintAt < outlineAt);
+    assert.ok(titleAt >= 0 && titleAt < paintAt, 'paint runs after #document-title so it can clear Untitled');
 
     const paint = readFileSync(join(repoRoot, 'deep-link-paint.js'), 'utf8');
     assert.match(paint, /data-loading/);
     assert.match(paint, /outline-loading/);
+    assert.match(paint, /document-title/);
     assert.match(paint, /view/);
+  });
+
+  it('index.html does not bake Untitled into #document-title (avoids share-link flash)', () => {
+    const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
+    const chunk = html.slice(
+      html.indexOf('id="document-title"'),
+      html.indexOf('id="document-updated"'),
+    );
+    assert.doesNotMatch(chunk, />\s*Untitled\s*</);
+  });
+
+  it('app.js skips syncing Untitled into the heading while the outline is loading', () => {
+    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    assert.match(appJs, /isOutlineLoading/);
+    assert.match(
+      appJs,
+      /function syncDocumentTitles\([\s\S]*?isOutlineLoading\(root\)/,
+    );
   });
 });

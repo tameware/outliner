@@ -46,6 +46,7 @@ import {
 import {
   showOutlineLoading,
   hideOutlineLoading,
+  isOutlineLoading,
 } from './outline-loading.js';
 import { clearCloudOutlineBinding } from './cloud-binding.js';
 import { mountMenubar } from './menubar.js';
@@ -98,6 +99,11 @@ function outlineTitleBase() {
 }
 
 function syncDocumentTitles() {
+  // Share / deep-link opens: keep the heading blank until the real name arrives.
+  if (isOutlineLoading(root)) {
+    if (documentTitleEl) documentTitleEl.textContent = '';
+    return;
+  }
   syncDocumentTitleDisplay(documentTitleEl, outlineTitleBase(), {
     dirty: dirty.isDirty(),
     syncTabTitle: true,

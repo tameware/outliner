@@ -130,11 +130,10 @@
         role="textbox"
         aria-label="Document name"
         aria-live="polite"
-      >
-        Untitled
-      </p>
+      ></p>
       <time id="document-updated" class="document-updated" hidden></time>
     </div>
+    <script src="./deep-link-paint.js"></script>
     <div class="cloud-bar" data-cloud-bar hidden>
       <span id="cloud-user" class="cloud-user" hidden></span>
       <p id="cloud-status" class="cloud-status" role="status"></p>
@@ -243,7 +242,6 @@
 
   <main>
     <p id="outline-loading" class="outline-loading" hidden>Loading your outline…</p>
-    <script src="./deep-link-paint.js"></script>
     <ol class="outline" data-outline-root>
       <li data-item data-state="expanded">
         <div class="row">

@@ -46,6 +46,9 @@ export function showOutlineLoading(root, options = {}) {
     loading.hidden = false;
   }
   if (main) main.setAttribute('data-loading', 'true');
+  // Avoid flashing "Untitled" while a Drive / share / local open is in flight.
+  const title = document.getElementById('document-title');
+  if (title) title.textContent = '';
   if (typeof options.loadOutline === 'function') {
     options.loadOutline(root, { items: [] });
   }
