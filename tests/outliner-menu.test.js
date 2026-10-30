@@ -98,7 +98,10 @@ describe('Outliner menu', () => {
       outlinerVersionLabel(),
       `${OUTLINER_VERSION} (updated ${OUTLINER_UPDATED})`,
     );
-    assert.equal(OUTLINER_CHANGELOG_URL, 'changelog.html');
+    assert.equal(
+      OUTLINER_CHANGELOG_URL,
+      'https://github.com/tameware/outliner/commits/main/',
+    );
     assert.equal(OUTLINER_PRIVACY_URL, 'privacy.html');
     assert.equal(OUTLINER_HELP_URL, 'index.html');
     assert.equal(OUTLINER_REPO_URL, 'https://github.com/tameware/outliner');

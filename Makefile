@@ -1,8 +1,4 @@
-.PHONY: hooks test test-host
-
-hooks:
-	git config core.hooksPath .githooks
-	@echo "core.hooksPath=.githooks (prepare-commit-msg bumps Change Log + version)"
+.PHONY: test test-host
 
 test:
 	npm test

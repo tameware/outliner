@@ -8,7 +8,8 @@ export const OUTLINER_VERSION = '1.64';
 /** ISO date the shipped code was last updated (bump when shipping meaningful changes). */
 export const OUTLINER_UPDATED = '2026-10-30';
 
-export const OUTLINER_CHANGELOG_URL = 'changelog.html';
+export const OUTLINER_CHANGELOG_URL =
+  'https://github.com/tameware/outliner/commits/main/';
 
 export const OUTLINER_PRIVACY_URL = 'privacy.html';
 
