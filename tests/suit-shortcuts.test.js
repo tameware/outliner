@@ -62,7 +62,9 @@ describe('suit shortcuts', () => {
       assert.equal(el.textContent, plain);
       const reds = [...el.querySelectorAll('.suit-red')].map((n) => n.textContent);
       assert.deepEqual(reds, [SUIT_GLYPHS.hearts, SUIT_GLYPHS.diamonds]);
-      assert.equal(el.querySelector('.suit-red')?.className, 'suit suit-red');
+      const red = el.querySelector('.suit-red');
+      assert.equal(red?.className, 'suit suit-red');
+      assert.equal(red?.getAttribute('contenteditable'), 'false');
     });
 
     it('clears the element when given empty text', () => {
@@ -129,6 +131,31 @@ describe('suit shortcuts', () => {
       sel.addRange(range);
       assert.equal(tryInsertSuitShortcut(text, 'd'), true);
       assert.equal(text.querySelector('.suit-red').textContent, SUIT_GLYPHS.diamonds);
+    });
+
+    it('keeps following typed text outside the red suit span', () => {
+      assert.equal(tryInsertSuitShortcut(text, 'h'), true);
+      const heart = text.querySelector('.suit-red');
+      assert.ok(heart);
+      assert.equal(heart.getAttribute('contenteditable'), 'false');
+
+      const sel = window.getSelection();
+      const caret = sel.getRangeAt(0);
+      assert.equal(
+        heart.contains(caret.startContainer),
+        false,
+        'caret must sit after the suit, not inside .suit-red',
+      );
+
+      caret.insertNode(document.createTextNode('QJT'));
+      assert.equal(heart.textContent, SUIT_GLYPHS.hearts);
+      assert.equal(text.textContent, `AK${SUIT_GLYPHS.hearts}QJT`);
+      assert.equal(heart.querySelector('*'), null);
+      assert.ok(
+        [...text.childNodes].some(
+          (n) => n.nodeType === Node.TEXT_NODE && n.textContent.includes('QJT'),
+        ),
+      );
     });
 
     it('keeps every heart and diamond on the line wrapped in red', () => {

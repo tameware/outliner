@@ -81,8 +81,9 @@ describe('index.html CSP-safe entry', () => {
       /class="text" contenteditable="true">(!c !d !h !s[\s\S]*?)<\/div>/,
     )?.[1];
     assert.ok(tip, 'expected !c !d !h !s tip');
-    assert.match(tip, /<span class="suit suit-red">♦<\/span>/);
-    assert.match(tip, /<span class="suit suit-red">♥<\/span>/);
+    assert.match(tip, /<span class="suit suit-red"[^>]*>♦<\/span>/);
+    assert.match(tip, /<span class="suit suit-red"[^>]*>♥<\/span>/);
+    assert.match(tip, /contenteditable="false"/);
     assert.doesNotMatch(tip, /red for hearts/i);
   });
 

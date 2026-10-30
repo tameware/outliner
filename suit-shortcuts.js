@@ -36,6 +36,8 @@ export function createSuitNode(glyph) {
   if (isRedSuit(glyph)) {
     const span = document.createElement('span');
     span.className = 'suit suit-red';
+    // Keep typing after ♥/♦ out of the red span (contenteditable inherits otherwise).
+    span.setAttribute('contenteditable', 'false');
     span.textContent = glyph;
     return span;
   }
@@ -134,9 +136,16 @@ export function textBeforeCaret(textEl) {
  */
 function placeCaretAfter(node) {
   const sel = window.getSelection?.();
-  if (!sel) return;
+  if (!sel || !node.parentNode) return;
+  // Prefer an empty text node after the glyph so the caret is never inside a
+  // .suit-red span (browsers otherwise paint following keystrokes red).
+  let after = node.nextSibling;
+  if (!after || after.nodeType !== Node.TEXT_NODE) {
+    after = document.createTextNode('');
+    node.parentNode.insertBefore(after, node.nextSibling);
+  }
   const range = document.createRange();
-  range.setStartAfter(node);
+  range.setStart(after, 0);
   range.collapse(true);
   sel.removeAllRanges();
   sel.addRange(range);
