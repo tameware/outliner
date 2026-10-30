@@ -13,11 +13,13 @@ import {
   findMatches,
   findNextIndex,
   applyReplaceInText,
+  expandReplaceTemplate,
   replaceMatch,
   replaceAllMatches,
   selectTextRange,
   expandCollapsedAncestors,
 } from '../find-replace.js';
+import { syncDealDiagram } from '../deal-diagram.js';
 
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><body>
@@ -199,6 +201,29 @@ describe('find-replace core', () => {
     assert.equal(matches.length, 2);
   });
 
+  it('skips Focus ancestor rows so Find cannot select invisible parents', () => {
+    const alpha = root.querySelector('[data-item]');
+    alpha.dataset.focusRole = 'ancestor';
+    const items = collectSearchableItems(root);
+    assert.ok(!items.includes(alpha));
+    assert.equal(findMatches(root, { find: 'Alpha' }).length, 0);
+  });
+
+  it('expands unmatched Grep capture groups to an empty string', () => {
+    assert.equal(
+      expandReplaceTemplate('$1', { 0: 'dog', 1: undefined, 2: 'dog', length: 3 }, { grep: true }),
+      '',
+    );
+    assert.equal(
+      applyReplaceInText('dog', /(cat)|(dog)/, '$1', { grep: true }),
+      '',
+    );
+    assert.equal(
+      expandReplaceTemplate('$9', { 0: 'dog', length: 1 }, { grep: true }),
+      '$9',
+    );
+  });
+
   it('replaceMatch refuses stale offsets that no longer hold the match text', () => {
     const matches = findMatches(root, { find: 'bridge' });
     const stale = { ...matches[0], start: 0, end: 5, matchText: 'bridge' };
@@ -231,6 +256,23 @@ describe('find-replace core', () => {
     assert.equal(getItemText(matches[0].item), 'Alpha lead ♥');
     const heart = matches[0].item.querySelector('.suit-red');
     assert.equal(heart?.textContent, '♥');
+  });
+
+  it('replaceMatch refreshes a deal diagram after changing the deal source line', () => {
+    const deal =
+      'N:73.QJT.AQ54.T752 QT6.876.KJ9.AQ84 5.A95432.7632.K6 AKJ9842.K.T8.J93';
+    loadOutline(root, { items: [{ text: deal, children: [] }] });
+    const item = root.querySelector('[data-item]');
+    assert.equal(syncDealDiagram(item), true);
+    assert.ok(item.querySelector('[data-deal-diagram]'));
+    const matches = findMatches(root, { find: 'QT6' });
+    assert.equal(replaceMatch(matches[0], 'AJT'), true);
+    assert.match(getItemText(item), /AJT/);
+    assert.ok(item.querySelector('[data-deal-diagram]'), 'diagram stays attached');
+    assert.doesNotMatch(
+      item.querySelector('[data-deal-diagram]')?.textContent ?? '',
+      /QT6/,
+    );
   });
 
   it('replaceAllMatches replaces every match', () => {

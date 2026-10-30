@@ -540,6 +540,44 @@ describe('multi-step undo/redo stack', () => {
     assert.equal(history.undoDepth(), 0);
   });
 
+  it('refreshes the input baseline after a structural run so later input undoes only typing', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'Parent',
+          children: [{ text: 'Child', children: [] }],
+        },
+      ],
+    });
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    history.bindShortcuts(root);
+    const parent = root.querySelector('[data-item]');
+    history.run(() => {
+      promoteChildren(parent);
+      return true;
+    });
+    assert.deepEqual(getItemTexts(root), ['Parent', 'Child']);
+    assert.equal(history.undoDepth(), 1);
+
+    // input without beforeinput must use the post-promote baseline, not the pre-promote outline.
+    const childText = [...root.querySelectorAll('[data-item] .text')][1];
+    childText.textContent = 'Child edited';
+    childText.dispatchEvent(
+      new window.InputEvent('input', { bubbles: true, inputType: 'insertText', data: ' edited' }),
+    );
+    assert.equal(history.undoDepth(), 2);
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), ['Parent', 'Child']);
+    assert.equal(history.undoDepth(), 1, 'promote remains undoable');
+  });
+
   it('refuses undo and redo while the outline is read-only', () => {
     loadOutline(root, { items: [{ text: 'Alpha', children: [] }] });
     history = createOutlineHistory({

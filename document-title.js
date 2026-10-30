@@ -71,6 +71,18 @@ export function syncDocumentTitleDisplay(el, title, options = {}) {
  * }} [options]
  * @returns {() => void} unbind
  */
+/** @type {WeakMap<HTMLElement, { flush: () => void }>} */
+const titleEditors = new WeakMap();
+
+/**
+ * Commit an in-progress rename (e.g. before File → Save while focus stays in the field).
+ * @param {HTMLElement | null | undefined} el
+ */
+export function flushDocumentTitleEditor(el) {
+  if (!el) return;
+  titleEditors.get(el)?.flush?.();
+}
+
 export function mountDocumentTitleEditor(el, options = {}) {
   if (!el) return () => {};
 
@@ -127,6 +139,12 @@ export function mountDocumentTitleEditor(el, options = {}) {
     onCommit?.(next);
   }
 
+  function flush() {
+    if (suppressCommit || isReadOnly()) return;
+    if (!isEditingDocumentTitle(el)) return;
+    commitFromEditor();
+  }
+
   function onBlur() {
     if (suppressCommit || isReadOnly()) return;
     commitFromEditor();
@@ -134,6 +152,8 @@ export function mountDocumentTitleEditor(el, options = {}) {
 
   function onKeyDown(event) {
     if (isReadOnly()) return;
+    // Enter/Escape during IME composition accept or cancel the candidate, not the rename.
+    if (event.isComposing || event.keyCode === 229) return;
     if (event.key === 'Enter') {
       event.preventDefault();
       el.blur?.();
@@ -148,11 +168,13 @@ export function mountDocumentTitleEditor(el, options = {}) {
   }
 
   syncEditable();
+  titleEditors.set(el, { flush });
   el.addEventListener('focus', onFocus);
   el.addEventListener('blur', onBlur);
   el.addEventListener('keydown', onKeyDown);
 
   return () => {
+    titleEditors.delete(el);
     el.removeEventListener('focus', onFocus);
     el.removeEventListener('blur', onBlur);
     el.removeEventListener('keydown', onKeyDown);

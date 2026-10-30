@@ -23,7 +23,10 @@ function loadScript(src) {
     el.src = src;
     el.async = true;
     el.onload = () => resolve();
-    el.onerror = () => reject(new Error('Failed to load Google Identity Services'));
+    el.onerror = () => {
+      el.remove();
+      reject(new Error('Failed to load Google Identity Services'));
+    };
     document.head.appendChild(el);
   });
 }

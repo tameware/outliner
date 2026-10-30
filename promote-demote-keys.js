@@ -6,6 +6,8 @@
  * Always preventDefault when matched so the browser cannot treat ⌘[ as Back.
  */
 
+import { isForeignMoveShortcutTarget } from './move-up-down-keys.js';
+
 /**
  * @param {{ key?: string, metaKey?: boolean, ctrlKey?: boolean, shiftKey?: boolean, altKey?: boolean }} event
  * @returns {'promote' | 'demote' | null}
@@ -21,13 +23,14 @@ export function matchPromoteDemoteShortcut(event) {
 }
 
 /**
- * @param {{ key?: string, metaKey?: boolean, ctrlKey?: boolean, shiftKey?: boolean, altKey?: boolean, preventDefault?: () => void }} event
+ * @param {{ key?: string, metaKey?: boolean, ctrlKey?: boolean, shiftKey?: boolean, altKey?: boolean, target?: EventTarget | null, preventDefault?: () => void }} event
  * @param {{ run: (action: 'promote' | 'demote') => boolean, beep?: () => void, isReadOnly?: () => boolean }} options
  * @returns {boolean} true when the event was a promote/demote shortcut
  */
 export function handlePromoteDemoteShortcut(event, { run, beep, isReadOnly }) {
   const action = matchPromoteDemoteShortcut(event);
   if (!action) return false;
+  if (isForeignMoveShortcutTarget(event.target)) return false;
   event.preventDefault?.();
   if (isReadOnly?.()) {
     beep?.();

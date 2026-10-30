@@ -2,7 +2,7 @@
  * Find / Replace across outline line text (literal or Grep/regex).
  */
 
-import { isDealDiagramItem } from './deal-diagram.js';
+import { isDealDiagramItem, syncDealDiagram } from './deal-diagram.js';
 import { expandSuitBangShortcuts, fillTextWithSuits } from './suit-shortcuts.js';
 import { isExpanded, toggleItem } from './outliner.js';
 
@@ -21,13 +21,13 @@ function textEl(item) {
  */
 export function collectSearchableItems(root) {
   if (!root) return [];
-  return [...root.querySelectorAll('[data-item]')].filter(
-    (el) =>
-      !isDealDiagramItem(el) &&
-      textEl(el) &&
-      // Focus-hidden lines are not visible; expanding ancestors cannot reveal them.
-      el.dataset?.focusRole !== 'hidden',
-  );
+  return [...root.querySelectorAll('[data-item]')].filter((el) => {
+    if (isDealDiagramItem(el) || !textEl(el)) return false;
+    const role = el.dataset?.focusRole;
+    // Focus hides ancestor and sibling rows; expanding cannot reveal them.
+    if (role === 'hidden' || role === 'ancestor') return false;
+    return true;
+  });
 }
 
 /**
@@ -128,7 +128,12 @@ export function expandReplaceTemplate(template, match, options = {}) {
     value = value.replace(/\$(\$|\d+)/g, (_, token) => {
       if (token === '$') return '$';
       const idx = Number(token);
-      return match[idx] != null ? String(match[idx]) : `$${token}`;
+      if (Number.isNaN(idx)) return `$${token}`;
+      // Unmatched participating groups are undefined; nonexistent $9 stays literal.
+      if (idx < (match.length ?? 0) || Object.prototype.hasOwnProperty.call(match, idx)) {
+        return match[idx] == null ? '' : String(match[idx]);
+      }
+      return `$${token}`;
     });
   }
   return expandSuitBangShortcuts(value);
@@ -235,6 +240,7 @@ function setItemText(item, nextText) {
   const el = textEl(item);
   if (!el) return;
   fillTextWithSuits(el, nextText);
+  syncDealDiagram(item);
 }
 
 /**

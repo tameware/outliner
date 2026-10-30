@@ -93,4 +93,39 @@ describe('Google Identity Services auth', () => {
     assert.equal(await auth.getAccessToken(), null);
     await assert.rejects(() => auth.signInWithGoogle(), /not configured/i);
   });
+
+  it('removes a failed GIS script tag so the next sign-in retries the download', async () => {
+    const { JSDOM } = await import('jsdom');
+    const { createGoogleAuth: createAuth } = await import('../auth-google.js');
+    const dom = new JSDOM('<!DOCTYPE html><html><head></head><body></body></html>');
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+
+    // Force ensureClient to try loading the GIS script (no google global).
+    delete globalThis.google;
+
+    const auth = createAuth({
+      clientId: 'client.apps.googleusercontent.com',
+      google: null,
+    });
+
+    // Intercept script append to fail onerror.
+    const origCreate = document.createElement.bind(document);
+    document.createElement = (tag) => {
+      const el = origCreate(tag);
+      if (tag === 'script') {
+        queueMicrotask(() => {
+          el.onerror?.(new Event('error'));
+        });
+      }
+      return el;
+    };
+
+    await assert.rejects(() => auth.signInWithGoogle(), /Failed to load Google Identity Services/);
+    assert.equal(
+      document.querySelectorAll('script[src="https://accounts.google.com/gsi/client"]').length,
+      0,
+      'failed script must be removed so retry can re-download',
+    );
+  });
 });

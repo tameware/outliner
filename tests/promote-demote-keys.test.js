@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { JSDOM } from 'jsdom';
 import {
   matchPromoteDemoteShortcut,
   handlePromoteDemoteShortcut,
@@ -54,6 +55,44 @@ describe('promote/demote shortcuts', () => {
       matchPromoteDemoteShortcut({ key: ']', ctrlKey: true, altKey: true }),
       null,
     );
+  });
+
+  it('ignores Alt+[ from document-title and Find inputs outside the outline', () => {
+    const dom = new JSDOM(`<!DOCTYPE html><body>
+      <p id="document-title" contenteditable="true">Name</p>
+      <input id="find-input" />
+      <ol data-outline-root>
+        <li data-item><div class="row"><div class="text" contenteditable="true">A</div></div></li>
+      </ol>
+    </body>`);
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    const runs = [];
+    for (const target of [
+      document.getElementById('document-title'),
+      document.getElementById('find-input'),
+    ]) {
+      const event = {
+        key: '[',
+        altKey: true,
+        target,
+        preventDefault() {
+          event.prevented = true;
+        },
+        prevented: false,
+      };
+      assert.equal(
+        handlePromoteDemoteShortcut(event, {
+          run: (action) => {
+            runs.push(action);
+            return true;
+          },
+        }),
+        false,
+      );
+      assert.equal(event.prevented, false);
+    }
+    assert.deepEqual(runs, []);
   });
 
   it('always prevents default for Cmd+[ even when promote fails, and beeps', () => {

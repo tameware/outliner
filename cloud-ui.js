@@ -215,6 +215,7 @@ export function mountCloudUi({
   }
 
   async function saveWithName(title, { forceNew = false } = {}) {
+    outline.flushTitle?.();
     const name = String(title || '').trim() || 'Untitled';
     const ok = await withBusy('Saving to Google Drive…', async () => {
       const previousTitle = String(outline.getTitle?.() || '').trim();

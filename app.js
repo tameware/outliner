@@ -60,6 +60,7 @@ import {
   syncDocumentUpdatedDisplay,
   coerceDocumentUpdatedAt,
   mountDocumentTitleEditor,
+  flushDocumentTitleEditor,
 } from './document-title.js';
 import {
   focusOutlineItem,
@@ -473,6 +474,7 @@ async function openLocalOutline() {
  * @returns {Promise<boolean>}
  */
 async function saveLocalOutline({ forcePicker = false } = {}) {
+  flushDocumentTitleEditor(documentTitleEl);
   const title = outlineTitleBase();
   const updatedAt = new Date();
   const opml = toOpml(root, { title, dateModified: updatedAt });
@@ -709,6 +711,7 @@ async function initCloud() {
         syncRevert();
       },
       getTitle: () => outlineTitleBase(),
+      flushTitle: () => flushDocumentTitleEditor(documentTitleEl),
       setTitle: (title) => {
         applyDocumentTitle(title);
       },

@@ -159,6 +159,7 @@ export function createOutlineHistory({
     if (tree.title && setTitle) setTitle(tree.title);
     restoreFocus(root, focus);
     syncLastKnown();
+    captureTextBaseline();
   }
 
   function trimUndo() {
@@ -245,8 +246,11 @@ export function createOutlineHistory({
     const before = snapshot();
     const focusBefore = captureFocus(root);
     const ok = mutate();
-    if (ok) pushUndo(before, focusBefore);
-    else syncButtons();
+    if (ok) {
+      pushUndo(before, focusBefore);
+      // Post-mutation baseline so input-without-beforeinput undoes only typing.
+      captureTextBaseline();
+    } else syncButtons();
     return Boolean(ok);
   }
 
@@ -263,6 +267,7 @@ export function createOutlineHistory({
           return opml;
         })();
     pushUndo(before, focusBefore);
+    captureTextBaseline();
   }
 
   function undo() {

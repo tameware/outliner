@@ -12,6 +12,7 @@ import {
   stripDirtyTitleSuffix,
   syncDocumentTitleDisplay,
   mountDocumentTitleEditor,
+  flushDocumentTitleEditor,
   formatDocumentUpdatedLabel,
   syncDocumentUpdatedDisplay,
 } from '../document-title.js';
@@ -113,6 +114,8 @@ describe('document title display', () => {
     assert.match(appJs, /syncDocumentTitleDisplay/);
     assert.match(appJs, /syncDocumentUpdatedDisplay/);
     assert.match(appJs, /mountDocumentTitleEditor/);
+    assert.match(appJs, /flushDocumentTitleEditor/);
+    assert.match(appJs, /flushTitle:\s*\(\)\s*=>\s*flushDocumentTitleEditor/);
     assert.match(appJs, /from ['"]\.\/document-title\.js['"]/);
     assert.match(appJs, /dirty:\s*dirty\.isDirty\(\)|\{[^}]*dirty:/);
     assert.match(appJs, /syncTabTitle:\s*true/);
@@ -186,6 +189,40 @@ describe('document title editor', () => {
       }),
     );
     assert.deepEqual(commits, ['Deal sheet']);
+  });
+
+  it('flushDocumentTitleEditor commits the in-progress name without blurring', () => {
+    el.focus();
+    el.textContent = 'Saved name';
+    flushDocumentTitleEditor(el);
+    assert.deepEqual(commits, ['Saved name']);
+    assert.equal(document.activeElement, el);
+  });
+
+  it('ignores Enter and Escape while an IME composition is active', () => {
+    el.focus();
+    el.textContent = '候補';
+    el.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+        isComposing: true,
+      }),
+    );
+    assert.deepEqual(commits, []);
+    assert.equal(document.activeElement, el);
+
+    el.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+        isComposing: true,
+      }),
+    );
+    assert.equal(el.textContent, '候補');
+    assert.deepEqual(commits, []);
   });
 
   it('does not overwrite the field while it is being edited', () => {
