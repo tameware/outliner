@@ -127,6 +127,9 @@ const outlineHistory = createOutlineHistory({
   loadOutline,
   clearOutline,
   getTitle: () => outlineTitleBase(),
+  setTitle: (title) => {
+    applyDocumentTitle(title);
+  },
   maxDepth: 50,
   onChange: () => {
     // Called after dirty exists; syncRevert is a function declaration (hoisted).

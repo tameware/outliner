@@ -26,6 +26,7 @@ const DEFAULT_MAX_DEPTH = 50;
  * @param {typeof import('./outliner.js').loadOutline} options.loadOutline
  * @param {typeof import('./outliner.js').clearOutline} [options.clearOutline]
  * @param {() => string} [options.getTitle]
+ * @param {(title: string) => void} [options.setTitle] restore title from OPML on undo/redo
  * @param {HTMLButtonElement} [options.button] kept labelled "Clear outline" (never toggled)
  * @param {HTMLButtonElement | null} [options.undoButton]
  * @param {HTMLButtonElement | null} [options.redoButton]
@@ -39,6 +40,7 @@ export function createOutlineHistory({
   loadOutline,
   clearOutline,
   getTitle = () => 'Outline',
+  setTitle = null,
   button = null,
   undoButton = null,
   redoButton = null,
@@ -127,7 +129,9 @@ export function createOutlineHistory({
     const root = getRoot();
     const opml = typeof entry === 'string' ? entry : entry.opml;
     const focus = typeof entry === 'string' ? captureFocus(root) : entry.focus;
-    loadOutline(root, parseOpml(opml));
+    const tree = parseOpml(opml);
+    loadOutline(root, tree);
+    if (tree.title && setTitle) setTitle(tree.title);
     restoreFocus(root, focus);
   }
 

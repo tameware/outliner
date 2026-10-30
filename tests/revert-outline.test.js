@@ -108,6 +108,42 @@ describe('revert outline', () => {
     assert.equal(dirty.isDirty(), true);
   });
 
+  it('restores the pre-revert title when undoing a revert after a rename', () => {
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      getTitle: () => title,
+      setTitle: (t) => {
+        title = t;
+      },
+    });
+    // Simulate a rename that was never successfully saved, then Revert.
+    root.querySelector('.text').textContent = 'Changed';
+    title = 'Renamed';
+    assert.equal(
+      revertToCleanSnapshot({
+        isDirty: () => dirty.isDirty(),
+        getBaseline: () => dirty.getBaseline(),
+        getRoot: () => root,
+        parseOpml,
+        loadOutline,
+        setTitle: (t) => {
+          title = t;
+        },
+        run: (mutate) => history.run(mutate),
+      }),
+      true,
+    );
+    assert.equal(title, 'Demo');
+    assert.deepEqual(getItemTexts(root), ['Alpha', 'Beta']);
+
+    assert.equal(history.undo(), true);
+    assert.equal(root.querySelector('.text').textContent, 'Changed');
+    assert.equal(title, 'Renamed');
+  });
+
   it('syncRevertMenuItem disables when clean and enables when dirty', () => {
     const btn = document.getElementById('menu-revert');
     syncRevertMenuItem(btn, () => dirty.isDirty());
