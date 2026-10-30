@@ -449,11 +449,18 @@ main {
   box-shadow: var(--shadow);
 }
 
-main[data-loading] [data-outline-root] {
+main[data-loading] [data-outline-root],
+html[data-outline-loading] [data-outline-root] {
   display: none;
 }
 
-main[data-loading] .outline-loading {
+main[data-loading] .outline-loading,
+html[data-outline-loading] .outline-loading {
+  display: block;
+}
+
+/* Head paint runs before the loading node exists; override [hidden] once it does. */
+html[data-outline-loading] .outline-loading[hidden] {
   display: block;
 }
 

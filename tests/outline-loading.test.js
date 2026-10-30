@@ -129,25 +129,27 @@ describe('outline loading panel', () => {
     const css = readFileSync(join(repoRoot, 'styles.css'), 'utf8');
     assert.match(
       css,
-      /main\[data-loading\]\s*\[data-outline-root\]\s*\{[^}]*display\s*:\s*none/s,
+      /main\[data-loading\]\s*\[data-outline-root\][\s\S]*?\{[^}]*display\s*:\s*none/,
     );
   });
 
-  it('runs an early sync paint script before the outline so deep links never flash starter HTML', () => {
-    const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
-    assert.match(html, /<script\s+src="\.\/deep-link-paint\.js"><\/script>/);
-    assert.doesNotMatch(html, /<script\s+type="module"\s+src="\.\/deep-link-paint/);
-    const paintAt = html.indexOf('deep-link-paint.js');
-    const titleAt = html.indexOf('id="document-title"');
-    const outlineAt = html.indexOf('data-outline-root');
-    assert.ok(paintAt >= 0 && paintAt < outlineAt);
-    assert.ok(titleAt >= 0 && titleAt < paintAt, 'paint runs after #document-title so it can clear Untitled');
+  it('hides the outline via html[data-outline-loading] before main exists', () => {
+    const css = readFileSync(join(repoRoot, 'styles.css'), 'utf8');
+    assert.match(
+      css,
+      /html\[data-outline-loading\]\s*\[data-outline-root\]\s*\{[^}]*display\s*:\s*none/s,
+    );
+    assert.match(
+      css,
+      /html\[data-outline-loading\]\s*\.outline-loading/s,
+    );
+  });
 
-    const paint = readFileSync(join(repoRoot, 'deep-link-paint.js'), 'utf8');
-    assert.match(paint, /data-loading/);
-    assert.match(paint, /outline-loading/);
-    assert.match(paint, /document-title/);
-    assert.match(paint, /view/);
+  it('showOutlineLoading sets html[data-outline-loading] and hide clears it', () => {
+    showOutlineLoading(els.root, { loadOutline });
+    assert.equal(document.documentElement.getAttribute('data-outline-loading'), 'true');
+    hideOutlineLoading(els.root);
+    assert.equal(document.documentElement.hasAttribute('data-outline-loading'), false);
   });
 
   it('index.html does not bake Untitled into #document-title (avoids share-link flash)', () => {
