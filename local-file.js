@@ -112,7 +112,7 @@ export function isFilePickerUnavailableError(error) {
  * @param {{
  *   showOpenFilePicker?: typeof window.showOpenFilePicker,
  * }} [deps]
- * @returns {Promise<{ handle: FileSystemFileHandle, name: string, text: string } | null>}
+ * @returns {Promise<{ handle: FileSystemFileHandle, name: string, text: string, lastModified: number | null } | null>}
  */
 export async function openOpmlWithFilePicker(deps = {}) {
   const showOpen =
@@ -126,7 +126,16 @@ export async function openOpmlWithFilePicker(deps = {}) {
     });
     const file = await handle.getFile();
     const text = await file.text();
-    return { handle, name: file.name || 'outline.opml', text };
+    const lastModified =
+      typeof file.lastModified === 'number' && Number.isFinite(file.lastModified)
+        ? file.lastModified
+        : null;
+    return {
+      handle,
+      name: file.name || 'outline.opml',
+      text,
+      lastModified,
+    };
   } catch (error) {
     if (isAbortError(error)) return null;
     throw error;

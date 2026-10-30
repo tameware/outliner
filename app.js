@@ -439,7 +439,7 @@ async function openLocalOutline() {
       localFileHandle = picked.handle;
       syncLocalSaveLabel();
       applyOpenedLocalOutline(tree, picked.name, {
-        updatedAt: tree.dateModified,
+        updatedAt: tree.dateModified ?? picked.lastModified,
       });
       return;
     } catch (error) {

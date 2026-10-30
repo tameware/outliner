@@ -103,11 +103,12 @@ describe('local file (File System Access)', () => {
     assert.ok(OPML_FILE_TYPES[0].accept['text/x-opml'].includes('.opml'));
   });
 
-  it('openOpmlWithFilePicker returns handle, name, and parsed text', async () => {
+  it('openOpmlWithFilePicker returns handle, name, text, and lastModified', async () => {
     const handle = {
       async getFile() {
         return {
           name: 'deal.opml',
+          lastModified: 1_698_588_245_000,
           async text() {
             return '<?xml version="1.0"?><opml version="2.0"><head><title>Deal</title></head><body></body></opml>';
           },
@@ -120,6 +121,7 @@ describe('local file (File System Access)', () => {
     assert.equal(result.handle, handle);
     assert.equal(result.name, 'deal.opml');
     assert.match(result.text, /<title>Deal<\/title>/);
+    assert.equal(result.lastModified, 1_698_588_245_000);
   });
 
   it('openOpmlWithFilePicker returns null when the user cancels', async () => {
@@ -299,6 +301,18 @@ describe('index.html File Open / Save', () => {
     assert.match(
       appJs,
       /const title = outlineTitleFromFileName\(fallbackName,\s*tree\.title\);\s*\n\s*if \(title\) applyDocumentTitle\(title\);/,
+    );
+  });
+
+  it('uses OPML dateModified or the on-disk lastModified for Updated when opening locally', () => {
+    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    assert.match(
+      appJs,
+      /applyOpenedLocalOutline\(tree,\s*picked\.name,\s*\{[\s\S]*?updatedAt:\s*tree\.dateModified\s*\?\?\s*picked\.lastModified/,
+    );
+    assert.match(
+      appJs,
+      /applyOpenedLocalOutline\(tree,\s*file\.name,\s*\{[\s\S]*?updatedAt:\s*tree\.dateModified\s*\?\?\s*file\.lastModified/,
     );
   });
 });
