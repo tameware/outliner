@@ -147,6 +147,64 @@ describe('move up/down shortcuts', () => {
     assert.deepEqual(runs, []);
     assert.equal(beeps.length, 1);
   });
+
+  it('ignores Cmd+Arrow from document-title and Find inputs outside the outline', () => {
+    const dom = new JSDOM(`<!DOCTYPE html><body>
+      <p id="document-title" contenteditable="true">Name</p>
+      <input id="find-input" />
+      <ol data-outline-root>
+        <li data-item><div class="row"><div class="text" contenteditable="true">A</div></div></li>
+      </ol>
+    </body>`);
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    const runs = [];
+    const title = document.getElementById('document-title');
+    const find = document.getElementById('find-input');
+    const line = document.querySelector('[data-outline-root] .text');
+
+    for (const target of [title, find]) {
+      const event = {
+        key: 'ArrowUp',
+        metaKey: true,
+        target,
+        preventDefault() {
+          event.prevented = true;
+        },
+        prevented: false,
+      };
+      assert.equal(
+        handleMoveUpDownShortcut(event, {
+          run: (action) => {
+            runs.push(action);
+            return true;
+          },
+        }),
+        false,
+      );
+      assert.equal(event.prevented, false);
+    }
+
+    const outlineEvent = {
+      key: 'ArrowDown',
+      metaKey: true,
+      target: line,
+      preventDefault() {
+        outlineEvent.prevented = true;
+      },
+      prevented: false,
+    };
+    assert.equal(
+      handleMoveUpDownShortcut(outlineEvent, {
+        run: (action) => {
+          runs.push(action);
+          return true;
+        },
+      }),
+      true,
+    );
+    assert.deepEqual(runs, ['down']);
+  });
 });
 
 describe('Edit Move Up / Move Down menu', () => {

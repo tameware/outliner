@@ -1,6 +1,9 @@
 /** Shown while a remote or local outline is being opened. */
 export const OUTLINE_LOADING_MESSAGE = 'Loading your outline…';
 
+const TITLE_BACKUP_ATTR = 'data-loading-title-backup';
+const TITLE_SAVED_ATTR = 'data-loading-title-saved';
+
 /**
  * @param {HTMLElement | null | undefined} root
  * @returns {HTMLElement | null}
@@ -22,6 +25,15 @@ function loadingElFor(root) {
 }
 
 /**
+ * @returns {HTMLElement | null}
+ */
+function documentTitleEl() {
+  return typeof document !== 'undefined'
+    ? document.getElementById('document-title')
+    : null;
+}
+
+/**
  * @param {HTMLElement | null | undefined} root
  * @returns {boolean}
  */
@@ -33,6 +45,8 @@ export function isOutlineLoading(root) {
  * Hide the outline behind a loading message. Does not destroy current content
  * so a failed open can leave the previous outline intact (CSS hides the tree).
  * Pass `clear: true` (deep-link boot) to wipe starter lines while waiting.
+ * Clears the heading while loading; {@link hideOutlineLoading} restores it
+ * unless a successful open already replaced the title.
  * @param {HTMLElement | null | undefined} root
  * @param {{
  *   loadOutline?: typeof import('./outliner.js').loadOutline,
@@ -53,8 +67,14 @@ export function showOutlineLoading(root, options = {}) {
     document.documentElement.setAttribute('data-outline-loading', 'true');
   }
   // Avoid flashing "Untitled" while a Drive / share / local open is in flight.
-  const title = document.getElementById('document-title');
-  if (title) title.textContent = '';
+  const title = documentTitleEl();
+  if (title && title.getAttribute(TITLE_SAVED_ATTR) !== '1') {
+    title.setAttribute(TITLE_BACKUP_ATTR, title.textContent ?? '');
+    title.setAttribute(TITLE_SAVED_ATTR, '1');
+    title.textContent = '';
+  } else if (title) {
+    title.textContent = '';
+  }
   if (options.clear && typeof options.loadOutline === 'function') {
     options.loadOutline(root, { items: [] });
   }
@@ -62,13 +82,23 @@ export function showOutlineLoading(root, options = {}) {
 
 /**
  * @param {HTMLElement | null | undefined} root
+ * @param {{ restoreTitle?: boolean }} [options] restoreTitle defaults to true
  */
-export function hideOutlineLoading(root) {
+export function hideOutlineLoading(root, options = {}) {
   const main = mainFor(root);
   const loading = loadingElFor(root);
   if (loading) loading.hidden = true;
   if (main) main.removeAttribute('data-loading');
   if (typeof document !== 'undefined') {
     document.documentElement.removeAttribute('data-outline-loading');
+  }
+  const restoreTitle = options.restoreTitle !== false;
+  const title = documentTitleEl();
+  if (title && title.getAttribute(TITLE_SAVED_ATTR) === '1') {
+    if (restoreTitle) {
+      title.textContent = title.getAttribute(TITLE_BACKUP_ATTR) ?? '';
+    }
+    title.removeAttribute(TITLE_BACKUP_ATTR);
+    title.removeAttribute(TITLE_SAVED_ATTR);
   }
 }

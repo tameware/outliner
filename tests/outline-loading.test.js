@@ -64,6 +64,14 @@ describe('outline loading panel', () => {
     assert.equal(els.title.textContent, '');
   });
 
+  it('restores the previous document title when loading ends without a replacement', () => {
+    els.title.textContent = 'Prior outline';
+    showOutlineLoading(els.root, { loadOutline });
+    assert.equal(els.title.textContent, '');
+    hideOutlineLoading(els.root);
+    assert.equal(els.title.textContent, 'Prior outline');
+  });
+
   it('deep-link boot clears Untitled for opaque view and edit share links', () => {
     assert.equal(
       blankOutlineForDeepLink(
