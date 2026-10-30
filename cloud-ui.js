@@ -262,21 +262,32 @@ export function mountCloudUi({
       }
 
       let leaseToken = null;
-      if (cloud.acquireLock) {
-        const lease = await cloud.acquireLock(id);
-        leaseToken = lease.token;
-        outline.setLeaseToken?.(leaseToken);
-      }
+      try {
+        if (cloud.acquireLock) {
+          const lease = await cloud.acquireLock(id);
+          leaseToken = lease.token;
+          outline.setLeaseToken?.(leaseToken);
+        }
 
-      const saved = await cloud.saveOutline(id, {
-        opml,
-        revision,
-        leaseToken,
-        title: name,
-      });
-      outline.setRevision?.(saved?.revision ?? revision);
-      syncSaveLabel();
-      setStatus(`Saved “${name}”`);
+        const saved = await cloud.saveOutline(id, {
+          opml,
+          revision,
+          leaseToken,
+          title: name,
+        });
+        outline.setRevision?.(saved?.revision ?? revision);
+        syncSaveLabel();
+        setStatus(`Saved “${name}”`);
+      } finally {
+        if (leaseToken && cloud.releaseLock) {
+          try {
+            await cloud.releaseLock(id, leaseToken);
+          } catch {
+            /* best-effort unlock — lease TTL is the backstop */
+          }
+          outline.setLeaseToken?.(null);
+        }
+      }
     });
     if (ok) outline.markClean?.();
     return ok;

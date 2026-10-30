@@ -382,11 +382,19 @@ describe('cloud UI', () => {
     outlineId = 'existing-1';
     outline.getTitle = () => 'Same name';
     outline.getRevision = () => 2;
-    outline.getLeaseToken = () => 'stale-lease';
     const lockCalls = [];
+    const releaseCalls = [];
+    let leaseHeld = 'stale-lease';
+    outline.getLeaseToken = () => leaseHeld;
+    outline.setLeaseToken = (tok) => {
+      leaseHeld = tok;
+    };
     cloud.acquireLock = async (id) => {
       lockCalls.push(id);
       return { token: 'fresh-lease', leaseUntil: '2099-01-01' };
+    };
+    cloud.releaseLock = async (id, token) => {
+      releaseCalls.push({ id, token });
     };
     mountCloudUi({ auth, cloud, outline, configured: true });
 
@@ -403,6 +411,41 @@ describe('cloud UI', () => {
     assert.equal(savedCalls[0].id, 'existing-1');
     assert.deepEqual(lockCalls, ['existing-1']);
     assert.equal(savedCalls[0].leaseToken, 'fresh-lease');
+    assert.deepEqual(releaseCalls, [{ id: 'existing-1', token: 'fresh-lease' }]);
+    assert.equal(leaseHeld, null);
+  });
+
+  it('releases the edit lock when Save fails after acquiring it', async () => {
+    outlineId = 'existing-1';
+    outline.getTitle = () => 'Same name';
+    outline.getRevision = () => 2;
+    const releaseCalls = [];
+    let leaseHeld = null;
+    outline.getLeaseToken = () => leaseHeld;
+    outline.setLeaseToken = (tok) => {
+      leaseHeld = tok;
+    };
+    cloud.acquireLock = async () => ({ token: 'held-lease', leaseUntil: '2099-01-01' });
+    cloud.releaseLock = async (id, token) => {
+      releaseCalls.push({ id, token });
+    };
+    cloud.saveOutline = async () => {
+      throw new Error('Drive write failed');
+    };
+    const alerts = [];
+    window.alert = (msg) => {
+      alerts.push(String(msg));
+    };
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(savedCalls.length, 0);
+    assert.deepEqual(releaseCalls, [{ id: 'existing-1', token: 'held-lease' }]);
+    assert.equal(leaseHeld, null);
+    assert.match(alerts[0] || '', /Drive write failed/);
   });
 
   it('Save after detaching a cloud id creates a new Drive file instead of overwriting', async () => {
