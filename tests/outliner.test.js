@@ -8,6 +8,7 @@ import {
   isExpanded,
   hasChildren,
   toggleItem,
+  expandItemFully,
   addItemAfter,
   addItemBelow,
   removeItem,
@@ -143,6 +144,38 @@ describe('WYSIWYG HTML outliner', () => {
     toggleItem(items[0]);
     assert.equal(isExpanded(items[0]), true);
     assert.equal(childListOf(items[0]).hidden, false);
+  });
+
+  it('expandItemFully expands the heading and every nested parent underneath', () => {
+    // Alpha > Beta > Gamma; collapse Beta then Alpha.
+    toggleItem(items[1]); // Beta
+    toggleItem(items[0]); // Alpha
+    assert.equal(isExpanded(items[0]), false);
+    assert.equal(isExpanded(items[1]), false);
+
+    assert.equal(expandItemFully(items[0]), true);
+    assert.equal(isExpanded(items[0]), true);
+    assert.equal(isExpanded(items[1]), true);
+    assert.equal(childListOf(items[0]).hidden, false);
+    assert.equal(childListOf(items[1]).hidden, false);
+    assert.equal(expandItemFully(items[0]), false);
+  });
+
+  it('⌘⌥→ expands the current heading’s subtree completely', () => {
+    toggleItem(items[1]);
+    toggleItem(items[0]);
+    items[0].querySelector('.text').focus();
+    document.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'ArrowRight',
+        metaKey: true,
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(isExpanded(items[0]), true);
+    assert.equal(isExpanded(items[1]), true);
   });
 
   it('adds a sibling after the current item', () => {

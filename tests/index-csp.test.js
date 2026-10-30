@@ -60,15 +60,21 @@ describe('index.html CSP-safe entry', () => {
     const subheads = [
       ...(kids[1].querySelector(':scope > ol')?.children ?? []),
     ].filter((el) => el.matches?.('[data-item]'));
-    assert.equal(subheads.length, 1);
+    assert.equal(subheads.length, 2);
     assert.match(
       subheads[0].querySelector(':scope > .row .text')?.textContent ?? '',
       /^⌘→ \/ ⌘← will do the same$/,
     );
-    assert.doesNotMatch(
-      subheads[0].querySelector(':scope > .row .text')?.textContent ?? '',
-      /Command|Right-Arrow|Left-Arrow|Ctrl/i,
+    assert.match(
+      subheads[1].querySelector(':scope > .row .text')?.textContent ?? '',
+      /^⌘⌥→ expands this heading’s subheads completely$/,
     );
+    for (const tip of subheads) {
+      assert.doesNotMatch(
+        tip.querySelector(':scope > .row .text')?.textContent ?? '',
+        /Command|Right-Arrow|Left-Arrow|Ctrl|Option/i,
+      );
+    }
   });
 
   it('how-to outline does not mention undo/redo shortcuts', () => {

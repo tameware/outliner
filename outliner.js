@@ -143,6 +143,30 @@ export function toggleItem(item) {
   return true;
 }
 
+/**
+ * Expand `item` and every nested parent under it (complete subtree open).
+ * @param {HTMLElement | null | undefined} item
+ * @returns {boolean} true when any parent was expanded
+ */
+export function expandItemFully(item) {
+  if (!item) return false;
+  let changed = false;
+  const nodes = [item, ...item.querySelectorAll('[data-item]')];
+  for (const node of nodes) {
+    if (!hasChildren(node)) continue;
+    if (isExpanded(node)) {
+      syncItemMeta(node);
+      continue;
+    }
+    node.dataset.state = 'expanded';
+    const list = childList(node);
+    if (list) list.hidden = false;
+    syncItemMeta(node);
+    changed = true;
+  }
+  return changed;
+}
+
 export function createItem(text = '') {
   const li = document.createElement('li');
   li.dataset.item = '';
@@ -818,7 +842,7 @@ function createKeydownHandler(options = {}, outlineRoot = null) {
       return;
     }
 
-    if (event.key === 'ArrowLeft' && event.metaKey) {
+    if (event.key === 'ArrowLeft' && event.metaKey && !event.altKey) {
       event.preventDefault();
       if (hasChildren(item) && isExpanded(item)) toggleItem(item);
       return;
@@ -826,6 +850,10 @@ function createKeydownHandler(options = {}, outlineRoot = null) {
 
     if (event.key === 'ArrowRight' && event.metaKey) {
       event.preventDefault();
+      if (event.altKey) {
+        expandItemFully(item);
+        return;
+      }
       if (hasChildren(item) && !isExpanded(item)) toggleItem(item);
       return;
     }
@@ -893,6 +921,7 @@ export function mountOutliner(root, options = {}) {
     moveItemUp,
     moveItemDown,
     toggleItem,
+    expandItemFully,
     focusSameLevelSibling,
     focusAdjacentItem,
     getActiveItem,
