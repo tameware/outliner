@@ -259,4 +259,12 @@ describe('Outliner menu', () => {
     assert.match(appJs, /mountOutlinerMenu/);
     assert.match(appJs, /from ['"]\.\/outliner-menu\.js['"]/);
   });
+
+  it('resyncs Help enabled after Clear / undo / redo via outlineHistory onChange', () => {
+    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    assert.match(
+      appJs,
+      /onChange:\s*\(\)\s*=>\s*\{[^}]*syncRevert\(\)[^}]*outlinerMenuUi\.syncHelpEnabled\(\)/s,
+    );
+  });
 });

@@ -149,6 +149,8 @@ const outlineHistory = createOutlineHistory({
   onChange: () => {
     // Called after dirty exists; syncRevert is a function declaration (hoisted).
     syncRevert();
+    // Clear / undo / redo / structural edits can enter or leave the starter outline.
+    outlinerMenuUi.syncHelpEnabled();
   },
 });
 
