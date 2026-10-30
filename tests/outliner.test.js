@@ -16,6 +16,8 @@ import {
   promoteItem,
   promoteChildren,
   demoteFollowingSiblings,
+  moveItemUp,
+  moveItemDown,
   serializeOutline,
   setReadOnly,
   isReadOnly,
@@ -445,6 +447,64 @@ describe('WYSIWYG HTML outliner', () => {
   it('toolbar demote does nothing when there are no following siblings', () => {
     assert.equal(demoteFollowingSiblings(items[3]), false); // Delta is last under Alpha
     assert.equal(demoteFollowingSiblings(items[4]), false); // Epsilon is last top-level
+  });
+
+  it('moves an item up among same-level siblings, keeping children nested', () => {
+    assert.equal(moveItemUp(items[4]), true); // Epsilon above Alpha
+    assert.deepEqual(serializeOutline(root), [
+      { text: 'Epsilon', children: [] },
+      {
+        text: 'Alpha',
+        children: [
+          {
+            text: 'Beta',
+            children: [{ text: 'Gamma', children: [] }],
+          },
+          { text: 'Delta', children: [] },
+        ],
+      },
+    ]);
+  });
+
+  it('moves an item down among same-level siblings with its subtree', () => {
+    assert.equal(moveItemDown(items[0]), true); // Alpha below Epsilon
+    assert.deepEqual(serializeOutline(root), [
+      { text: 'Epsilon', children: [] },
+      {
+        text: 'Alpha',
+        children: [
+          {
+            text: 'Beta',
+            children: [{ text: 'Gamma', children: [] }],
+          },
+          { text: 'Delta', children: [] },
+        ],
+      },
+    ]);
+  });
+
+  it('moves a nested item among its siblings without changing level', () => {
+    assert.equal(moveItemDown(items[1]), true); // Beta below Delta under Alpha
+    assert.deepEqual(serializeOutline(root), [
+      {
+        text: 'Alpha',
+        children: [
+          { text: 'Delta', children: [] },
+          {
+            text: 'Beta',
+            children: [{ text: 'Gamma', children: [] }],
+          },
+        ],
+      },
+      { text: 'Epsilon', children: [] },
+    ]);
+  });
+
+  it('cannot move the first sibling up or the last sibling down', () => {
+    assert.equal(moveItemUp(items[0]), false); // Alpha
+    assert.equal(moveItemUp(items[1]), false); // Beta first under Alpha
+    assert.equal(moveItemDown(items[3]), false); // Delta last under Alpha
+    assert.equal(moveItemDown(items[4]), false); // Epsilon last top-level
   });
 
   function placeCaret(el, offset) {

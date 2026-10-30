@@ -2,6 +2,8 @@ import {
   boot,
   promoteChildren,
   demoteFollowingSiblings,
+  moveItemUp,
+  moveItemDown,
   toggleItem,
   focusItem,
   downloadOpml,
@@ -31,8 +33,10 @@ import { createGoogleAuth, createNullAuth } from './auth-google.js';
 import { applyReadOnlyToolbar } from './readonly-toolbar.js';
 import { createOutlineHistory } from './clear-outline-ui.js';
 import { handlePromoteDemoteShortcut } from './promote-demote-keys.js';
+import { handleMoveUpDownShortcut } from './move-up-down-keys.js';
 import { systemBeep } from './system-beep.js';
 import { mountIndentOutdentMenu } from './indent-outdent-menu.js';
+import { mountMoveUpDownMenu } from './move-up-down-menu.js';
 import { mountFindReplace } from './find-replace-ui.js';
 import { blankOutlineForDeepLink } from './deep-link-boot.js';
 import {
@@ -224,6 +228,15 @@ function runPromoteDemote(action) {
   );
 }
 
+/** @param {'up' | 'down'} action */
+function runMoveUpDown(action) {
+  const item = api.getActiveItem();
+  if (!item) return false;
+  return outlineHistory.run(() =>
+    action === 'up' ? moveItemUp(item) : moveItemDown(item),
+  );
+}
+
 document.getElementById('menu-undo').addEventListener('click', () => {
   if (root.dataset.readonly === 'true') return;
   outlineHistory.undo();
@@ -238,6 +251,15 @@ mountIndentOutdentMenu({
   getActiveItem: () => api.getActiveItem(),
   runStructural: (mutate) => outlineHistory.run(mutate),
   isReadOnly: () => root.dataset.readonly === 'true',
+});
+
+mountMoveUpDownMenu({
+  upButton: document.getElementById('menu-move-up'),
+  downButton: document.getElementById('menu-move-down'),
+  getActiveItem: () => api.getActiveItem(),
+  runStructural: (mutate) => outlineHistory.run(mutate),
+  isReadOnly: () => root.dataset.readonly === 'true',
+  beep: systemBeep,
 });
 
 mountFindReplace({
@@ -265,6 +287,11 @@ document.addEventListener(
   (event) => {
     handlePromoteDemoteShortcut(event, {
       run: runPromoteDemote,
+      beep: systemBeep,
+      isReadOnly: () => root.dataset.readonly === 'true',
+    });
+    handleMoveUpDownShortcut(event, {
+      run: runMoveUpDown,
       beep: systemBeep,
       isReadOnly: () => root.dataset.readonly === 'true',
     });

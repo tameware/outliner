@@ -17,6 +17,8 @@ describe('formatMenuShortcut', () => {
     assert.equal(formatMenuShortcut('mod+[', { mac: true }), '⌘[');
     assert.equal(formatMenuShortcut('mod+]', { mac: true }), '⌘]');
     assert.equal(formatMenuShortcut('mod+alt+f', { mac: true }), '⌥⌘F');
+    assert.equal(formatMenuShortcut('alt+u', { mac: true }), '⌥U');
+    assert.equal(formatMenuShortcut('alt+d', { mac: true }), '⌥D');
   });
 
   it('formats non-Mac chords with Ctrl/Shift words', () => {
@@ -26,6 +28,8 @@ describe('formatMenuShortcut', () => {
     assert.equal(formatMenuShortcut('tab', { mac: false }), 'Tab');
     assert.equal(formatMenuShortcut('mod+[', { mac: false }), 'Ctrl+[');
     assert.equal(formatMenuShortcut('mod+alt+f', { mac: false }), 'Ctrl+Alt+F');
+    assert.equal(formatMenuShortcut('alt+u', { mac: false }), 'Alt+U');
+    assert.equal(formatMenuShortcut('alt+d', { mac: false }), 'Alt+D');
   });
 });
 
@@ -60,6 +64,8 @@ describe('index.html menu shortcuts', () => {
       ['menu-redo', 'mod+shift+z'],
       ['menu-indent', 'tab'],
       ['menu-outdent', 'shift+tab'],
+      ['menu-move-up', 'alt+u'],
+      ['menu-move-down', 'alt+d'],
       ['menu-promote', 'mod+['],
       ['menu-demote', 'mod+]'],
       ['menu-find', 'mod+f'],

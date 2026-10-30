@@ -426,6 +426,33 @@ export function promoteChildren(item) {
 }
 
 /**
+ * Move among same-level siblings (children stay nested under the item).
+ * @param {HTMLElement} item
+ * @returns {boolean}
+ */
+export function moveItemUp(item) {
+  const prev = item.previousElementSibling;
+  if (!prev || !prev.matches('[data-item]')) return false;
+  return withoutFocusChange(item, () => {
+    prev.before(item);
+    return true;
+  });
+}
+
+/**
+ * @param {HTMLElement} item
+ * @returns {boolean}
+ */
+export function moveItemDown(item) {
+  const next = item.nextElementSibling;
+  if (!next || !next.matches('[data-item]')) return false;
+  return withoutFocusChange(item, () => {
+    next.after(item);
+    return true;
+  });
+}
+
+/**
  * Toolbar Demote: pull following same-level siblings under this item as children.
  * Tab/Shift+Tab still use promoteItem/demoteItem.
  */
@@ -764,6 +791,8 @@ export function mountOutliner(root, options = {}) {
     demoteItem,
     promoteChildren,
     demoteFollowingSiblings,
+    moveItemUp,
+    moveItemDown,
     toggleItem,
     focusSameLevelSibling,
     focusAdjacentItem,
