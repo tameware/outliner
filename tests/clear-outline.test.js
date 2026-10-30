@@ -363,6 +363,117 @@ describe('multi-step undo/redo stack', () => {
     assert.equal(undoBtn.disabled, true);
     assert.equal(redoBtn.disabled, false);
   });
+
+  it('enables Undo after typing and undoes the whole typing burst', () => {
+    const undoBtn = document.createElement('button');
+    document.body.append(undoBtn);
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+      undoButton: undoBtn,
+    });
+    history.bindShortcuts(root);
+    const text = root.querySelector('.text');
+    text.focus();
+    const before = getItemTexts(root);
+
+    text.dispatchEvent(
+      new window.InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: 'x',
+      }),
+    );
+    text.textContent = `x${text.textContent}`;
+    assert.equal(history.canUndo(), true);
+    assert.equal(undoBtn.disabled, false);
+
+    text.dispatchEvent(
+      new window.InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: 'y',
+      }),
+    );
+    text.textContent = `y${text.textContent}`;
+    assert.equal(history.undoDepth(), 1, 'coalesce one burst into one undo entry');
+
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), before);
+    assert.equal(undoBtn.disabled, true);
+  });
+
+  it('starts a new undo entry after blur between typing bursts', () => {
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+    });
+    history.bindShortcuts(root);
+    const text = root.querySelector('.text');
+    text.focus();
+    text.dispatchEvent(
+      new window.InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: 'a',
+      }),
+    );
+    text.blur();
+    text.focus();
+    text.dispatchEvent(
+      new window.InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: 'b',
+      }),
+    );
+    assert.equal(history.undoDepth(), 2);
+  });
+
+  it('enables Undo from input events when beforeinput does not fire', () => {
+    const undoBtn = document.createElement('button');
+    document.body.append(undoBtn);
+    history = createOutlineHistory({
+      getRoot: () => root,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      clearOutline,
+      getTitle: () => 'Outline',
+      undoButton: undoBtn,
+    });
+    history.bindShortcuts(root);
+    const text = root.querySelector('.text');
+    text.focus();
+    const before = getItemTexts(root);
+
+    // Some environments (incl. Chromium embed) emit input without beforeinput.
+    text.textContent = `Z${text.textContent}`;
+    text.dispatchEvent(
+      new window.InputEvent('input', {
+        bubbles: true,
+        cancelable: false,
+        inputType: 'insertText',
+        data: 'Z',
+      }),
+    );
+    assert.equal(history.canUndo(), true);
+    assert.equal(undoBtn.disabled, false);
+    assert.equal(history.undo(), true);
+    assert.deepEqual(getItemTexts(root), before);
+  });
 });
 
 describe('Tab / Shift+Tab undo', () => {

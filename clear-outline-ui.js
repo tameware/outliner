@@ -50,6 +50,11 @@ export function createOutlineHistory({
   /** @type {HistoryEntry[]} */
   const redoStack = [];
   const depthLimit = Math.max(1, Number(maxDepth) || DEFAULT_MAX_DEPTH);
+  /** Coalesce contiguous typing/deleting into one undo entry. */
+  let textGestureActive = false;
+  /** Pre-edit snapshot for environments that emit `input` without `beforeinput`. */
+  /** @type {HistoryEntry | null} */
+  let textBaseline = null;
 
   if (button) {
     button.title = 'Remove all lines (⌘Z / Ctrl+Z to undo)';
@@ -139,6 +144,20 @@ export function createOutlineHistory({
     onChange?.();
   }
 
+  function captureTextBaseline() {
+    const root = getRoot();
+    if (!root) {
+      textBaseline = null;
+      return;
+    }
+    textBaseline = { opml: snapshot(), focus: captureFocus(root) };
+  }
+
+  function endTextGesture() {
+    textGestureActive = false;
+    captureTextBaseline();
+  }
+
   /**
    * @param {string} opml
    * @param {FocusSave | null} [focus]
@@ -153,8 +172,34 @@ export function createOutlineHistory({
 
   /** Push current outline onto the undo stack (call before a structural mutation). */
   function record() {
+    endTextGesture();
     const root = getRoot();
     pushUndo(snapshot(), captureFocus(root));
+  }
+
+  /**
+   * Snapshot before the first keystroke/delete in a typing burst (beforeinput).
+   * Further edits in the same burst coalesce into one Undo step.
+   */
+  function noteTextEdit() {
+    if (textGestureActive) return;
+    const root = getRoot();
+    if (!root || root.dataset?.readonly === 'true') return;
+    textGestureActive = true;
+    pushUndo(snapshot(), captureFocus(root));
+  }
+
+  /**
+   * `input` fires after the DOM changes — push the baseline captured on focus /
+   * end of the previous burst (needed when `beforeinput` never arrives).
+   */
+  function noteTextEditAfterInput() {
+    if (textGestureActive) return;
+    const root = getRoot();
+    if (!root || root.dataset?.readonly === 'true') return;
+    if (!textBaseline) return;
+    textGestureActive = true;
+    pushUndo(textBaseline.opml, textBaseline.focus);
   }
 
   /**
@@ -163,6 +208,7 @@ export function createOutlineHistory({
    * @param {() => boolean | void} mutate
    */
   function run(mutate) {
+    endTextGesture();
     const root = getRoot();
     const before = snapshot();
     const focusBefore = captureFocus(root);
@@ -173,6 +219,7 @@ export function createOutlineHistory({
   }
 
   function clear() {
+    endTextGesture();
     const root = getRoot();
     if (!root) return;
     const focusBefore = captureFocus(root);
@@ -187,6 +234,7 @@ export function createOutlineHistory({
   }
 
   function undo() {
+    endTextGesture();
     if (!undoStack.length) return false;
     const root = getRoot();
     redoStack.push({ opml: snapshot(), focus: captureFocus(root) });
@@ -197,6 +245,7 @@ export function createOutlineHistory({
   }
 
   function redo() {
+    endTextGesture();
     if (!redoStack.length) return false;
     const root = getRoot();
     undoStack.push({ opml: snapshot(), focus: captureFocus(root) });
@@ -208,6 +257,7 @@ export function createOutlineHistory({
   }
 
   function discard() {
+    endTextGesture();
     undoStack.length = 0;
     redoStack.length = 0;
     syncButtons();
@@ -257,21 +307,64 @@ export function createOutlineHistory({
       }
     }
 
+    function isTextMutatingInputType(type) {
+      return (
+        type.startsWith('insert') ||
+        type.startsWith('delete') ||
+        type.startsWith('format')
+      );
+    }
+
     function onBeforeInput(event) {
-      if (event.inputType === 'historyUndo') {
+      const type = event.inputType || '';
+      if (type === 'historyUndo') {
         if (undo()) event.preventDefault();
-      } else if (event.inputType === 'historyRedo') {
-        if (redo()) event.preventDefault();
+        return;
       }
+      if (type === 'historyRedo') {
+        if (redo()) event.preventDefault();
+        return;
+      }
+      // insert*/delete*/format* — record once per typing burst for Edit → Undo.
+      if (isTextMutatingInputType(type)) {
+        noteTextEdit();
+      }
+    }
+
+    function onInput(event) {
+      const type = event.inputType || '';
+      if (type.startsWith('history')) return;
+      // Empty type: some engines omit inputType on input.
+      if (!type || isTextMutatingInputType(type)) {
+        noteTextEditAfterInput();
+      }
+    }
+
+    function onFocusIn() {
+      if (!textGestureActive) captureTextBaseline();
+    }
+
+    function onFocusOut(event) {
+      const next = event.relatedTarget;
+      if (next && outlineRoot.contains(next)) return;
+      endTextGesture();
     }
 
     // Document capture: works even when focus is on menu chrome after Edit → Indent.
     // Outline beforeinput: intercepts contenteditable's native undo when focused in a line.
+    // Outline input: fallback when beforeinput never fires (some Chromium embeds).
     keyTarget.addEventListener('keydown', onKeyDown, true);
     outlineRoot.addEventListener('beforeinput', onBeforeInput, true);
+    outlineRoot.addEventListener('input', onInput, true);
+    outlineRoot.addEventListener('focusin', onFocusIn);
+    outlineRoot.addEventListener('focusout', onFocusOut);
+    captureTextBaseline();
     return () => {
       keyTarget.removeEventListener('keydown', onKeyDown, true);
       outlineRoot.removeEventListener('beforeinput', onBeforeInput, true);
+      outlineRoot.removeEventListener('input', onInput, true);
+      outlineRoot.removeEventListener('focusin', onFocusIn);
+      outlineRoot.removeEventListener('focusout', onFocusOut);
     };
   }
 
@@ -280,6 +373,7 @@ export function createOutlineHistory({
   return {
     clear,
     record,
+    noteTextEdit,
     run,
     undo,
     redo,
