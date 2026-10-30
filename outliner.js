@@ -167,6 +167,31 @@ export function expandItemFully(item) {
   return changed;
 }
 
+/**
+ * Collapse `item` and every nested parent under it so a later one-level
+ * expand only reveals the next depth.
+ * @param {HTMLElement | null | undefined} item
+ * @returns {boolean} true when any parent was collapsed
+ */
+export function collapseItemFully(item) {
+  if (!item) return false;
+  let changed = false;
+  const nodes = [item, ...item.querySelectorAll('[data-item]')];
+  for (const node of nodes) {
+    if (!hasChildren(node)) continue;
+    if (!isExpanded(node)) {
+      syncItemMeta(node);
+      continue;
+    }
+    node.dataset.state = 'collapsed';
+    const list = childList(node);
+    if (list) list.hidden = true;
+    syncItemMeta(node);
+    changed = true;
+  }
+  return changed;
+}
+
 export function createItem(text = '') {
   const li = document.createElement('li');
   li.dataset.item = '';
@@ -842,8 +867,12 @@ function createKeydownHandler(options = {}, outlineRoot = null) {
       return;
     }
 
-    if (event.key === 'ArrowLeft' && event.metaKey && !event.altKey) {
+    if (event.key === 'ArrowLeft' && event.metaKey) {
       event.preventDefault();
+      if (event.altKey) {
+        collapseItemFully(item);
+        return;
+      }
       if (hasChildren(item) && isExpanded(item)) toggleItem(item);
       return;
     }
@@ -922,6 +951,7 @@ export function mountOutliner(root, options = {}) {
     moveItemDown,
     toggleItem,
     expandItemFully,
+    collapseItemFully,
     focusSameLevelSibling,
     focusAdjacentItem,
     getActiveItem,

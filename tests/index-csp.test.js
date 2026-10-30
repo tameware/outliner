@@ -60,7 +60,7 @@ describe('index.html CSP-safe entry', () => {
     const subheads = [
       ...(kids[1].querySelector(':scope > ol')?.children ?? []),
     ].filter((el) => el.matches?.('[data-item]'));
-    assert.equal(subheads.length, 2);
+    assert.equal(subheads.length, 3);
     assert.match(
       subheads[0].querySelector(':scope > .row .text')?.textContent ?? '',
       /^⌘→ \/ ⌘← will do the same$/,
@@ -68,6 +68,10 @@ describe('index.html CSP-safe entry', () => {
     assert.match(
       subheads[1].querySelector(':scope > .row .text')?.textContent ?? '',
       /^⌘⌥→ expands this heading’s subheads completely$/,
+    );
+    assert.match(
+      subheads[2].querySelector(':scope > .row .text')?.textContent ?? '',
+      /^⌘⌥← collapses this heading’s subheads completely$/,
     );
     for (const tip of subheads) {
       assert.doesNotMatch(
