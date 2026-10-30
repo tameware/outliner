@@ -49,4 +49,18 @@ describe('dirty tracker', () => {
     assert.equal(dirty.isDirty(), false);
     assert.equal(dirty.getBaseline(), 'full-b');
   });
+
+  it('rejects partial snapshot options (one of content/revert without getSnapshot)', () => {
+    const msg =
+      /createDirtyTracker requires getSnapshot or getContentSnapshot \+ getRevertSnapshot/;
+    assert.throws(() => createDirtyTracker({}), msg);
+    assert.throws(
+      () => createDirtyTracker({ getContentSnapshot: () => 'a' }),
+      msg,
+    );
+    assert.throws(
+      () => createDirtyTracker({ getRevertSnapshot: () => 'a' }),
+      msg,
+    );
+  });
 });
