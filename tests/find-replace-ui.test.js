@@ -88,6 +88,7 @@ describe('Find & Replace UI', () => {
     assert.equal(document.getElementById('find-replace-one').hidden, true);
     assert.equal(document.getElementById('find-replace-and-find').hidden, true);
     assert.equal(document.getElementById('find-replace-all').hidden, true);
+    assert.equal(document.getElementById('find-replace-show').hidden, false);
     assert.equal(document.getElementById('find-replace-grep').hidden, false);
     assert.equal(document.getElementById('find-replace-whole').hidden, false);
     assert.equal(document.getElementById('find-replace-next').hidden, false);
@@ -105,7 +106,23 @@ describe('Find & Replace UI', () => {
     assert.equal(document.getElementById('find-replace-one').hidden, false);
     assert.equal(document.getElementById('find-replace-and-find').hidden, false);
     assert.equal(document.getElementById('find-replace-all').hidden, false);
+    assert.equal(document.getElementById('find-replace-show').hidden, true);
     assert.equal(document.getElementById('find-replace-whole').hidden, false);
+  });
+
+  it('reveals Replace options from the Find dialog Replace button', () => {
+    document.getElementById('menu-find').click();
+    document.getElementById('find-replace-show').click();
+    const dialog = document.getElementById('find-replace-dialog');
+    assert.equal(dialog.getAttribute('data-mode'), 'replace');
+    assert.match(dialog.querySelector('h2').textContent, /Find.*Replace/);
+    assert.equal(document.getElementById('find-replace-replace').hidden, false);
+    assert.equal(document.querySelector('label[for="find-replace-replace"]').hidden, false);
+    assert.equal(document.getElementById('find-replace-one').hidden, false);
+    assert.equal(document.getElementById('find-replace-and-find').hidden, false);
+    assert.equal(document.getElementById('find-replace-all').hidden, false);
+    assert.equal(document.getElementById('find-replace-show').hidden, true);
+    assert.equal(document.activeElement, document.getElementById('find-replace-replace'));
   });
 
   it('Whole word limits Find Next and Replace All to whole words', () => {
@@ -134,6 +151,17 @@ describe('Find & Replace UI', () => {
     assert.equal(dialog.getAttribute('data-mode'), 'find');
     assert.equal(document.getElementById('find-replace-replace').hidden, true);
     assert.equal(document.getElementById('find-replace-all').hidden, true);
+    assert.equal(document.getElementById('find-replace-show').hidden, false);
+  });
+
+  it('does not reveal Replace options from Find while read-only', () => {
+    setReadOnly(root, true);
+    document.getElementById('menu-find').click();
+    document.getElementById('find-replace-show').click();
+    const dialog = document.getElementById('find-replace-dialog');
+    assert.equal(dialog.getAttribute('data-mode'), 'find');
+    assert.equal(document.getElementById('find-replace-replace').hidden, true);
+    assert.equal(document.getElementById('find-replace-show').hidden, false);
   });
 
   it('Find Next selects the next match in the outline', () => {
@@ -235,6 +263,19 @@ describe('index.html Find & Replace menu', () => {
     assert.ok(html.indexOf('id="menu-replace"') < html.indexOf('id="menu-clear"'));
   });
 
+  it('defaults Replace chrome to hidden and includes a reveal Replace button', () => {
+    const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
+    assert.match(html, /id="find-replace-show"[^>]*>\s*Replace\s*</);
+    assert.match(
+      html,
+      /<label[^>]*for="find-replace-replace"[^>]*\bhidden\b[^>]*>\s*Replace\s*<\/label>/,
+    );
+    assert.match(html, /id="find-replace-replace"[^>]*\bhidden\b/);
+    assert.match(html, /id="find-replace-one"[^>]*\bhidden\b/);
+    assert.match(html, /id="find-replace-and-find"[^>]*\bhidden\b/);
+    assert.match(html, /id="find-replace-all"[^>]*\bhidden\b/);
+  });
+
   it('wires mountFindReplace from app.js', () => {
     const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
     assert.match(appJs, /mountFindReplace/);
@@ -245,5 +286,13 @@ describe('index.html Find & Replace menu', () => {
     const css = readFileSync(join(repoRoot, 'styles.css'), 'utf8');
     assert.match(css, /\.find-replace-dialog\s*\{[^}]*position\s*:\s*fixed/s);
     assert.match(css, /\.find-replace-dialog\s*\{[^}]*z-index\s*:\s*\d+/s);
+  });
+
+  it('forces [hidden] controls off in the Find dialog', () => {
+    const css = readFileSync(join(repoRoot, 'styles.css'), 'utf8');
+    assert.match(
+      css,
+      /\.find-replace-dialog\s+\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/s,
+    );
   });
 });

@@ -50,11 +50,13 @@ export function mountFindReplace({
   const statusEl = dialog.querySelector('#find-replace-status');
   const btnPrev = dialog.querySelector('#find-replace-prev');
   const btnNext = dialog.querySelector('#find-replace-next');
+  const btnShowReplace = dialog.querySelector('#find-replace-show');
   const btnReplace = dialog.querySelector('#find-replace-one');
   const btnReplaceFind = dialog.querySelector('#find-replace-and-find');
   const btnReplaceAll = dialog.querySelector('#find-replace-all');
   const btnClose = dialog.querySelector('#find-replace-close');
   const replaceUi = [replaceLabel, replaceInput, btnReplace, btnReplaceFind, btnReplaceAll];
+  const findOnlyUi = [btnShowReplace];
 
   /** @type {import('./find-replace.js').FindMatch[]} */
   let matches = [];
@@ -170,16 +172,27 @@ export function mountFindReplace({
   }
 
   /**
-   * @param {boolean} [focusReplace]
+   * @param {boolean} showReplace
    */
-  function openDialog(focusReplace = false) {
-    const showReplace = Boolean(focusReplace);
-    if (showReplace && isReadOnly?.()) return;
+  function setReplaceMode(showReplace) {
+    if (showReplace && isReadOnly?.()) return false;
     dialog.setAttribute('data-mode', showReplace ? 'replace' : 'find');
     if (heading) heading.textContent = showReplace ? 'Find & Replace' : 'Find';
     for (const el of replaceUi) {
       if (el) el.hidden = !showReplace;
     }
+    for (const el of findOnlyUi) {
+      if (el) el.hidden = showReplace;
+    }
+    return true;
+  }
+
+  /**
+   * @param {boolean} [focusReplace]
+   */
+  function openDialog(focusReplace = false) {
+    const showReplace = Boolean(focusReplace);
+    if (!setReplaceMode(showReplace)) return;
     if (dialog.show) dialog.show();
     else dialog.setAttribute('open', '');
     const target = showReplace ? replaceInput : findInput;
@@ -278,6 +291,14 @@ export function mountFindReplace({
   });
   btnNext?.addEventListener('click', () => {
     step(1);
+  });
+  btnShowReplace?.addEventListener('click', () => {
+    if (!setReplaceMode(true)) {
+      beep();
+      return;
+    }
+    replaceInput?.focus();
+    replaceInput?.select?.();
   });
   btnReplace?.addEventListener('click', () => {
     runReplaceCurrent();

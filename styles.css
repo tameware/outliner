@@ -354,6 +354,10 @@ body {
   opacity: 1;
 }
 
+.find-replace-dialog [hidden] {
+  display: none !important;
+}
+
 .find-replace-dialog .find-replace-form {
   background-color: var(--paper);
 }
