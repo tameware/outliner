@@ -92,10 +92,12 @@ export function mountDocumentTitleEditor(el, options = {}) {
   /** @type {string} */
   let editBaseline = '';
   let suppressCommit = false;
+  /** True after mousedown — load/refresh focus must not enter edit mode. */
+  let armEdit = false;
+  let editing = false;
 
   function syncEditable() {
-    const editable = !isReadOnly();
-    if (editable) {
+    if (!isReadOnly() && editing) {
       el.setAttribute('contenteditable', 'plaintext-only');
       // Older engines reject plaintext-only; fall back to true.
       if (!el.isContentEditable) {
@@ -104,6 +106,7 @@ export function mountDocumentTitleEditor(el, options = {}) {
     } else {
       el.setAttribute('contenteditable', 'false');
     }
+    el.tabIndex = isReadOnly() ? -1 : 0;
     el.setAttribute('role', 'textbox');
     el.setAttribute('aria-label', 'Document name');
     el.spellcheck = false;
@@ -122,11 +125,27 @@ export function mountDocumentTitleEditor(el, options = {}) {
     }
   }
 
+  function beginEditing() {
+    if (isReadOnly() || editing) return;
+    editing = true;
+    syncEditable();
+  }
+
+  function onPointerArm() {
+    if (isReadOnly()) return;
+    armEdit = true;
+    // mousedown can land on an already-focused title (no second focus event).
+    beginEditing();
+  }
+
   function onFocus() {
     if (isReadOnly()) {
       el.blur?.();
       return;
     }
+    // Programmatic focus after refresh must not steal outline keyboard shortcuts.
+    if (!armEdit) return;
+    beginEditing();
     suppressCommit = false;
     editBaseline = stripDirtyTitleSuffix(el.textContent).trim() || UNTITLED_DOCUMENT_TITLE;
     el.textContent = editBaseline;
@@ -146,12 +165,16 @@ export function mountDocumentTitleEditor(el, options = {}) {
   }
 
   function onBlur() {
-    if (suppressCommit || isReadOnly()) return;
+    const wasEditing = editing;
+    armEdit = false;
+    editing = false;
+    syncEditable();
+    if (suppressCommit || isReadOnly() || !wasEditing) return;
     commitFromEditor();
   }
 
   function onKeyDown(event) {
-    if (isReadOnly()) return;
+    if (isReadOnly() || !editing) return;
     // Enter/Escape during IME composition accept or cancel the candidate, not the rename.
     if (event.isComposing || event.keyCode === 229) return;
     if (event.key === 'Enter') {
@@ -169,12 +192,14 @@ export function mountDocumentTitleEditor(el, options = {}) {
 
   syncEditable();
   titleEditors.set(el, { flush });
+  el.addEventListener('mousedown', onPointerArm);
   el.addEventListener('focus', onFocus);
   el.addEventListener('blur', onBlur);
   el.addEventListener('keydown', onKeyDown);
 
   return () => {
     titleEditors.delete(el);
+    el.removeEventListener('mousedown', onPointerArm);
     el.removeEventListener('focus', onFocus);
     el.removeEventListener('blur', onBlur);
     el.removeEventListener('keydown', onKeyDown);

@@ -34,7 +34,10 @@ import { createGoogleAuth, createNullAuth } from './auth-google.js';
 import { applyReadOnlyToolbar } from './readonly-toolbar.js';
 import { createOutlineHistory } from './clear-outline-ui.js';
 import { handlePromoteDemoteShortcut } from './promote-demote-keys.js';
-import { handleMoveUpDownShortcut } from './move-up-down-keys.js';
+import {
+  handleMoveUpDownShortcut,
+  isForeignMoveShortcutTarget,
+} from './move-up-down-keys.js';
 import { systemBeep } from './system-beep.js';
 import { mountIndentOutdentMenu } from './indent-outdent-menu.js';
 import { mountMoveUpDownMenu } from './move-up-down-menu.js';
@@ -128,8 +131,14 @@ function applyDocumentUpdated(date) {
 }
 
 mountMenubar(menubar);
+/** Filled after boot so About/Version can return focus to the outline. */
+let restoreOutlineFocus = () => {
+  const item = rootEl.querySelector('[data-item]');
+  if (item) focusItem(item);
+};
 const outlinerMenuUi = mountOutlinerMenu(document, {
   outlineRoot: rootEl,
+  restoreOutlineFocus: () => restoreOutlineFocus(),
 });
 applyMenuShortcuts(document);
 syncDocumentUpdatedDisplay(documentUpdatedEl, null);
@@ -166,6 +175,10 @@ const api = boot('[data-outline-root]', {
 window.__outlinerApi = api;
 const root = api.root;
 outlineHistory.bindShortcuts(root);
+restoreOutlineFocus = () => {
+  const item = api.getActiveItem?.();
+  if (item) focusItem(item);
+};
 
 let currentOutlineId = outlineIdFromLocation(window.location);
 let currentRevision = null;
@@ -627,8 +640,19 @@ fileInput.addEventListener('change', async () => {
   }
 });
 
-const first = root.querySelector('[data-item]');
-if (first) focusItem(first);
+function reclaimOutlineFocusIfIdle() {
+  const active = document.activeElement;
+  if (active && root.contains(active)) return;
+  if (active?.closest?.('dialog[open]')) return;
+  if (isForeignMoveShortcutTarget(active)) return;
+  restoreOutlineFocus();
+}
+reclaimOutlineFocusIfIdle();
+// Refresh / bfcache restore often leaves focus on chrome or a leftover dialog
+// control; reclaim so ⌘← / ⌘→ hit the outline. (Avoid window `focus` — that
+// steals clicks on the document title when returning to the tab.)
+requestAnimationFrame(reclaimOutlineFocusIfIdle);
+window.addEventListener('pageshow', reclaimOutlineFocusIfIdle);
 
 async function initCloud() {
   const cloudConfig = await loadCloudConfig();

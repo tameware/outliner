@@ -3,7 +3,7 @@
 import { hasRemoteOutlineParams } from './deep-link-boot.js';
 
 /** Display version: major.minor only. */
-export const OUTLINER_VERSION = '1.63';
+export const OUTLINER_VERSION = '1.64';
 
 /** ISO date the shipped code was last updated (bump when shipping meaningful changes). */
 export const OUTLINER_UPDATED = '2026-10-30';
@@ -48,12 +48,18 @@ export function isDefaultHelpOutlineOpen(outlineRoot, locationLike) {
   return text === OUTLINER_HELP_TITLE;
 }
 
+/** @type {WeakMap<HTMLElement, () => void>} */
+const messageDialogOnClose = new WeakMap();
+
 /**
  * @param {HTMLDialogElement | HTMLElement} dialog
  */
 function closeMessageDialog(dialog) {
   if (typeof dialog.close === 'function') dialog.close();
   else dialog.removeAttribute('open');
+  const onClose = messageDialogOnClose.get(dialog);
+  messageDialogOnClose.delete(dialog);
+  onClose?.();
 }
 
 /**
@@ -76,15 +82,17 @@ function ensureMessageDialogWired(dialog) {
 /**
  * Show a short message in an in-app dialog (works where window.alert is blocked).
  * @param {HTMLDialogElement | HTMLElement | null | undefined} dialog
- * @param {{ title: string, body: string }} message
+ * @param {{ title: string, body: string, onClose?: () => void }} message
  */
-export function showOutlinerMessage(dialog, { title, body }) {
+export function showOutlinerMessage(dialog, { title, body, onClose }) {
   if (!dialog) return;
   ensureMessageDialogWired(dialog);
   const titleEl = dialog.querySelector('#outliner-message-title');
   const bodyEl = dialog.querySelector('#outliner-message-body');
   if (titleEl) titleEl.textContent = title;
   if (bodyEl) bodyEl.textContent = body;
+  if (typeof onClose === 'function') messageDialogOnClose.set(dialog, onClose);
+  else messageDialogOnClose.delete(dialog);
   if (typeof dialog.showModal === 'function') dialog.showModal();
   else dialog.setAttribute('open', '');
   dialog.querySelector('#outliner-message-ok')?.focus?.();
@@ -97,6 +105,7 @@ export function showOutlinerMessage(dialog, { title, body }) {
  *   messageDialog?: HTMLDialogElement | HTMLElement | null,
  *   outlineRoot?: Element | null,
  *   getLocation?: () => { search?: string, hash?: string },
+ *   restoreOutlineFocus?: () => void,
  * }} [deps]
  * @returns {{ syncHelpEnabled: () => void }}
  */
@@ -118,6 +127,7 @@ export function mountOutlinerMenu(root, deps = {}) {
   const getLocation =
     deps.getLocation ??
     (() => (typeof window !== 'undefined' ? window.location : { search: '' }));
+  const restoreOutlineFocus = deps.restoreOutlineFocus;
 
   const help = root.querySelector('#menu-help');
   const about = root.querySelector('#menu-about');
@@ -132,21 +142,23 @@ export function mountOutlinerMenu(root, deps = {}) {
     help.disabled = isDefaultHelpOutlineOpen(outlineRoot, getLocation());
   }
 
+  function showMessage(title, body) {
+    showOutlinerMessage(messageDialog, {
+      title,
+      body,
+      onClose: restoreOutlineFocus,
+    });
+  }
+
   help?.addEventListener('click', () => {
     if (help.disabled) return;
     openFn(OUTLINER_HELP_URL);
   });
   about?.addEventListener('click', () =>
-    showOutlinerMessage(messageDialog, {
-      title: 'About',
-      body: OUTLINER_ABOUT_TEXT,
-    }),
+    showMessage('About', OUTLINER_ABOUT_TEXT),
   );
   version?.addEventListener('click', () =>
-    showOutlinerMessage(messageDialog, {
-      title: 'Version',
-      body: outlinerVersionLabel(),
-    }),
+    showMessage('Version', outlinerVersionLabel()),
   );
   changelog?.addEventListener('click', () => openFn(OUTLINER_CHANGELOG_URL));
   openSource?.addEventListener('click', () => openFn(OUTLINER_REPO_URL));

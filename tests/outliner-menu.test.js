@@ -194,6 +194,18 @@ describe('Outliner menu', () => {
     assert.deepEqual(alerts, []);
   });
 
+  it('restores outline focus when About closes so shortcuts keep working', () => {
+    const restores = [];
+    mountOutlinerMenu(document, {
+      restoreOutlineFocus: () => {
+        restores.push('focus');
+      },
+    });
+    document.getElementById('menu-about').click();
+    document.getElementById('outliner-message-ok').click();
+    assert.deepEqual(restores, ['focus']);
+  });
+
   it('still shows About/Version when window.alert is a no-op (Cursor browser)', () => {
     window.alert = () => {};
     mountOutlinerMenu(document);

@@ -131,7 +131,8 @@
       <p
         id="document-title"
         class="document-title"
-        contenteditable="plaintext-only"
+        contenteditable="false"
+        tabindex="0"
         spellcheck="false"
         role="textbox"
         aria-label="Document name"
@@ -260,11 +261,19 @@
               <div class="text" contenteditable="true">Click any line to edit it. Type freely — this is a nested outline, not a flat document.</div>
             </div>
           </li>
-          <li data-item>
+          <li data-item data-state="expanded">
             <div class="row">
               <button type="button" class="toggle" aria-label="Toggle"></button>
               <div class="text" contenteditable="true">Click ▸ or ▾ beside a parent to show or hide its children</div>
             </div>
+            <ol>
+              <li data-item>
+                <div class="row">
+                  <button type="button" class="toggle" aria-label="Toggle"></button>
+                  <div class="text" contenteditable="true">⌘→ / ⌘← will do the same</div>
+                </div>
+              </li>
+            </ol>
           </li>
           <li data-item data-state="expanded">
             <div class="row">

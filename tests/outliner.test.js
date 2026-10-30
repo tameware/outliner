@@ -637,6 +637,111 @@ describe('WYSIWYG HTML outliner', () => {
     assert.equal(getItemText(document.activeElement.closest('[data-item]')), 'Beta');
   });
 
+  it('⌘← / ⌘→ collapse and expand when the disclosure toggle has focus (no caret)', () => {
+    const alpha = items[0];
+    assert.equal(isExpanded(alpha), true);
+    const toggle = alpha.querySelector('.toggle');
+    toggle.focus();
+    assert.notEqual(document.activeElement?.closest?.('.text'), alpha.querySelector('.text'));
+
+    toggle.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'ArrowLeft',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(isExpanded(alpha), false);
+
+    toggle.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'ArrowRight',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(isExpanded(alpha), true);
+  });
+
+  it('⌘← collapses the remembered line when focus is on the document body (no caret)', () => {
+    const alpha = items[0];
+    assert.equal(isExpanded(alpha), true);
+    alpha.querySelector('.text').dispatchEvent(
+      new window.FocusEvent('focusin', { bubbles: true }),
+    );
+    document.body.focus?.();
+    // jsdom may leave activeElement on <body> or keep prior focus; blur the text.
+    alpha.querySelector('.text').blur?.();
+    document.body.tabIndex = -1;
+    document.body.focus();
+    assert.equal(api.getActiveItem(), alpha);
+    assert.ok(!document.activeElement?.closest?.('.text'));
+
+    document.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'ArrowLeft',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(isExpanded(alpha), false);
+  });
+
+  it('⌘← collapses the remembered line when focus is on a non-editing document title', () => {
+    const alpha = items[0];
+    assert.equal(isExpanded(alpha), true);
+    alpha.querySelector('.text').dispatchEvent(
+      new window.FocusEvent('focusin', { bubbles: true }),
+    );
+    const title = document.createElement('p');
+    title.id = 'document-title';
+    title.tabIndex = 0;
+    title.setAttribute('contenteditable', 'false');
+    title.textContent = 'Untitled';
+    document.body.appendChild(title);
+    title.focus();
+    assert.equal(document.activeElement, title);
+    assert.equal(title.getAttribute('contenteditable'), 'false');
+
+    document.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'ArrowLeft',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(isExpanded(alpha), false);
+  });
+
+  it('⌘← collapses the remembered line when focus is on a menubar control after About', () => {
+    const alpha = items[0];
+    assert.equal(isExpanded(alpha), true);
+    alpha.querySelector('.text').dispatchEvent(
+      new window.FocusEvent('focusin', { bubbles: true }),
+    );
+    const about = document.createElement('button');
+    about.id = 'menu-about';
+    about.setAttribute('role', 'menuitem');
+    about.textContent = 'About…';
+    document.body.appendChild(about);
+    about.focus();
+    assert.equal(document.activeElement, about);
+
+    const ev = new window.KeyboardEvent('keydown', {
+      key: 'ArrowLeft',
+      metaKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(ev);
+    assert.equal(ev.defaultPrevented, true);
+    assert.equal(isExpanded(alpha), false);
+  });
+
   it('Option/Alt+ArrowUp/ArrowDown keydown move same-level focus', () => {
     const betaText = items[1].querySelector('.text');
     betaText.focus();

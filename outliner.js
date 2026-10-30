@@ -11,6 +11,7 @@ import {
   syncAllDealDiagrams,
 } from './deal-diagram.js';
 import { clearOutlineFocus } from './outline-focus.js';
+import { isForeignMoveShortcutTarget } from './move-up-down-keys.js';
 
 function childList(item) {
   return item.querySelector(':scope > ol');
@@ -665,6 +666,44 @@ function textLineFromEvent(event) {
 }
 
 /**
+ * Outline item for a key event when there may be no caret in `.text`
+ * (disclosure toggle focused, or body focused with a remembered line).
+ * @param {Event} event
+ * @param {HTMLElement | null} outlineRoot
+ * @param {(() => HTMLElement | null | undefined) | undefined} getActiveItem
+ */
+function itemFromKeyEvent(event, outlineRoot, getActiveItem) {
+  const text = textLineFromEvent(event);
+  if (text) {
+    const fromText = itemFromEventTarget(text);
+    if (fromText && (!outlineRoot || outlineRoot.contains(fromText))) return fromText;
+  }
+  const active = document.activeElement;
+  if (active?.closest && outlineRoot?.contains(active)) {
+    const fromActive = active.closest('[data-item]');
+    if (fromActive && outlineRoot.contains(fromActive)) return fromActive;
+  }
+  let t = event.target;
+  if (t?.nodeType === Node.TEXT_NODE) t = t.parentElement;
+  if (t?.closest && outlineRoot?.contains(t)) {
+    const fromTarget = t.closest('[data-item]');
+    if (fromTarget && outlineRoot.contains(fromTarget)) return fromTarget;
+  }
+  if (!getActiveItem) return null;
+  // Same gate as Move Up/Down: ignore Find / title editing / other fields,
+  // but allow menubar buttons and a closed-dialog OK control (common after
+  // About) so ⌘← / ⌘→ still reach the remembered line.
+  if (isForeignMoveShortcutTarget(event.target)) return null;
+  if (isForeignMoveShortcutTarget(active)) return null;
+  if (active?.closest?.('dialog[open]')) return null;
+  const remembered = getActiveItem();
+  if (remembered && (!outlineRoot || outlineRoot.contains(remembered))) {
+    return remembered;
+  }
+  return null;
+}
+
+/**
  * @param {KeyboardEvent} event
  * @returns {'up' | 'down' | null}
  */
@@ -688,20 +727,24 @@ function isCaretAtStart(el) {
 }
 
 /**
- * @param {{ runStructural?: (mutate: () => boolean | void) => boolean | void }} [options]
+ * @param {{
+ *   runStructural?: (mutate: () => boolean | void) => boolean | void,
+ *   getActiveItem?: () => HTMLElement | null | undefined,
+ * }} [options]
  * @param {HTMLElement | null} [outlineRoot]
  */
 function createKeydownHandler(options = {}, outlineRoot = null) {
   const runStructural = options.runStructural ?? ((mutate) => mutate());
+  const getActiveItem = options.getActiveItem;
 
   return function handleKeydown(event) {
-    const text = textLineFromEvent(event);
-    if (!text) return;
-    const item = itemFromEventTarget(text);
+    const item = itemFromKeyEvent(event, outlineRoot, getActiveItem);
     if (!item) return;
     const root = item.closest('[data-outline-root]');
     if (!root) return;
     if (outlineRoot && root !== outlineRoot) return;
+    const text = textEl(item);
+    const textFocused = Boolean(text && document.activeElement === text);
 
     const arrowDir = arrowDirection(event);
 
@@ -726,6 +769,7 @@ function createKeydownHandler(options = {}, outlineRoot = null) {
     }
 
     if (
+      textFocused &&
       !event.metaKey &&
       !event.ctrlKey &&
       !event.altKey &&
@@ -752,7 +796,7 @@ function createKeydownHandler(options = {}, outlineRoot = null) {
       return;
     }
 
-    if (event.key === 'Backspace' && isCaretAtStart(text)) {
+    if (event.key === 'Backspace' && textFocused && text && isCaretAtStart(text)) {
       event.preventDefault();
       runStructural(() => mergeWithPreviousLine(item));
       return;
@@ -813,9 +857,20 @@ export function mountOutliner(root, options = {}) {
     if (item && root.contains(item)) lastFocusedItem = item;
   }
 
+  function getActiveItem() {
+    const el = document.activeElement;
+    const fromFocus = el?.closest?.('[data-item]');
+    if (fromFocus && root.contains(fromFocus)) return fromFocus;
+    if (lastFocusedItem && root.contains(lastFocusedItem)) return lastFocusedItem;
+    return root.querySelector('[data-item]');
+  }
+
   if (options.bindEvents !== false) {
     // Document capture: handle Option+arrows before the editing host.
-    const onKeyDown = createKeydownHandler(options, root);
+    const onKeyDown = createKeydownHandler(
+      { ...options, getActiveItem },
+      root,
+    );
     document.addEventListener('keydown', onKeyDown, true);
     root.addEventListener('click', (event) => {
       rememberItem(event);
@@ -840,13 +895,7 @@ export function mountOutliner(root, options = {}) {
     toggleItem,
     focusSameLevelSibling,
     focusAdjacentItem,
-    getActiveItem: () => {
-      const el = document.activeElement;
-      const fromFocus = el?.closest?.('[data-item]');
-      if (fromFocus && root.contains(fromFocus)) return fromFocus;
-      if (lastFocusedItem && root.contains(lastFocusedItem)) return lastFocusedItem;
-      return root.querySelector('[data-item]');
-    },
+    getActiveItem,
     serialize: () => serializeOutline(root),
   };
 }

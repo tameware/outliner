@@ -149,23 +149,41 @@ describe('document title editor', () => {
     });
   });
 
-  it('strips the dirty bullet while editing and commits the trimmed name on blur', () => {
+  it('stays non-editable until mousedown so load/refresh focus cannot steal outline shortcuts', () => {
+    assert.equal(el.getAttribute('contenteditable'), 'false');
     el.focus();
+    assert.equal(el.getAttribute('contenteditable'), 'false');
+    el.dispatchEvent(
+      new window.MouseEvent('mousedown', { bubbles: true, cancelable: true }),
+    );
+    el.focus();
+    assert.notEqual(el.getAttribute('contenteditable'), 'false');
+  });
+
+  it('strips the dirty bullet while editing and commits the trimmed name on blur', () => {
+    beginEdit();
     assert.equal(el.textContent, 'Bridge notes');
     el.textContent = '  Renamed outline  ';
     el.blur();
     assert.deepEqual(commits, ['Renamed outline']);
   });
 
-  it('commits Untitled when the edited name is cleared', () => {
+  function beginEdit() {
+    el.dispatchEvent(
+      new window.MouseEvent('mousedown', { bubbles: true, cancelable: true }),
+    );
     el.focus();
+  }
+
+  it('commits Untitled when the edited name is cleared', () => {
+    beginEdit();
     el.textContent = '   ';
     el.blur();
     assert.deepEqual(commits, [UNTITLED_DOCUMENT_TITLE]);
   });
 
   it('Escape restores the pre-edit name without committing', () => {
-    el.focus();
+    beginEdit();
     el.textContent = 'Scratch';
     el.dispatchEvent(
       new window.KeyboardEvent('keydown', {
@@ -179,7 +197,7 @@ describe('document title editor', () => {
   });
 
   it('Enter commits and blurs', () => {
-    el.focus();
+    beginEdit();
     el.textContent = 'Deal sheet';
     el.dispatchEvent(
       new window.KeyboardEvent('keydown', {
@@ -192,7 +210,7 @@ describe('document title editor', () => {
   });
 
   it('flushDocumentTitleEditor commits the in-progress name without blurring', () => {
-    el.focus();
+    beginEdit();
     el.textContent = 'Saved name';
     flushDocumentTitleEditor(el);
     assert.deepEqual(commits, ['Saved name']);
@@ -200,7 +218,7 @@ describe('document title editor', () => {
   });
 
   it('ignores Enter and Escape while an IME composition is active', () => {
-    el.focus();
+    beginEdit();
     el.textContent = '候補';
     el.dispatchEvent(
       new window.KeyboardEvent('keydown', {
@@ -226,7 +244,7 @@ describe('document title editor', () => {
   });
 
   it('does not overwrite the field while it is being edited', () => {
-    el.focus();
+    beginEdit();
     el.textContent = 'Typing';
     syncDocumentTitleDisplay(el, 'Other', { dirty: true });
     assert.equal(el.textContent, 'Typing');

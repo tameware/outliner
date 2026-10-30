@@ -57,6 +57,18 @@ describe('index.html CSP-safe entry', () => {
       kids[1].querySelector(':scope > .row .text')?.textContent ?? '',
       /Click ▸ or ▾ beside a parent to show or hide its children/,
     );
+    const subheads = [
+      ...(kids[1].querySelector(':scope > ol')?.children ?? []),
+    ].filter((el) => el.matches?.('[data-item]'));
+    assert.equal(subheads.length, 1);
+    assert.match(
+      subheads[0].querySelector(':scope > .row .text')?.textContent ?? '',
+      /^⌘→ \/ ⌘← will do the same$/,
+    );
+    assert.doesNotMatch(
+      subheads[0].querySelector(':scope > .row .text')?.textContent ?? '',
+      /Command|Right-Arrow|Left-Arrow|Ctrl/i,
+    );
   });
 
   it('how-to outline does not mention undo/redo shortcuts', () => {

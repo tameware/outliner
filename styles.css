@@ -577,10 +577,6 @@ ol.outline ol {
   border-radius: 6px;
 }
 
-.row:hover {
-  background: rgba(47, 93, 80, 0.05);
-}
-
 .row:focus-within {
   background: rgba(47, 93, 80, 0.08);
 }
@@ -765,7 +761,6 @@ ol.outline ol {
     border-left: 0;
   }
 
-  .row:hover,
   .row:focus-within {
     background: none;
   }
