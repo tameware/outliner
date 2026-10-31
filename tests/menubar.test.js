@@ -46,16 +46,21 @@ describe('menubar', () => {
     setupDom();
   });
 
-  it('labels Save… only when Save will open a name dialog (no outline id yet)', () => {
+  it('labels Save… only when Save will open a name dialog', () => {
     assert.equal(cloudSaveMenuLabel(null), 'Save…');
     assert.equal(cloudSaveMenuLabel(''), 'Save…');
+    assert.equal(cloudSaveMenuLabel(null, 'Untitled'), 'Save…');
+    assert.equal(cloudSaveMenuLabel(null, 'Bridge notes'), 'Save');
     assert.equal(cloudSaveMenuLabel('abc'), 'Save');
+    assert.equal(cloudSaveMenuLabel('abc', 'Untitled'), 'Save');
   });
 
-  it('updates the Save menu item label from the outline id', () => {
+  it('updates the Save menu item label from the outline id and title', () => {
     const btn = document.getElementById('menu-save');
     syncCloudSaveMenuLabel(btn, null);
     assert.equal(btn.textContent, 'Save…');
+    syncCloudSaveMenuLabel(btn, null, 'Deal sheet');
+    assert.equal(btn.textContent, 'Save');
     syncCloudSaveMenuLabel(btn, 'id-1');
     assert.equal(btn.textContent, 'Save');
   });

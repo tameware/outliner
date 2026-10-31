@@ -2,7 +2,7 @@
  * Toolbar/UI wiring for optional cloud auth and save/restore.
  */
 
-import { syncCloudSaveMenuLabel } from './menubar.js';
+import { hasCloudSaveName, syncCloudSaveMenuLabel } from './menubar.js';
 import { outlineTitleFromFileName } from './local-file.js';
 
 /**
@@ -72,7 +72,11 @@ export function mountCloudUi({
   }
 
   function syncSaveLabel() {
-    syncCloudSaveMenuLabel(btnSave, outline.getOutlineId?.());
+    syncCloudSaveMenuLabel(
+      btnSave,
+      outline.getOutlineId?.(),
+      outline.getTitle?.(),
+    );
   }
 
   function syncAuthUi() {
@@ -95,10 +99,12 @@ export function mountCloudUi({
     const canMutate =
       !busy && !readOnlyView && (editShareMode || signedIn);
     const dirty = outline.isDirty ? outline.isDirty() : true;
+    const id = outline.getOutlineId?.();
+    // Clean + named + not yet on Drive (e.g. File → Open) still needs Cloud Save.
+    const namedLocalUpload = !id && hasCloudSaveName(outline.getTitle?.());
     if (btnSave) {
       btnSave.hidden = readOnlyView;
-      // Save is a no-op when clean; keep it disabled like Revert.
-      btnSave.disabled = !canMutate || !dirty;
+      btnSave.disabled = !canMutate || (!dirty && !namedLocalUpload);
       syncSaveLabel();
     }
     if (btnSaveAs) {
@@ -197,8 +203,13 @@ export function mountCloudUi({
 
   async function onSave() {
     const id = outline.getOutlineId?.();
+    const title = outline.getTitle?.() || 'Untitled';
     if (id) {
-      return saveWithName(outline.getTitle?.() || 'Untitled', { forceNew: false });
+      return saveWithName(title, { forceNew: false });
+    }
+    // File → Open (and other named docs) already have a title — skip the dialog.
+    if (hasCloudSaveName(title)) {
+      return saveWithName(title, { forceNew: false });
     }
     return openSaveDialog('save');
   }

@@ -2,18 +2,36 @@
  * Outliner / File / Edit / View menubar helpers (classic dropdown menus).
  */
 
-/** @param {string | null | undefined} outlineId */
-export function cloudSaveMenuLabel(outlineId) {
-  return outlineId && String(outlineId).trim() ? 'Save' : 'Save…';
+import { UNTITLED_DOCUMENT_TITLE } from './document-title.js';
+
+/**
+ * True when Cloud Save can use this title without a name dialog
+ * (e.g. a File → Open name, or a renamed document).
+ * @param {string | null | undefined} title
+ */
+export function hasCloudSaveName(title) {
+  const trimmed = String(title ?? '').trim();
+  return Boolean(trimmed) && trimmed !== UNTITLED_DOCUMENT_TITLE;
+}
+
+/**
+ * @param {string | null | undefined} outlineId
+ * @param {string | null | undefined} [title]
+ */
+export function cloudSaveMenuLabel(outlineId, title) {
+  if (outlineId && String(outlineId).trim()) return 'Save';
+  if (hasCloudSaveName(title)) return 'Save';
+  return 'Save…';
 }
 
 /**
  * @param {HTMLElement | null | undefined} button
  * @param {string | null | undefined} outlineId
+ * @param {string | null | undefined} [title]
  */
-export function syncCloudSaveMenuLabel(button, outlineId) {
+export function syncCloudSaveMenuLabel(button, outlineId, title) {
   if (!button) return;
-  button.textContent = cloudSaveMenuLabel(outlineId);
+  button.textContent = cloudSaveMenuLabel(outlineId, title);
 }
 
 /**

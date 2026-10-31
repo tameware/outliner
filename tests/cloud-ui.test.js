@@ -147,7 +147,7 @@ describe('cloud UI', () => {
       parseOpml: () => ({ title: 'Bridge notes', items: [] }),
       loadOutline: () => {},
       insertOutline: () => {},
-      getTitle: () => 'Untitled outline',
+      getTitle: () => 'Untitled',
       setTitle: (t) => {
         outline._title = t;
       },
@@ -198,6 +198,7 @@ describe('cloud UI', () => {
   it('disables Save when the outline is clean and uses ellipsis only when a name dialog is needed', () => {
     outlineId = null;
     outlineDirty = false;
+    outline.getTitle = () => 'Untitled';
     const ui = mountCloudUi({ auth, cloud, outline, configured: true });
     assert.equal(document.getElementById('menu-save').disabled, true);
     assert.equal(document.getElementById('menu-save').textContent, 'Save…');
@@ -216,6 +217,28 @@ describe('cloud UI', () => {
     ui.syncSaveState();
     assert.equal(document.getElementById('menu-save').disabled, true);
     assert.equal(document.getElementById('menu-save').textContent, 'Save');
+    ui.destroy();
+  });
+
+  it('enables Cloud Save for a clean named local open and saves without a name dialog', async () => {
+    outlineId = null;
+    outlineDirty = false;
+    outline.getTitle = () => 'Bridge notes';
+    const ui = mountCloudUi({ auth, cloud, outline, configured: true });
+    assert.equal(document.getElementById('menu-save').disabled, false);
+    assert.equal(document.getElementById('menu-save').textContent, 'Save');
+
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(
+      document.getElementById('cloud-save-dialog').hasAttribute('open'),
+      false,
+    );
+    assert.equal(createdCalls.length, 1);
+    assert.equal(createdCalls[0].title, 'Bridge notes');
+    assert.equal(outlineId, 'new-1');
     ui.destroy();
   });
 
@@ -238,7 +261,7 @@ describe('cloud UI', () => {
     const dialog = document.getElementById('cloud-save-dialog');
     assert.ok(dialog.hasAttribute('open'), 'save dialog should open');
     const input = document.getElementById('cloud-save-name');
-    assert.equal(input.value, 'Untitled outline');
+    assert.equal(input.value, 'Untitled');
     input.value = 'My bridge card';
     document.getElementById('cloud-save-form').dispatchEvent(
       new dom.window.Event('submit', { bubbles: true, cancelable: true }),
@@ -590,16 +613,15 @@ describe('cloud UI', () => {
     mountCloudUi({ auth, cloud, outline, configured: true });
     clearCloudOutlineBinding(outline);
 
+    // Named outline skips the dialog and creates under the existing title.
     document.getElementById('menu-save').click();
-    await new Promise((r) => setTimeout(r, 0));
-    assert.ok(document.getElementById('cloud-save-dialog').hasAttribute('open'));
-    document.getElementById('cloud-save-name').value = 'Imported outline';
-    document.getElementById('cloud-save-form').dispatchEvent(
-      new dom.window.Event('submit', { bubbles: true, cancelable: true }),
-    );
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
 
+    assert.equal(
+      document.getElementById('cloud-save-dialog').hasAttribute('open'),
+      false,
+    );
     assert.equal(savedCalls.length, 0);
     assert.equal(createdCalls.length, 1);
     assert.equal(createdCalls[0].title, 'Imported outline');
