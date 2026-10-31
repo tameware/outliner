@@ -31,7 +31,10 @@ export function cloudSaveMenuLabel(outlineId, title) {
  */
 export function syncCloudSaveMenuLabel(button, outlineId, title) {
   if (!button) return;
-  button.textContent = cloudSaveMenuLabel(outlineId, title);
+  const label = cloudSaveMenuLabel(outlineId, title);
+  const shortcut = button.querySelector('.menu-shortcut');
+  button.textContent = label;
+  if (shortcut) button.appendChild(shortcut);
 }
 
 /**

@@ -58,7 +58,7 @@ describe('applyMenuShortcuts', () => {
 describe('index.html menu shortcuts', () => {
   const html = readFileSync(join(root, 'index.html'), 'utf8');
 
-  it('marks Edit actions that have keyboard shortcuts', () => {
+  it('marks menu actions that have keyboard shortcuts', () => {
     for (const [id, keys] of [
       ['menu-undo', 'mod+z'],
       ['menu-redo', 'mod+shift+z'],
@@ -70,6 +70,7 @@ describe('index.html menu shortcuts', () => {
       ['menu-demote', 'mod+]'],
       ['menu-find', 'mod+f'],
       ['menu-replace', 'mod+alt+f'],
+      ['menu-save', 'mod+s'],
     ]) {
       const start = html.indexOf(`id="${id}"`);
       assert.ok(start >= 0, `expected ${id}`);

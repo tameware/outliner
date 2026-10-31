@@ -932,4 +932,68 @@ describe('cloud UI', () => {
     assert.equal(await pending, false);
     assert.equal(createdCalls.length, 0);
   });
+
+  it('Cmd/Ctrl+S saves to the cloud and prevents the browser save dialog', async () => {
+    outlineId = 'existing-1';
+    outline.getTitle = () => 'Bridge notes';
+    outline.getRevision = () => 2;
+    outline.getLeaseToken = () => 'lease';
+    const ui = mountCloudUi({ auth, cloud, outline, configured: true });
+
+    const event = new dom.window.KeyboardEvent('keydown', {
+      key: 's',
+      code: 'KeyS',
+      metaKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    const prevented = !document.dispatchEvent(event);
+    assert.equal(event.defaultPrevented || prevented, true);
+
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(savedCalls.length, 1);
+    assert.equal(savedCalls[0].id, 'existing-1');
+    ui.destroy();
+  });
+
+  it('Ctrl+S also triggers Cloud Save', async () => {
+    outlineId = 'existing-1';
+    outline.getTitle = () => 'Bridge notes';
+    outline.getRevision = () => 2;
+    outline.getLeaseToken = () => 'lease';
+    const ui = mountCloudUi({ auth, cloud, outline, configured: true });
+
+    const event = new dom.window.KeyboardEvent('keydown', {
+      key: 's',
+      code: 'KeyS',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(savedCalls.length, 1);
+    ui.destroy();
+  });
+
+  it('Cmd+S still blocks the browser save when Cloud Save is disabled', () => {
+    outlineDirty = false;
+    outlineId = 'existing-1';
+    const ui = mountCloudUi({ auth, cloud, outline, configured: true });
+    assert.equal(document.getElementById('menu-save').disabled, true);
+
+    const event = new dom.window.KeyboardEvent('keydown', {
+      key: 's',
+      metaKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(savedCalls.length, 0);
+    ui.destroy();
+  });
 });

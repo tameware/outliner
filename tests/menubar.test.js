@@ -65,6 +65,21 @@ describe('menubar', () => {
     assert.equal(btn.textContent, 'Save');
   });
 
+  it('keeps the Cloud Save keyboard shortcut when the label toggles', () => {
+    const btn = document.getElementById('menu-save');
+    btn.innerHTML =
+      'Save…<span class="menu-shortcut" data-keys="mod+s">⌘S</span>';
+    syncCloudSaveMenuLabel(btn, 'id-1');
+    assert.match(btn.textContent, /^Save/);
+    const shortcut = btn.querySelector('.menu-shortcut');
+    assert.ok(shortcut);
+    assert.equal(shortcut.getAttribute('data-keys'), 'mod+s');
+    assert.equal(shortcut.textContent, '⌘S');
+    syncCloudSaveMenuLabel(btn, null);
+    assert.equal(btn.querySelector('.menu-shortcut')?.textContent, '⌘S');
+    assert.match(btn.textContent, /^Save…/);
+  });
+
   it('opens one dropdown at a time without hiding other menu labels', () => {
     const menubar = document.querySelector('.menubar');
     mountMenubar(menubar);

@@ -542,6 +542,19 @@ export function mountCloudUi({
   btnSaveAs?.addEventListener('click', () => {
     void onSaveAs();
   });
+
+  /** ⌘S / Ctrl+S → Cloud Save (overrides the browser’s Save Page). */
+  function onSaveShortcut(event) {
+    if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) {
+      return;
+    }
+    const key = event.key?.toLowerCase?.() || '';
+    if (key !== 's') return;
+    event.preventDefault();
+    if (btnSave?.disabled) return;
+    void saveCurrent();
+  }
+  document.addEventListener('keydown', onSaveShortcut, true);
   btnOpen?.addEventListener('click', () => {
     void onOpen();
   });
@@ -583,6 +596,7 @@ export function mountCloudUi({
 
   return {
     destroy() {
+      document.removeEventListener('keydown', onSaveShortcut, true);
       if (typeof unsub === 'function') unsub();
     },
     syncSaveLabel,
