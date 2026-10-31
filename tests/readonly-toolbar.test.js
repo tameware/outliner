@@ -18,6 +18,7 @@ describe('read-only toolbar', () => {
             <button type="button" role="menuitem" id="menu-issue-tracker">Issue tracker</button>
             <button type="button" role="menuitem" id="menu-report-issues">Email the Outliner team</button>
             <button type="button" role="menuitem" id="menu-privacy">Privacy</button>
+            <button type="button" role="menuitem" id="menu-cookies">Cookies?</button>
           </div>
         </div>
         <div class="menu" data-menu="file" hidden>
@@ -75,6 +76,7 @@ describe('read-only toolbar', () => {
       'menu-issue-tracker',
       'menu-report-issues',
       'menu-privacy',
+      'menu-cookies',
       'menu-file-save',
       'menu-file-save-as',
       'menu-find',

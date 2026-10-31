@@ -323,6 +323,10 @@ body {
   color: var(--muted);
 }
 
+#outliner-message-body {
+  white-space: pre-wrap;
+}
+
 .cloud-save-label {
   display: block;
   margin: 0 0 0.35rem;

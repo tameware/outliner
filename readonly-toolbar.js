@@ -8,6 +8,7 @@ export const READONLY_TOOLBAR_IDS = [
   'menu-issue-tracker',
   'menu-report-issues',
   'menu-privacy',
+  'menu-cookies',
   'menu-file-save',
   'menu-file-save-as',
   'menu-find',

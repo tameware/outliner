@@ -28,6 +28,9 @@ export const OUTLINER_ISSUES_MAILTO = 'mailto:outliner@tameware.com';
 export const OUTLINER_ABOUT_TEXT =
   'Tameware Outliner is a WYSIWYG HTML outliner with expand/collapse editing, OPML import/export, optional Google Drive sync, and special features for bridge players. It was written by Adam Wildavsky using Cursor AI.';
 
+export const OUTLINER_COOKIES_TEXT =
+  'The Outliner app itself does not write cookies. There’s neither document.cookie nor cookie helpers in the product code. Further, it uses neither localStorage nor sessionStorage. Outline data stays in page memory unless you export a file or save to Google Drive.\n\nIf you use Sign in with Google, Google’s Identity Services on Google’s domains may set their own cookies; that’s Google, not Outliner.';
+
 /** @returns {string} */
 export function outlinerVersionLabel() {
   return `${OUTLINER_VERSION} (updated ${OUTLINER_UPDATED})`;
@@ -140,6 +143,7 @@ export function mountOutlinerMenu(root, deps = {}) {
   const issueTracker = root.querySelector('#menu-issue-tracker');
   const report = root.querySelector('#menu-report-issues');
   const privacy = root.querySelector('#menu-privacy');
+  const cookies = root.querySelector('#menu-cookies');
 
   function syncHelpEnabled() {
     if (!help) return;
@@ -169,6 +173,9 @@ export function mountOutlinerMenu(root, deps = {}) {
   issueTracker?.addEventListener('click', () => openFn(OUTLINER_ISSUES_URL));
   report?.addEventListener('click', () => openFn(OUTLINER_ISSUES_MAILTO));
   privacy?.addEventListener('click', () => openFn(OUTLINER_PRIVACY_URL));
+  cookies?.addEventListener('click', () =>
+    showMessage('Cookies?', OUTLINER_COOKIES_TEXT),
+  );
 
   root
     .querySelector('[data-menu="outliner"] .menu-label')

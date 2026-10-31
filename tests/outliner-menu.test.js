@@ -7,6 +7,7 @@ import { JSDOM } from 'jsdom';
 import {
   OUTLINER_ABOUT_TEXT,
   OUTLINER_CHANGELOG_URL,
+  OUTLINER_COOKIES_TEXT,
   OUTLINER_HELP_TITLE,
   OUTLINER_HELP_URL,
   OUTLINER_ISSUES_MAILTO,
@@ -47,6 +48,7 @@ function setupDom(options = {}) {
           <button type="button" role="menuitem" id="menu-issue-tracker">Issue tracker</button>
           <button type="button" role="menuitem" id="menu-report-issues">Email the Outliner team</button>
           <button type="button" role="menuitem" id="menu-privacy">Privacy</button>
+          <button type="button" role="menuitem" id="menu-cookies">Cookies?</button>
         </div>
       </div>
     </nav>
@@ -113,6 +115,10 @@ describe('Outliner menu', () => {
       OUTLINER_ABOUT_TEXT,
       'Tameware Outliner is a WYSIWYG HTML outliner with expand/collapse editing, OPML import/export, optional Google Drive sync, and special features for bridge players. It was written by Adam Wildavsky using Cursor AI.',
     );
+    assert.equal(
+      OUTLINER_COOKIES_TEXT,
+      'The Outliner app itself does not write cookies. There’s neither document.cookie nor cookie helpers in the product code. Further, it uses neither localStorage nor sessionStorage. Outline data stays in page memory unless you export a file or save to Google Drive.\n\nIf you use Sign in with Google, Google’s Identity Services on Google’s domains may set their own cookies; that’s Google, not Outliner.',
+    );
   });
 
   it('opens the default outline (index.html, no share params) in a new window for Help', () => {
@@ -174,7 +180,7 @@ describe('Outliner menu', () => {
     assert.equal(document.getElementById('menu-help').disabled, false);
   });
 
-  it('shows About and Version in an in-app dialog (not window.alert)', () => {
+  it('shows About, Version, and Cookies? in an in-app dialog (not window.alert)', () => {
     mountOutlinerMenu(document);
     const dialog = document.getElementById('outliner-message-dialog');
     const title = document.getElementById('outliner-message-title');
@@ -197,6 +203,14 @@ describe('Outliner menu', () => {
       body.textContent,
       new RegExp(`^${OUTLINER_VERSION.replace('.', '\\.')} \\(updated \\d{4}-\\d{2}-\\d{2}\\)$`),
     );
+    assert.deepEqual(alerts, []);
+
+    document.getElementById('outliner-message-ok').click();
+    document.getElementById('menu-cookies').click();
+    assert.ok(dialog.hasAttribute('open'));
+    assert.equal(title.textContent, 'Cookies?');
+    assert.equal(body.textContent, OUTLINER_COOKIES_TEXT);
+    assert.match(body.textContent, /\n\n/);
     assert.deepEqual(alerts, []);
   });
 
@@ -253,7 +267,7 @@ describe('Outliner menu', () => {
     assert.deepEqual(opened, [OUTLINER_PRIVACY_URL]);
   });
 
-  it('places Outliner left of File in index.html with Privacy after Email the Outliner team', () => {
+  it('places Outliner left of File in index.html with Cookies? after Privacy', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     const outlinerAt = html.indexOf('data-menu="outliner"');
     const fileAt = html.indexOf('data-menu="file"');
@@ -269,16 +283,23 @@ describe('Outliner menu', () => {
     assert.match(panel, /id="menu-issue-tracker"[^>]*>\s*Issue tracker\s*</);
     assert.match(panel, /id="menu-report-issues"[^>]*>\s*Email the Outliner team\s*</);
     assert.match(panel, /id="menu-privacy"[^>]*>\s*Privacy\s*</);
+    assert.match(panel, /id="menu-cookies"[^>]*>\s*Cookies\?\s*</);
     assert.ok(panel.indexOf('menu-help') < panel.indexOf('menu-about'));
     assert.ok(panel.indexOf('menu-version') < panel.indexOf('menu-changelog'));
     assert.ok(panel.indexOf('menu-open-source') < panel.indexOf('menu-issue-tracker'));
     assert.ok(panel.indexOf('menu-issue-tracker') < panel.indexOf('menu-report-issues'));
     assert.ok(panel.indexOf('menu-report-issues') < panel.indexOf('menu-privacy'));
+    assert.ok(panel.indexOf('menu-privacy') < panel.indexOf('menu-cookies'));
     assert.doesNotMatch(html, /chrome-privacy/);
     assert.match(html, /id="outliner-message-dialog"/);
     assert.match(html, /id="outliner-message-title"/);
     assert.match(html, /id="outliner-message-body"/);
     assert.match(html, /id="outliner-message-ok"/);
+  });
+
+  it('preserves paragraph breaks in the message dialog body', () => {
+    const css = readFileSync(join(root, 'styles.css'), 'utf8');
+    assert.match(css, /#outliner-message-body\s*\{[^}]*white-space:\s*pre-wrap/);
   });
 
   it('wires mountOutlinerMenu from app.js', () => {
