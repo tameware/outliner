@@ -117,7 +117,7 @@ describe('menubar', () => {
 });
 
 describe('sticky chrome menubar', () => {
-  it('keeps brand, menus, document name, timestamp, and owner in .chrome-sticky', () => {
+  it('keeps brand, menus, document name, timestamp, owner, and share status in .chrome-sticky', () => {
     const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
     const { document } = new JSDOM(html).window;
     const sticky = document.querySelector('.chrome-sticky');
@@ -129,13 +129,22 @@ describe('sticky chrome menubar', () => {
     assert.ok(heading.querySelector('#document-title'));
     assert.ok(heading.querySelector('#document-updated'));
     assert.ok(heading.querySelector('#cloud-user'));
+    const statusBar = sticky.querySelector('[data-cloud-bar]');
+    assert.ok(statusBar, 'Editable / Read-only status should stick with the menu bar');
+    assert.ok(statusBar.querySelector('#cloud-status'));
     assert.equal(
       document.querySelector('header.chrome .document-heading'),
       null,
       'document heading must not scroll with the outline header',
     );
+    assert.equal(
+      document.querySelector('header.chrome [data-cloud-bar]'),
+      null,
+      'cloud status must not scroll with the outline header',
+    );
     const menubar = sticky.querySelector('.menubar');
     assert.equal(menubar.compareDocumentPosition(heading) & 4, 4);
+    assert.equal(heading.compareDocumentPosition(statusBar) & 4, 4);
   });
 
   it('pins .chrome-sticky with an opaque bar so menus stay visible while the outline scrolls', () => {

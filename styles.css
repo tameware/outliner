@@ -36,13 +36,8 @@ body {
 .chrome {
   max-width: 52rem;
   margin: 0 auto;
-  padding: 0.45rem 1.25rem 0.75rem;
-}
-
-/* Dialogs live here; collapse empty chrome when the status bar is hidden. */
-.chrome:not(:has(.cloud-bar:not([hidden]))) {
-  padding-top: 0;
-  padding-bottom: 0;
+  /* Dialogs only — share status lives in sticky chrome. */
+  padding: 0 1.25rem;
 }
 
 .chrome h1 {
@@ -294,12 +289,16 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem 0.75rem;
-  margin: 0 0 0.75rem;
+  margin: 0.35rem 0 0;
   min-height: 1.1em;
 }
 
 .cloud-bar[hidden] {
   display: none;
+}
+
+.chrome-sticky .cloud-bar:not([hidden]) {
+  margin-bottom: 0.15rem;
 }
 
 .cloud-user {
