@@ -5,6 +5,7 @@
  */
 
 import { fillTextWithSuits, tryInsertSuitShortcut } from './suit-shortcuts.js';
+import { bindOutlinePlainPaste } from './outline-paste.js';
 import {
   bindDealDiagrams,
   isDealDiagramItem,
@@ -935,6 +936,7 @@ export function mountOutliner(root, options = {}) {
     });
     root.addEventListener('focusin', rememberItem);
     root.addEventListener('mouseup', rememberItem);
+    bindOutlinePlainPaste(root);
     bindDealDiagrams(root);
   }
 
