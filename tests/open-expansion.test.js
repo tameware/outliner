@@ -154,7 +154,7 @@ describe('open expansion', () => {
     );
     assert.match(
       appJs,
-      /applyOutline:\s*async\s*\(got\)\s*=>\s*\{[\s\S]*?applyOpenExpansion\(root\)/,
+      /applyOutline:\s*async\s*\(got,\s*requestedId\)\s*=>\s*\{[\s\S]*?applyOpenExpansion\(root\)/,
     );
   });
 

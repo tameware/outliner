@@ -66,6 +66,21 @@ export function mountCloudUi({
   bar.hidden = false;
   let user = null;
   let busy = false;
+  /**
+   * Drive file id from the last successful Cloud Open / Save.
+   * Share links use this so a stale getOutlineId() (e.g. late deep-link syncUrl)
+   * cannot mint a link for a previously opened outline.
+   * @type {string | null}
+   */
+  let activeDriveFileId = outline.getOutlineId?.() || null;
+
+  /**
+   * @param {string | null | undefined} id
+   */
+  function rememberDriveFileId(id) {
+    const next = id && String(id).trim() ? String(id).trim() : null;
+    activeDriveFileId = next;
+  }
 
   function setStatus(message) {
     if (statusEl) statusEl.textContent = message || '';
@@ -252,6 +267,7 @@ export function mountCloudUi({
         // Drive v3 often omits ETag; revision is optional (last-write-wins).
         const revision = created.revision ?? null;
         outline.setOutlineId?.(id);
+        rememberDriveFileId(id);
         outline.setRevision?.(revision);
         outline.setLeaseToken?.(null);
         outline.setTitle?.(name);
@@ -289,6 +305,7 @@ export function mountCloudUi({
           leaseToken,
           title: name,
         });
+        rememberDriveFileId(id);
         outline.setRevision?.(saved?.revision ?? revision);
         outline.setTitle?.(name);
         outline.setUpdatedAt?.(savedAt);
@@ -402,8 +419,9 @@ export function mountCloudUi({
     if (!okConfirm) return;
     const ok = await withBusy('Deleting…', async () => {
       await cloud.deleteOutline(id);
-      if (outline.getOutlineId?.() === id) {
+      if (outline.getOutlineId?.() === id || activeDriveFileId === id) {
         outline.setOutlineId?.(null);
+        rememberDriveFileId(null);
         outline.setRevision?.(null);
         outline.setLeaseToken?.(null);
         if (outline.syncUrl) outline.syncUrl(null);
@@ -433,15 +451,18 @@ export function mountCloudUi({
       outline.loadOutline(tree);
       // After loadOutline: Drive Last-Modified wins over any OPML dateModified.
       outline.setUpdatedAt?.(modifiedTime ?? null);
-      outline.setOutlineId?.(id);
+      const driveId =
+        (typeof got === 'string' ? null : got.fileId) || id;
+      outline.setOutlineId?.(driveId);
+      rememberDriveFileId(driveId);
       outline.setRevision?.(revision ?? tree.revision ?? null);
       outline.setLeaseToken?.(null);
       const title = outlineTitleFromFileName(listedTitle || driveTitle, tree.title);
       outline.setTitle?.(title);
-      if (outline.syncUrl) outline.syncUrl(id);
+      if (outline.syncUrl) outline.syncUrl(driveId);
       syncSaveLabel();
       outline.markClean?.();
-      setStatus(title ? `Opened “${title}”` : `Opened ${id}`);
+      setStatus(title ? `Opened “${title}”` : `Opened ${driveId}`);
     });
     if (!ok) outline.hideLoading?.();
   }
@@ -485,14 +506,30 @@ export function mountCloudUi({
   }
 
   function requireSavedOutline(kind) {
-    const id = outline.getOutlineId?.();
-    if (!id || outline.isDirty?.()) {
+    const boundId = outline.getOutlineId?.() || null;
+    // File Open clears the Drive binding — drop any remembered id too.
+    if (!boundId) {
+      rememberDriveFileId(null);
       window.alert(
         kind === 'edit'
           ? 'Save this outline to Google Drive before creating an editable link.'
           : 'Save this outline to Google Drive before creating a read-only link.',
       );
       return null;
+    }
+    if (outline.isDirty?.()) {
+      window.alert(
+        kind === 'edit'
+          ? 'Save this outline to Google Drive before creating an editable link.'
+          : 'Save this outline to Google Drive before creating a read-only link.',
+      );
+      return null;
+    }
+    // Prefer the last Cloud Open/Save id when getOutlineId was clobbered (stale deep-link).
+    const id = activeDriveFileId || boundId;
+    if (boundId !== id) {
+      outline.setOutlineId?.(id);
+      if (outline.syncUrl) outline.syncUrl(id);
     }
     return id;
   }

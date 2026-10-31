@@ -784,7 +784,17 @@ async function initCloud() {
       cloud,
       getOutlineId: () =>
         editShareToken || viewShareToken || currentOutlineId,
-      applyOutline: async (got) => {
+      applyOutline: async (got, requestedId) => {
+        // Cloud Open may have moved on while this deep-link fetch was in flight.
+        if (
+          !editShareToken &&
+          !viewShareToken &&
+          requestedId &&
+          currentOutlineId &&
+          currentOutlineId !== requestedId
+        ) {
+          return;
+        }
         const tree = parseOpml(got.opml);
         hideOutlineLoading(root);
         loadOutline(root, tree);
@@ -796,7 +806,17 @@ async function initCloud() {
         applyDocumentUpdated(got.modifiedTime ?? tree.dateModified ?? null);
         // Match Cloud Open: keep currentOutlineId + owner ?id= URL in sync.
         // Share ?view= / ?edit= URLs stay opaque (syncUrl no-ops the history rewrite).
-        if (got.fileId) syncUrl(got.fileId);
+        if (got.fileId) {
+          if (
+            editShareToken ||
+            viewShareToken ||
+            !currentOutlineId ||
+            currentOutlineId === requestedId ||
+            currentOutlineId === got.fileId
+          ) {
+            syncUrl(got.fileId);
+          }
+        }
         currentRevision = got.revision ?? null;
         leaseToken = null;
         dirty.markClean();

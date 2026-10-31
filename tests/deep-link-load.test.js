@@ -144,12 +144,47 @@ describe('bindDeepLinkOutlineLoad', () => {
     assert.match(appJs, /bindDeepLinkOutlineLoad\s*\(/);
     assert.match(
       appJs,
-      /applyOutline:\s*async\s*\(got\)\s*=>\s*\{[\s\S]*?if\s*\(got\.fileId\)\s*syncUrl\(got\.fileId\)/,
+      /applyOutline:\s*async\s*\(got,\s*requestedId\)\s*=>\s*\{[\s\S]*?if\s*\(got\.fileId\)\s*\{/,
+    );
+    assert.match(
+      appJs,
+      /currentOutlineId\s*!==\s*requestedId/,
     );
     assert.doesNotMatch(
       appJs,
-      /applyOutline:\s*async\s*\(got\)\s*=>\s*\{[\s\S]*?if\s*\(got\.fileId\)\s*currentOutlineId\s*=\s*got\.fileId/,
+      /applyOutline:\s*async\s*\(got(?:,\s*requestedId)?\)\s*=>\s*\{[\s\S]*?if\s*\(got\.fileId\)\s*currentOutlineId\s*=\s*got\.fileId/,
     );
+  });
+
+  it('ignores applyOutline when Cloud Open already selected a different Drive file', async () => {
+    const applied = [];
+    let currentId = 'file-a';
+    let resolveGet;
+    const cloud = {
+      getOutline(id) {
+        return new Promise((resolve) => {
+          resolveGet = () =>
+            resolve({ opml: `<opml>${id}</opml>`, title: id, fileId: id });
+        });
+      },
+    };
+    const { ready, destroy } = bindDeepLinkOutlineLoad({
+      auth: { onAuthStateChanged: () => () => {} },
+      cloud,
+      getOutlineId: () => currentId,
+      applyOutline: async (got, requestedId) => {
+        if (currentId && requestedId && currentId !== requestedId) return;
+        applied.push(got.fileId);
+        currentId = got.fileId;
+      },
+    });
+    // Cloud Open B wins before the deep-link response for A arrives.
+    currentId = 'file-b';
+    resolveGet();
+    await ready;
+    assert.deepEqual(applied, []);
+    assert.equal(currentId, 'file-b');
+    destroy();
   });
 
   it('app.js prefers the Drive file title over the OPML head title on deep-link load', () => {

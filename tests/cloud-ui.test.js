@@ -933,6 +933,107 @@ describe('cloud UI', () => {
     assert.equal(createdCalls.length, 0);
   });
 
+  it('share after opening a second Drive outline uses the newly opened file id', async () => {
+    outlineDirty = false;
+    outlineId = null;
+    const shareIds = [];
+    cloud.getOutline = async (id) => ({
+      opml: `<?xml version="1.0"?><opml version="2.0"><body></body></opml>`,
+      revision: 1,
+      title: id === 'o1' ? 'Bridge notes' : 'Shopping',
+      fileId: id,
+    });
+    cloud.createShareLink = async (id) => {
+      shareIds.push(id);
+      return { token: `view-${id}`, urlPath: `/outliner/?view=view-${id}` };
+    };
+    cloud.createEditShareLink = async (id) => {
+      shareIds.push(`edit:${id}`);
+      return { token: `edit-${id}`, urlPath: `/outliner/?edit=edit-${id}` };
+    };
+    const written = mockClipboard();
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    async function openListed(label) {
+      document.getElementById('menu-open').click();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      const btn = [...document.querySelectorAll('#cloud-outline-list button')].find(
+        (b) => b.textContent === label,
+      );
+      assert.ok(btn, `expected list item ${label}`);
+      btn.click();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+    }
+
+    await openListed('Bridge notes');
+    assert.equal(outlineId, 'o1');
+    await openListed('Shopping');
+    assert.equal(outlineId, 'o2');
+
+    document.getElementById('menu-cloud-share').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.deepEqual(shareIds, ['o2']);
+    assert.match(written[0], /view=view-o2/);
+
+    document.getElementById('menu-cloud-share-edit').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.deepEqual(shareIds, ['o2', 'edit:o2']);
+    assert.match(written[1], /edit=edit-o2/);
+  });
+
+  it('share prefers the last Cloud-opened file when getOutlineId is stale', async () => {
+    outlineDirty = false;
+    outlineId = null;
+    const shareIds = [];
+    cloud.getOutline = async (id) => ({
+      opml: '<opml></opml>',
+      revision: 1,
+      title: id === 'o1' ? 'Bridge notes' : 'Shopping',
+      fileId: id,
+    });
+    cloud.createShareLink = async (id) => {
+      shareIds.push(id);
+      return { token: `view-${id}`, urlPath: `/outliner/?view=view-${id}` };
+    };
+    const written = mockClipboard();
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-open').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    const first = [...document.querySelectorAll('#cloud-outline-list button')].find(
+      (b) => b.textContent === 'Bridge notes',
+    );
+    first.click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    document.getElementById('menu-open').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    const second = [...document.querySelectorAll('#cloud-outline-list button')].find(
+      (b) => b.textContent === 'Shopping',
+    );
+    second.click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(outlineId, 'o2');
+
+    // Simulate a late deep-link syncUrl(A) clobbering the live id after Open B.
+    outlineId = 'o1';
+
+    document.getElementById('menu-cloud-share').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    assert.deepEqual(shareIds, ['o2']);
+    assert.match(written[0], /view=view-o2/);
+    assert.equal(outlineId, 'o2', 'share should repair the stale outline id');
+  });
+
   it('Cmd/Ctrl+S saves to the cloud and prevents the browser save dialog', async () => {
     outlineId = 'existing-1';
     outline.getTitle = () => 'Bridge notes';

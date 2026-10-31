@@ -26,7 +26,7 @@ export function isSoftDeepLinkLoadError(error) {
  * @param {{ onAuthStateChanged?: Function }} options.auth
  * @param {{ getOutline: (id: string) => Promise<{ opml: string, revision?: string | null, title?: string | null }> }} options.cloud
  * @param {() => string | null | undefined} options.getOutlineId
- * @param {(got: { opml: string, revision?: string | null, title?: string | null }) => void | Promise<void>} options.applyOutline
+ * @param {(got: { opml: string, revision?: string | null, title?: string | null, fileId?: string | null }, requestedId: string) => void | Promise<void>} options.applyOutline
  * @param {(error: unknown) => void} [options.onError]
  */
 export function bindDeepLinkOutlineLoad({
@@ -53,7 +53,7 @@ export function bindDeepLinkOutlineLoad({
       const got = await cloud.getOutline(requestedId);
       if (gen !== generation) return false;
       if (getOutlineId?.() !== requestedId) return false;
-      await applyOutline(got);
+      await applyOutline(got, requestedId);
       if (gen !== generation || getOutlineId?.() !== requestedId) return false;
       loadedForId = requestedId;
       return true;
