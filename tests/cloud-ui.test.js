@@ -814,6 +814,38 @@ describe('cloud UI', () => {
     assert.equal(document.getElementById('menu-save').hidden, false);
   });
 
+  it('in editShareMode refuses Sign in even if the auth control is forced visible', async () => {
+    signedInUser = null;
+    let signInCalls = 0;
+    auth.signInWithGoogle = async () => {
+      signInCalls += 1;
+      signedInUser = { uid: 'u1', displayName: 'Ada', email: 'ada@example.com' };
+    };
+    outlineId = 'shared-edit-1';
+    mountCloudUi({
+      auth,
+      cloud,
+      outline,
+      configured: true,
+      editShareMode: true,
+    });
+    const authItem = document.getElementById('menu-cloud-auth');
+    authItem.hidden = false;
+    authItem.disabled = false;
+    authItem.click();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(signInCalls, 0);
+    assert.equal(signedInUser, null);
+  });
+
+  it('app.js uses null auth on editable share links so Google sign-in never boots', () => {
+    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    assert.match(
+      appJs,
+      /(?:editShareToken|viewShareToken|guestShare)[\s\S]{0,280}createNullAuth\s*\(/,
+    );
+  });
+
   it('in editShareMode Save overwrites the same outline id even if the title changed', async () => {
     signedInUser = null;
     outlineId = 'shared-edit-1';

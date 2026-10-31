@@ -82,7 +82,8 @@ export function mountCloudUi({
     if (cloudMenu) cloudMenu.hidden = readOnlyView;
     if (btnAuth) {
       btnAuth.hidden = hideOwnerChrome;
-      btnAuth.disabled = busy;
+      // Keep disabled under share links even if something un-hides the control.
+      btnAuth.disabled = busy || hideOwnerChrome;
       btnAuth.textContent = signedIn ? 'Sign out' : 'Sign in with Google';
     }
     if (userEl) {
@@ -151,10 +152,13 @@ export function mountCloudUi({
   });
 
   async function onSignIn() {
+    // Editable/read-only share links are token sandboxes — no Google account.
+    if (readOnlyView || editShareMode) return;
     await withBusy('Signing in…', () => auth.signInWithGoogle());
   }
 
   async function onSignOut() {
+    if (readOnlyView || editShareMode) return;
     await withBusy('Signing out…', () => auth.signOut());
   }
 

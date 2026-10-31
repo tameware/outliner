@@ -661,7 +661,11 @@ async function initCloud() {
   let cloud = null;
 
   if (configured) {
-    auth = createGoogleAuth({ clientId: googleClientIdFromConfig(cloudConfig) });
+    // Opaque ?edit= / ?view= shares never use a Google account — skip GIS entirely.
+    const guestShare = Boolean(editShareToken || viewShareToken);
+    auth = guestShare
+      ? createNullAuth()
+      : createGoogleAuth({ clientId: googleClientIdFromConfig(cloudConfig) });
     cloud = createDriveCloudClient({
       getAccessToken: () => auth.getAccessToken(),
       driveWriterServiceAccount: driveWriterServiceAccountFromConfig(cloudConfig),
