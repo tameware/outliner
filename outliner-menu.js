@@ -21,6 +21,8 @@ export const OUTLINER_HELP_TITLE = 'How to use this outliner';
 
 export const OUTLINER_REPO_URL = 'https://github.com/tameware/outliner';
 
+export const OUTLINER_ISSUES_URL = 'https://github.com/tameware/outliner/issues';
+
 export const OUTLINER_ISSUES_MAILTO = 'mailto:outliner@tameware.com';
 
 export const OUTLINER_ABOUT_TEXT =
@@ -135,6 +137,7 @@ export function mountOutlinerMenu(root, deps = {}) {
   const version = root.querySelector('#menu-version');
   const changelog = root.querySelector('#menu-changelog');
   const openSource = root.querySelector('#menu-open-source');
+  const issueTracker = root.querySelector('#menu-issue-tracker');
   const report = root.querySelector('#menu-report-issues');
   const privacy = root.querySelector('#menu-privacy');
 
@@ -163,6 +166,7 @@ export function mountOutlinerMenu(root, deps = {}) {
   );
   changelog?.addEventListener('click', () => openFn(OUTLINER_CHANGELOG_URL));
   openSource?.addEventListener('click', () => openFn(OUTLINER_REPO_URL));
+  issueTracker?.addEventListener('click', () => openFn(OUTLINER_ISSUES_URL));
   report?.addEventListener('click', () => openFn(OUTLINER_ISSUES_MAILTO));
   privacy?.addEventListener('click', () => openFn(OUTLINER_PRIVACY_URL));
 

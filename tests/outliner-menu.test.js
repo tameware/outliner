@@ -10,6 +10,7 @@ import {
   OUTLINER_HELP_TITLE,
   OUTLINER_HELP_URL,
   OUTLINER_ISSUES_MAILTO,
+  OUTLINER_ISSUES_URL,
   OUTLINER_PRIVACY_URL,
   OUTLINER_REPO_URL,
   OUTLINER_UPDATED,
@@ -43,7 +44,8 @@ function setupDom(options = {}) {
           <button type="button" role="menuitem" id="menu-version">Version…</button>
           <button type="button" role="menuitem" id="menu-changelog">Change log</button>
           <button type="button" role="menuitem" id="menu-open-source">Source code</button>
-          <button type="button" role="menuitem" id="menu-report-issues">Report issues</button>
+          <button type="button" role="menuitem" id="menu-issue-tracker">Issue tracker</button>
+          <button type="button" role="menuitem" id="menu-report-issues">Email the Outliner team</button>
           <button type="button" role="menuitem" id="menu-privacy">Privacy</button>
         </div>
       </div>
@@ -105,6 +107,7 @@ describe('Outliner menu', () => {
     assert.equal(OUTLINER_PRIVACY_URL, 'privacy.html');
     assert.equal(OUTLINER_HELP_URL, 'index.html');
     assert.equal(OUTLINER_REPO_URL, 'https://github.com/tameware/outliner');
+    assert.equal(OUTLINER_ISSUES_URL, 'https://github.com/tameware/outliner/issues');
     assert.equal(OUTLINER_ISSUES_MAILTO, 'mailto:outliner@tameware.com');
     assert.equal(
       OUTLINER_ABOUT_TEXT,
@@ -232,7 +235,13 @@ describe('Outliner menu', () => {
     assert.deepEqual(opened, [OUTLINER_REPO_URL]);
   });
 
-  it('opens the Report issues mailto', () => {
+  it('opens the GitHub Issue tracker', () => {
+    mountOutlinerMenu(document);
+    document.getElementById('menu-issue-tracker').click();
+    assert.deepEqual(opened, [OUTLINER_ISSUES_URL]);
+  });
+
+  it('opens the Email the Outliner team mailto', () => {
     mountOutlinerMenu(document);
     document.getElementById('menu-report-issues').click();
     assert.deepEqual(opened, [OUTLINER_ISSUES_MAILTO]);
@@ -244,7 +253,7 @@ describe('Outliner menu', () => {
     assert.deepEqual(opened, [OUTLINER_PRIVACY_URL]);
   });
 
-  it('places Outliner left of File in index.html with Privacy after Report issues', () => {
+  it('places Outliner left of File in index.html with Privacy after Email the Outliner team', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     const outlinerAt = html.indexOf('data-menu="outliner"');
     const fileAt = html.indexOf('data-menu="file"');
@@ -257,10 +266,13 @@ describe('Outliner menu', () => {
     assert.match(panel, /id="menu-version"[^>]*>\s*Version…\s*</);
     assert.match(panel, /id="menu-changelog"[^>]*>\s*Change log\s*</);
     assert.match(panel, /id="menu-open-source"[^>]*>\s*Source code\s*</);
-    assert.match(panel, /id="menu-report-issues"[^>]*>\s*Report issues\s*</);
+    assert.match(panel, /id="menu-issue-tracker"[^>]*>\s*Issue tracker\s*</);
+    assert.match(panel, /id="menu-report-issues"[^>]*>\s*Email the Outliner team\s*</);
     assert.match(panel, /id="menu-privacy"[^>]*>\s*Privacy\s*</);
     assert.ok(panel.indexOf('menu-help') < panel.indexOf('menu-about'));
     assert.ok(panel.indexOf('menu-version') < panel.indexOf('menu-changelog'));
+    assert.ok(panel.indexOf('menu-open-source') < panel.indexOf('menu-issue-tracker'));
+    assert.ok(panel.indexOf('menu-issue-tracker') < panel.indexOf('menu-report-issues'));
     assert.ok(panel.indexOf('menu-report-issues') < panel.indexOf('menu-privacy'));
     assert.doesNotMatch(html, /chrome-privacy/);
     assert.match(html, /id="outliner-message-dialog"/);
