@@ -5,6 +5,7 @@
  */
 
 import { fillTextWithSuits, tryInsertSuitShortcut } from './suit-shortcuts.js';
+import { bindOutlineLinks } from './outline-links.js';
 import { bindOutlinePlainPaste } from './outline-paste.js';
 import {
   bindDealDiagrams,
@@ -938,6 +939,7 @@ export function mountOutliner(root, options = {}) {
     root.addEventListener('mouseup', rememberItem);
     bindOutlinePlainPaste(root);
     bindDealDiagrams(root);
+    bindOutlineLinks(root, { fillLine: fillTextWithSuits });
   }
 
   return {

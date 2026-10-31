@@ -688,6 +688,18 @@ ol.outline ol {
   color: #c41e3a;
 }
 
+.outline-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  cursor: pointer;
+  word-break: break-all;
+}
+
+.outline-link:hover {
+  color: var(--focus);
+}
+
 .deal-diagram-row {
   display: block;
   padding: 0.35rem 0.25rem 0.5rem;

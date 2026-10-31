@@ -1,5 +1,7 @@
 /** Card-suit bang shortcuts: !c !d !h !s */
 
+import { createOutlineLink, findWebLinks } from './outline-links.js';
+
 export const SUIT_GLYPHS = {
   clubs: '♣',
   diamonds: '♦',
@@ -54,7 +56,8 @@ export function expandSuitBangShortcuts(text) {
 }
 
 /**
- * Replace an element's children with plain text, wrapping ♥/♦ in `.suit-red`.
+ * Replace an element's children with plain text, wrapping ♥/♦ in `.suit-red`
+ * and http(s)/www URLs in `.outline-link` anchors.
  * Used when restoring lines from OPML (undo/load) so red suits stay red.
  * @param {HTMLElement} el
  * @param {string} text
@@ -64,19 +67,44 @@ export function fillTextWithSuits(el, text) {
   const value = String(text ?? '');
   if (!value) return;
 
+  const links = findWebLinks(value);
+  let linkIndex = 0;
   let buf = '';
   const flush = () => {
     if (!buf) return;
     el.appendChild(document.createTextNode(buf));
     buf = '';
   };
-  for (const ch of value) {
+
+  // Walk by UTF-16 index so link offsets from the regex stay aligned.
+  for (let i = 0; i < value.length; ) {
+    const link = links[linkIndex];
+    if (link && i === link.start) {
+      flush();
+      el.appendChild(createOutlineLink(link.text));
+      i = link.end;
+      linkIndex += 1;
+      continue;
+    }
+    const ch = value[i];
+    // Skip the low surrogate; red-suit check uses the full code point via slice.
+    if (ch >= '\uD800' && ch <= '\uDBFF' && i + 1 < value.length) {
+      const pair = value.slice(i, i + 2);
+      if (isRedSuit(pair)) {
+        flush();
+        el.appendChild(createSuitNode(pair));
+        i += 2;
+        continue;
+      }
+    }
     if (isRedSuit(ch)) {
       flush();
       el.appendChild(createSuitNode(ch));
-    } else {
-      buf += ch;
+      i += 1;
+      continue;
     }
+    buf += ch;
+    i += 1;
   }
   flush();
 }
