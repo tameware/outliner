@@ -59,6 +59,7 @@ import { applyMenuShortcuts } from './menu-shortcuts.js';
 import {
   documentTitleLabel,
   stripDirtyTitleSuffix,
+  shouldSaveUnderNewName,
   syncDocumentTitleDisplay,
   syncDocumentUpdatedDisplay,
   coerceDocumentUpdatedAt,
@@ -100,8 +101,19 @@ const documentUpdatedEl = document.getElementById('document-updated');
 /** @type {Date | null} */
 let documentUpdatedAt = null;
 
+/** Title last bound to the open local handle / Drive file (Save As when chrome renames). */
+let boundDocumentTitle = '';
+
 function outlineTitleBase() {
   return documentTitleLabel(stripDirtyTitleSuffix(document.title));
+}
+
+/**
+ * @param {string | null | undefined} [title]
+ */
+function rememberBoundTitle(title = outlineTitleBase()) {
+  boundDocumentTitle =
+    stripDirtyTitleSuffix(String(title ?? '')).trim() || 'Untitled';
 }
 
 function syncDocumentTitles() {
@@ -228,6 +240,7 @@ if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
   applyOpenExpansion(root);
 }
 dirty.markClean();
+rememberBoundTitle();
 syncDocumentTitles();
 mountDocumentTitleEditor(documentTitleEl, {
   onCommit: (title) => {
@@ -434,6 +447,7 @@ function applyOpenedLocalOutline(tree, fallbackName, meta = {}) {
   if (title) applyDocumentTitle(title);
   applyDocumentUpdated(meta.updatedAt ?? tree.dateModified ?? null);
   dirty.markClean();
+  rememberBoundTitle();
   syncFocusMenus();
   syncRevert();
   outlinerMenuUi.syncHelpEnabled();
@@ -492,13 +506,19 @@ async function saveLocalOutline({ forcePicker = false } = {}) {
   const updatedAt = new Date();
   const opml = toOpml(root, { title, dateModified: updatedAt });
   const filename = suggestedOpmlFilename(title);
+  const saveAsNewName = shouldSaveUnderNewName({
+    currentTitle: title,
+    boundTitle: boundDocumentTitle,
+    hasBinding: Boolean(localFileHandle),
+    forceNew: forcePicker,
+  });
 
   try {
     const result = await saveOutlineLocally({
       contents: opml,
       suggestedName: filename,
       existingHandle: localFileHandle,
-      forcePicker,
+      forcePicker: forcePicker || saveAsNewName,
       download: () =>
         downloadOpml(root, { title, filename, dateModified: updatedAt }),
     });
@@ -509,6 +529,7 @@ async function saveLocalOutline({ forcePicker = false } = {}) {
     }
     applyDocumentUpdated(updatedAt);
     dirty.markClean();
+    rememberBoundTitle(title);
     syncRevert();
     return true;
   } catch (error) {
@@ -744,6 +765,10 @@ async function initCloud() {
       setTitle: (title) => {
         applyDocumentTitle(title);
       },
+      getBoundTitle: () => boundDocumentTitle,
+      setBoundTitle: (title) => {
+        rememberBoundTitle(title);
+      },
       getOutlineId: () => currentOutlineId,
       setOutlineId: (id) => {
         currentOutlineId = id;
@@ -761,6 +786,7 @@ async function initCloud() {
       isDirty: () => dirty.isDirty(),
       markClean: () => {
         dirty.markClean();
+        rememberBoundTitle();
         syncDocumentTitles();
         cloudUi?.syncSaveState?.();
       },
@@ -820,6 +846,7 @@ async function initCloud() {
         currentRevision = got.revision ?? null;
         leaseToken = null;
         dirty.markClean();
+        rememberBoundTitle();
         syncDocumentTitles();
         syncFocusMenus();
         cloudUi?.syncSaveState?.();

@@ -4,6 +4,7 @@
 
 import { hasCloudSaveName, syncCloudSaveMenuLabel } from './menubar.js';
 import { outlineTitleFromFileName } from './local-file.js';
+import { shouldSaveUnderNewName } from './document-title.js';
 
 /**
  * @param {object} options
@@ -217,6 +218,7 @@ export function mountCloudUi({
   }
 
   async function onSave() {
+    outline.flushTitle?.();
     const id = outline.getOutlineId?.();
     const title = outline.getTitle?.() || 'Untitled';
     if (id) {
@@ -248,14 +250,19 @@ export function mountCloudUi({
 
   async function saveWithName(title, { forceNew = false } = {}) {
     outline.flushTitle?.();
-    const name = String(title || '').trim() || 'Untitled';
+    // Caller name (Save As dialog) wins; onSave passes the flushed chrome title.
+    const name =
+      String(title || outline.getTitle?.() || '').trim() || 'Untitled';
     const ok = await withBusy('Saving to Google Drive…', async () => {
-      const previousTitle = String(outline.getTitle?.() || '').trim();
       let id = outline.getOutlineId?.();
-      // Edit-link guests always overwrite; renaming must not mint a new owner outline.
-      const saveAsNew =
-        !editShareMode &&
-        (forceNew || (Boolean(id) && name !== previousTitle));
+      // Edit-link guests always overwrite; owner rename acts like Save As.
+      const saveAsNew = shouldSaveUnderNewName({
+        currentTitle: name,
+        boundTitle: outline.getBoundTitle?.(),
+        hasBinding: Boolean(id),
+        forceNew,
+        allowSaveAsNew: !editShareMode,
+      });
 
       // Keep UI title/Updated unchanged until Drive accepts the write.
       const savedAt = new Date();
@@ -271,6 +278,7 @@ export function mountCloudUi({
         outline.setRevision?.(revision);
         outline.setLeaseToken?.(null);
         outline.setTitle?.(name);
+        outline.setBoundTitle?.(name);
         outline.setUpdatedAt?.(savedAt);
         if (outline.syncUrl) outline.syncUrl(id);
         syncSaveLabel();
@@ -308,6 +316,7 @@ export function mountCloudUi({
         rememberDriveFileId(id);
         outline.setRevision?.(saved?.revision ?? revision);
         outline.setTitle?.(name);
+        outline.setBoundTitle?.(name);
         outline.setUpdatedAt?.(savedAt);
         syncSaveLabel();
         setStatus(`Saved “${name}”`);
@@ -459,6 +468,7 @@ export function mountCloudUi({
       outline.setLeaseToken?.(null);
       const title = outlineTitleFromFileName(listedTitle || driveTitle, tree.title);
       outline.setTitle?.(title);
+      outline.setBoundTitle?.(title);
       if (outline.syncUrl) outline.syncUrl(driveId);
       syncSaveLabel();
       outline.markClean?.();

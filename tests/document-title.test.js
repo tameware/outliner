@@ -10,6 +10,7 @@ import {
   DIRTY_TITLE_SUFFIX,
   documentTitleLabel,
   stripDirtyTitleSuffix,
+  shouldSaveUnderNewName,
   syncDocumentTitleDisplay,
   mountDocumentTitleEditor,
   flushDocumentTitleEditor,
@@ -35,6 +36,51 @@ describe('document title display', () => {
     assert.equal(documentTitleLabel('Bridge notes •', { dirty: false }), 'Bridge notes');
     assert.equal(stripDirtyTitleSuffix('Bridge notes •'), 'Bridge notes');
     assert.equal(stripDirtyTitleSuffix('Bridge notes'), 'Bridge notes');
+  });
+
+  it('shouldSaveUnderNewName is true when a bound file’s title was renamed', () => {
+    assert.equal(
+      shouldSaveUnderNewName({
+        currentTitle: 'New name',
+        boundTitle: 'Old name',
+        hasBinding: true,
+      }),
+      true,
+    );
+    assert.equal(
+      shouldSaveUnderNewName({
+        currentTitle: 'Same name',
+        boundTitle: 'Same name',
+        hasBinding: true,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldSaveUnderNewName({
+        currentTitle: 'New name',
+        boundTitle: 'Old name',
+        hasBinding: false,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldSaveUnderNewName({
+        currentTitle: 'New name',
+        boundTitle: 'Old name',
+        hasBinding: true,
+        forceNew: true,
+      }),
+      true,
+    );
+    assert.equal(
+      shouldSaveUnderNewName({
+        currentTitle: 'New name',
+        boundTitle: 'Old name',
+        hasBinding: true,
+        allowSaveAsNew: false,
+      }),
+      false,
+    );
   });
 
   it('syncDocumentTitleDisplay writes the label into the element', () => {

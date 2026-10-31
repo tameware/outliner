@@ -304,6 +304,18 @@ describe('index.html File Open / Save', () => {
     );
   });
 
+  it('File Save uses shouldSaveUnderNewName so a rename opens the Save As picker', () => {
+    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    assert.match(appJs, /shouldSaveUnderNewName/);
+    assert.match(
+      appJs,
+      /forcePicker\s*:\s*forcePicker\s*\|\|\s*saveAsNewName/,
+    );
+    assert.match(appJs, /boundDocumentTitle/);
+    assert.match(appJs, /rememberBoundTitle/);
+    assert.match(appJs, /getBoundTitle/);
+  });
+
   it('uses OPML dateModified or the on-disk lastModified for Updated when opening locally', () => {
     const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
     assert.match(

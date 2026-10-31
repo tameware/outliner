@@ -471,6 +471,64 @@ describe('cloud UI', () => {
     assert.equal(outlineId, 'new-1');
   });
 
+  it('Save creates a new cloud outline when the document was renamed', async () => {
+    outlineId = 'existing-1';
+    let title = 'Old name';
+    let boundTitle = 'Old name';
+    outline.getTitle = () => title;
+    outline.setTitle = (t) => {
+      title = t;
+    };
+    outline.getBoundTitle = () => boundTitle;
+    outline.setBoundTitle = (t) => {
+      boundTitle = String(t || '').trim();
+    };
+    outline.getRevision = () => 2;
+    outline.getLeaseToken = () => 'lease';
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    title = 'Renamed outline';
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(createdCalls.length, 1);
+    assert.equal(createdCalls[0].title, 'Renamed outline');
+    assert.equal(savedCalls.length, 0);
+    assert.equal(outlineId, 'new-1');
+    assert.equal(boundTitle, 'Renamed outline');
+  });
+
+  it('Save flushes an in-progress title edit before choosing create vs overwrite', async () => {
+    outlineId = 'existing-1';
+    let title = 'Old name';
+    let boundTitle = 'Old name';
+    let flushed = false;
+    outline.getTitle = () => title;
+    outline.setTitle = (t) => {
+      title = t;
+    };
+    outline.getBoundTitle = () => boundTitle;
+    outline.setBoundTitle = (t) => {
+      boundTitle = String(t || '').trim();
+    };
+    outline.flushTitle = () => {
+      flushed = true;
+      title = 'Renamed while focused';
+    };
+    outline.getRevision = () => 2;
+    mountCloudUi({ auth, cloud, outline, configured: true });
+
+    document.getElementById('menu-save').click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    assert.equal(flushed, true);
+    assert.equal(createdCalls.length, 1);
+    assert.equal(createdCalls[0].title, 'Renamed while focused');
+    assert.equal(savedCalls.length, 0);
+  });
+
   it('Save updates the current cloud outline without a name dialog', async () => {
     outlineId = 'existing-1';
     outline.getTitle = () => 'Same name';
@@ -871,7 +929,16 @@ describe('cloud UI', () => {
   it('in editShareMode Save overwrites the same outline id even if the title changed', async () => {
     signedInUser = null;
     outlineId = 'shared-edit-1';
-    outline.getTitle = () => 'Old title';
+    let title = 'Old title';
+    let boundTitle = 'Old title';
+    outline.getTitle = () => title;
+    outline.setTitle = (t) => {
+      title = t;
+    };
+    outline.getBoundTitle = () => boundTitle;
+    outline.setBoundTitle = (t) => {
+      boundTitle = String(t || '').trim();
+    };
     outline.getRevision = () => null;
     mountCloudUi({
       auth,
@@ -880,8 +947,8 @@ describe('cloud UI', () => {
       configured: true,
       editShareMode: true,
     });
-    // Title differs from previous — must not create a new owner outline.
-    outline.getTitle = () => 'Renamed by guest';
+    // Title differs from bound name — must not create a new owner outline.
+    title = 'Renamed by guest';
     document.getElementById('menu-save').click();
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));

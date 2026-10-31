@@ -33,6 +33,30 @@ export function documentTitleLabel(title, options = {}) {
 }
 
 /**
+ * True when Save should mint a new file/path (like Save As) because the chrome
+ * name no longer matches the title bound to the open local/Drive file.
+ *
+ * @param {{
+ *   currentTitle?: string | null,
+ *   boundTitle?: string | null,
+ *   hasBinding?: boolean,
+ *   forceNew?: boolean,
+ *   allowSaveAsNew?: boolean,
+ * }} [options]
+ * @returns {boolean}
+ */
+export function shouldSaveUnderNewName(options = {}) {
+  if (options.forceNew) return true;
+  if (options.allowSaveAsNew === false) return false;
+  if (!options.hasBinding) return false;
+  const current =
+    stripDirtyTitleSuffix(options.currentTitle).trim() || UNTITLED_DOCUMENT_TITLE;
+  const bound = stripDirtyTitleSuffix(options.boundTitle).trim();
+  if (!bound) return false;
+  return current !== bound;
+}
+
+/**
  * @param {Element | null | undefined} el
  * @returns {boolean}
  */
