@@ -36,7 +36,13 @@ body {
 .chrome {
   max-width: 52rem;
   margin: 0 auto;
-  padding: 0.85rem 1.25rem 0.75rem;
+  padding: 0.45rem 1.25rem 0.75rem;
+}
+
+/* Dialogs live here; collapse empty chrome when the status bar is hidden. */
+.chrome:not(:has(.cloud-bar:not([hidden]))) {
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .chrome h1 {
@@ -87,7 +93,18 @@ body {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.35rem 1.25rem;
-  margin: 0.65rem 0 0;
+  margin: 0.55rem 0 0;
+  padding-top: 0.45rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.document-heading-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.35rem 0.85rem;
+  margin-left: auto;
 }
 
 .document-title {

@@ -117,17 +117,25 @@ describe('menubar', () => {
 });
 
 describe('sticky chrome menubar', () => {
-  it('keeps brand + menus in .chrome-sticky above the document title in index.html', () => {
+  it('keeps brand, menus, document name, timestamp, and owner in .chrome-sticky', () => {
     const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
     const { document } = new JSDOM(html).window;
     const sticky = document.querySelector('.chrome-sticky');
     assert.ok(sticky, 'expected .chrome-sticky wrapper');
     assert.ok(sticky.querySelector('.chrome-meta'));
     assert.ok(sticky.querySelector('.menubar'));
-    assert.equal(sticky.querySelector('.document-heading'), null);
-    const heading = document.querySelector('.document-heading');
-    assert.ok(heading);
-    assert.equal(sticky.compareDocumentPosition(heading) & 4, 4);
+    const heading = sticky.querySelector('.document-heading');
+    assert.ok(heading, 'document heading should stick with the menu bar');
+    assert.ok(heading.querySelector('#document-title'));
+    assert.ok(heading.querySelector('#document-updated'));
+    assert.ok(heading.querySelector('#cloud-user'));
+    assert.equal(
+      document.querySelector('header.chrome .document-heading'),
+      null,
+      'document heading must not scroll with the outline header',
+    );
+    const menubar = sticky.querySelector('.menubar');
+    assert.equal(menubar.compareDocumentPosition(heading) & 4, 4);
   });
 
   it('pins .chrome-sticky with an opaque bar so menus stay visible while the outline scrolls', () => {
@@ -153,6 +161,6 @@ describe('sticky chrome menubar', () => {
     const { document } = new JSDOM(html).window;
     const sticky = document.querySelector('.chrome-sticky');
     assert.equal(sticky.parentElement, document.body);
-    assert.ok(document.querySelector('header.chrome .document-heading'));
+    assert.ok(sticky.contains(document.querySelector('.document-heading')));
   });
 });

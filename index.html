@@ -128,9 +128,6 @@
       </div>
       <input type="file" id="file-open" accept=".opml,application/xml,text/xml,text/x-opml" hidden />
     </nav>
-    </div>
-  </div>
-  <header class="chrome">
     <div class="document-heading">
       <p
         id="document-title"
@@ -142,10 +139,15 @@
         aria-label="Document name"
         aria-live="polite"
       ></p>
-      <time id="document-updated" class="document-updated" hidden></time>
+      <div class="document-heading-meta">
+        <time id="document-updated" class="document-updated" hidden></time>
+        <span id="cloud-user" class="cloud-user" hidden></span>
+      </div>
     </div>
+    </div>
+  </div>
+  <header class="chrome">
     <div class="cloud-bar" data-cloud-bar hidden>
-      <span id="cloud-user" class="cloud-user" hidden></span>
       <p id="cloud-status" class="cloud-status" role="status"></p>
     </div>
     <dialog id="cloud-save-dialog" class="cloud-dialog">

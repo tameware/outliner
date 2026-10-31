@@ -62,7 +62,7 @@ export function syncDocumentTitleDisplay(el, title, options = {}) {
 }
 
 /**
- * Click-to-rename for the document name under the menubar.
+ * Click-to-rename for the document name in the sticky chrome under the menubar.
  *
  * @param {HTMLElement | null | undefined} el
  * @param {{

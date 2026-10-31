@@ -95,18 +95,23 @@ describe('document title display', () => {
     assert.equal(el.getAttribute('datetime'), when.toISOString());
   });
 
-  it('places #document-title below the menubar in index.html with Updated to its right', () => {
+  it('places #document-title in sticky chrome below the menubar with Updated and owner', () => {
     const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
-    const navEnd = html.indexOf('</nav>');
-    const titleAt = html.indexOf('id="document-title"');
-    const updatedAt = html.indexOf('id="document-updated"');
-    assert.ok(navEnd >= 0);
-    assert.ok(titleAt > navEnd);
-    assert.ok(updatedAt > titleAt);
-    assert.match(html, /class="document-heading"/);
-    assert.match(html, /id="document-title"/);
-    assert.match(html, /id="document-updated"/);
-    assert.match(html, /id="document-title"[^>]*contenteditable/);
+    const { document } = new JSDOM(html).window;
+    const sticky = document.querySelector('.chrome-sticky');
+    const heading = sticky?.querySelector('.document-heading');
+    assert.ok(heading);
+    const title = heading.querySelector('#document-title');
+    const updated = heading.querySelector('#document-updated');
+    const owner = heading.querySelector('#cloud-user');
+    assert.ok(title);
+    assert.ok(updated);
+    assert.ok(owner);
+    const menubar = sticky.querySelector('.menubar');
+    assert.equal(menubar.compareDocumentPosition(heading) & 4, 4);
+    assert.equal(title.compareDocumentPosition(updated) & 4, 4);
+    assert.equal(updated.compareDocumentPosition(owner) & 4, 4);
+    assert.match(title.outerHTML, /contenteditable/);
   });
 
   it('wires syncDocumentTitleDisplay and mountDocumentTitleEditor from app.js', () => {
