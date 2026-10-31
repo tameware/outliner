@@ -227,20 +227,29 @@ export function mountFindReplace({
     );
     if (!ok) return false;
 
-    // Rebuild matches after mutation; stay near the same place.
+    // Rebuild matches after mutation; continue forward from the replacement site.
     const afterOffset = match.start;
     const item = match.item;
+    const insertLen = String(opts.replace ?? '').length;
     refreshMatches();
     if (!matches.length) {
       setStatus('Replaced (no more matches)');
       currentIndex = -1;
       return true;
     }
-    let next = matches.findIndex(
-      (m) => m.item === item && m.start >= afterOffset + String(opts.replace ?? '').length,
-    );
-    if (next < 0) next = matches.findIndex((m) => m.item === item && m.start >= afterOffset);
-    if (next < 0) next = 0;
+    const following = typeof Node !== 'undefined' ? Node.DOCUMENT_POSITION_FOLLOWING : 4;
+    let next = matches.findIndex((m) => {
+      if (m.item === item) return m.start >= afterOffset + insertLen;
+      return Boolean(item.compareDocumentPosition(m.item) & following);
+    });
+    if (next < 0) {
+      if (opts.wrapAround) next = 0;
+      else {
+        setStatus('Replaced (no more matches)');
+        currentIndex = -1;
+        return true;
+      }
+    }
     currentIndex = next;
     setStatus(`Replaced — ${currentIndex + 1} of ${matches.length}`);
     return true;
@@ -248,7 +257,7 @@ export function mountFindReplace({
 
   function runReplaceAndFind() {
     if (!runReplaceCurrent()) return false;
-    if (!matches.length) return true;
+    if (!matches.length || currentIndex < 0) return true;
     revealMatch(matches[currentIndex], currentIndex, matches.length);
     return true;
   }

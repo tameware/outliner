@@ -174,6 +174,67 @@ describe('Find & Replace UI', () => {
     assert.match(document.getElementById('find-replace-status').textContent, /2 of 2/);
   });
 
+  it('Replace & Find continues forward instead of returning to a skipped match', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'Alpha bridge', children: [] },
+        { text: 'Beta bridge', children: [] },
+        { text: 'Gamma bridge', children: [] },
+      ],
+    });
+    document.getElementById('menu-replace').click();
+    document.getElementById('find-replace-find').value = 'bridge';
+    document.getElementById('find-replace-replace').value = 'river';
+    document.getElementById('find-replace-wrap').checked = false;
+
+    assert.equal(ui.findNext(), true);
+    assert.match(document.getElementById('find-replace-status').textContent, /1 of 3/);
+    // Skip Alpha — do not replace it.
+    assert.equal(ui.findNext(), true);
+    assert.match(document.getElementById('find-replace-status').textContent, /2 of 3/);
+
+    assert.equal(ui.replaceAndFind(), true);
+    assert.deepEqual(getItemTexts(root), [
+      'Alpha bridge',
+      'Beta river',
+      'Gamma bridge',
+    ]);
+    assert.equal(window.getSelection().toString(), 'bridge');
+    assert.match(document.getElementById('find-replace-status').textContent, /2 of 2/);
+    const gammaText = root.querySelectorAll('[data-item]')[2].querySelector('.text');
+    assert.equal(gammaText.textContent, 'Gamma bridge');
+    assert.ok(
+      gammaText.contains(window.getSelection().anchorNode),
+      'selection should be on Gamma, not the skipped Alpha match',
+    );
+  });
+
+  it('Replace advances to the next later match when the current line is done', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'Alpha bridge', children: [] },
+        { text: 'Beta bridge', children: [] },
+        { text: 'Gamma bridge', children: [] },
+      ],
+    });
+    document.getElementById('menu-replace').click();
+    document.getElementById('find-replace-find').value = 'bridge';
+    document.getElementById('find-replace-replace').value = 'X';
+    document.getElementById('find-replace-wrap').checked = false;
+
+    assert.equal(ui.findNext(), true);
+    assert.equal(ui.findNext(), true);
+    assert.equal(ui.replace(), true);
+    assert.deepEqual(getItemTexts(root), ['Alpha bridge', 'Beta X', 'Gamma bridge']);
+    assert.match(document.getElementById('find-replace-status').textContent, /2 of 2/);
+    assert.equal(ui.replaceAndFind(), true);
+    assert.deepEqual(getItemTexts(root), ['Alpha bridge', 'Beta X', 'Gamma X']);
+    assert.match(
+      document.getElementById('find-replace-status').textContent,
+      /no more matches|Replaced \(no more/i,
+    );
+  });
+
   it('Find Next expands collapsed ancestors so the match is visible', () => {
     loadOutline(root, {
       items: [
