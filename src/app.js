@@ -1,10 +1,5 @@
 import {
   boot,
-  promoteChildren,
-  demoteFollowingSiblings,
-  moveItemUp,
-  moveItemDown,
-  toggleItem,
   focusItem,
   downloadOpml,
   loadOutline,
@@ -27,15 +22,6 @@ import {
 import { bootCloud } from './cloud/boot.js';
 import { applyReadOnlyToolbar } from './chrome/readonly-toolbar.js';
 import { createOutlineHistory } from './outliner/clear-outline-ui.js';
-import { handlePromoteDemoteShortcut } from './outliner/promote-demote-keys.js';
-import {
-  handleMoveUpDownShortcut,
-  isForeignMoveShortcutTarget,
-} from './outliner/move-up-down-keys.js';
-import { systemBeep } from './chrome/system-beep.js';
-import { mountIndentOutdentMenu } from './outliner/indent-outdent-menu.js';
-import { mountMoveUpDownMenu } from './outliner/move-up-down-menu.js';
-import { mountFindReplace } from './outliner/find-replace-ui.js';
 import { blankOutlineForDeepLink } from './share/deep-link-boot.js';
 import {
   bindDeepLinkOutlineLoad,
@@ -60,10 +46,9 @@ import {
   flushDocumentTitleEditor,
 } from './chrome/document-title.js';
 import { createDocumentSession } from './chrome/document-session.js';
+import { bindOutlineChrome } from './chrome/outline-chrome.js';
 import { createLocalSession } from './file/local-session.js';
 import {
-  focusOutlineItem,
-  unfocusOutline,
   isOutlineFocusActive,
   syncOutlineFocus,
 } from './outliner/outline-focus.js';
@@ -73,10 +58,6 @@ import {
   mountUnsavedChangesDialog,
   bindBeforeUnloadGuard,
 } from './chrome/unsaved-changes.js';
-import {
-  revertToCleanSnapshot,
-  syncRevertMenuItem,
-} from './outliner/revert-outline.js';
 import { outlineTitleFromFileName } from './file/local-file.js';
 
 const rootEl = document.querySelector('[data-outline-root]');
@@ -88,6 +69,12 @@ const documentUpdatedEl = document.getElementById('document-updated');
 let dirty;
 /** @type {HTMLElement} */
 let root;
+/** @type {() => void} */
+let syncRevert = () => {};
+/** @type {() => void} */
+let syncFocusMenus = () => {};
+/** @type {() => void} */
+let clearLocalFileHandle = () => {};
 
 const docSession = createDocumentSession({
   titleEl: documentTitleEl,
@@ -101,8 +88,6 @@ const {
   syncDocumentTitles,
   applyDocumentTitle,
   applyDocumentUpdated,
-  getUpdatedAt,
-  getBoundTitle,
 } = docSession;
 
 mountMenubar(menubar);
@@ -133,7 +118,6 @@ const outlineHistory = createOutlineHistory({
   },
   maxDepth: 50,
   onChange: () => {
-    // Called after dirty exists; syncRevert is a function declaration (hoisted).
     syncRevert();
     // Clear / undo / redo / structural edits can enter or leave the starter outline.
     outlinerMenuUi.syncHelpEnabled();
@@ -206,6 +190,22 @@ if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
 dirty.markClean();
 rememberBoundTitle();
 syncDocumentTitles();
+
+({ syncFocusMenus, syncRevert } = bindOutlineChrome({
+  root,
+  api,
+  outlineHistory,
+  dirty,
+  applyDocumentTitle,
+  applyDocumentUpdated,
+  syncDocumentTitles,
+  parseOpml,
+  loadOutline,
+  clearLocalFileHandle: () => clearLocalFileHandle(),
+  restoreOutlineFocus: () => restoreOutlineFocus(),
+  syncCloudSaveState: () => cloudUi?.syncSaveState?.(),
+}));
+
 mountDocumentTitleEditor(documentTitleEl, {
   onCommit: (title) => {
     applyDocumentTitle(title);
@@ -225,146 +225,6 @@ function syncUrl(id) {
   const next = locationWithOutlineId(window.location, id);
   window.history.replaceState(null, '', next);
 }
-
-// Keep outline focus when using the menubar / cloud chrome (including menu labels).
-document
-  .querySelectorAll('.menubar .menu-label, .menubar [role="menuitem"], .cloud-bar button')
-  .forEach((btn) => {
-    btn.addEventListener('mousedown', (event) => event.preventDefault());
-  });
-
-/** @param {'promote' | 'demote'} action */
-function runPromoteDemote(action) {
-  const item = api.getActiveItem();
-  if (!item) return false;
-  return outlineHistory.run(() =>
-    action === 'promote' ? promoteChildren(item) : demoteFollowingSiblings(item),
-  );
-}
-
-/** @param {'up' | 'down'} action */
-function runMoveUpDown(action) {
-  const item = api.getActiveItem();
-  if (!item) return false;
-  return outlineHistory.run(() =>
-    action === 'up' ? moveItemUp(item) : moveItemDown(item),
-  );
-}
-
-document.getElementById('menu-undo').addEventListener('click', () => {
-  if (root.dataset.readonly === 'true') return;
-  outlineHistory.undo();
-});
-document.getElementById('menu-redo').addEventListener('click', () => {
-  if (root.dataset.readonly === 'true') return;
-  outlineHistory.redo();
-});
-mountIndentOutdentMenu({
-  indentButton: document.getElementById('menu-indent'),
-  outdentButton: document.getElementById('menu-outdent'),
-  getActiveItem: () => api.getActiveItem(),
-  runStructural: (mutate) => outlineHistory.run(mutate),
-  isReadOnly: () => root.dataset.readonly === 'true',
-});
-
-mountMoveUpDownMenu({
-  upButton: document.getElementById('menu-move-up'),
-  downButton: document.getElementById('menu-move-down'),
-  getActiveItem: () => api.getActiveItem(),
-  runStructural: (mutate) => outlineHistory.run(mutate),
-  isReadOnly: () => root.dataset.readonly === 'true',
-  beep: systemBeep,
-});
-
-mountFindReplace({
-  dialog: document.getElementById('find-replace-dialog'),
-  findButton: document.getElementById('menu-find'),
-  replaceButton: document.getElementById('menu-replace'),
-  getRoot: () => root,
-  getActiveItem: () => api.getActiveItem(),
-  runStructural: (mutate) => outlineHistory.run(mutate),
-  isReadOnly: () => root.dataset.readonly === 'true',
-  beep: systemBeep,
-});
-
-document.getElementById('menu-promote').addEventListener('click', () => {
-  if (root.dataset.readonly === 'true') return;
-  if (!runPromoteDemote('promote')) systemBeep();
-});
-document.getElementById('menu-demote').addEventListener('click', () => {
-  if (root.dataset.readonly === 'true') return;
-  if (!runPromoteDemote('demote')) systemBeep();
-});
-
-document.addEventListener(
-  'keydown',
-  (event) => {
-    handlePromoteDemoteShortcut(event, {
-      run: runPromoteDemote,
-      beep: systemBeep,
-      isReadOnly: () => root.dataset.readonly === 'true',
-    });
-    handleMoveUpDownShortcut(event, {
-      run: runMoveUpDown,
-      beep: systemBeep,
-      isReadOnly: () => root.dataset.readonly === 'true',
-    });
-  },
-  true,
-);
-
-const focusButton = document.getElementById('menu-focus');
-const unfocusButton = document.getElementById('menu-unfocus');
-
-function syncFocusMenus() {
-  if (unfocusButton) unfocusButton.disabled = !isOutlineFocusActive(root);
-}
-
-focusButton?.addEventListener('click', () => {
-  const item = api.getActiveItem?.();
-  if (!item) {
-    systemBeep();
-    return;
-  }
-  if (!focusOutlineItem(root, item)) {
-    systemBeep();
-    return;
-  }
-  if (item.dataset.hasChildren === 'true' && item.dataset.state === 'collapsed') {
-    toggleItem(item);
-  }
-  syncFocusMenus();
-});
-
-unfocusButton?.addEventListener('click', () => {
-  if (!unfocusOutline(root)) {
-    systemBeep();
-    return;
-  }
-  syncFocusMenus();
-});
-
-syncFocusMenus();
-
-document.getElementById('menu-expand-all').addEventListener('click', () => {
-  root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {
-    if (item.dataset.state === 'collapsed') toggleItem(item);
-  });
-});
-document.getElementById('menu-collapse-all').addEventListener('click', () => {
-  root.querySelectorAll('[data-item][data-has-children="true"]').forEach((item) => {
-    if (item.dataset.state !== 'collapsed') toggleItem(item);
-  });
-});
-
-document.getElementById('menu-clear').addEventListener('click', () => {
-  if (root.dataset.readonly === 'true') return;
-  outlineHistory.clear();
-  clearLocalFileHandle();
-  syncFocusMenus();
-  const first = root.querySelector('[data-item]');
-  if (first) focusItem(first);
-});
 
 const localSession = createLocalSession({
   root,
@@ -392,7 +252,8 @@ const localSession = createLocalSession({
   insertOutline,
   outlineHistoryDiscard: () => outlineHistory.discard(),
 });
-const { clearLocalFileHandle, saveLocalOutline } = localSession;
+const { saveLocalOutline } = localSession;
+clearLocalFileHandle = localSession.clearLocalFileHandle;
 
 localSession.bindFileMenus({
   openButton: document.getElementById('menu-file-open'),
@@ -400,73 +261,6 @@ localSession.bindFileMenus({
   saveAsButton: document.getElementById('menu-file-save-as'),
   insertButton: document.getElementById('menu-insert-import'),
 });
-
-const revertButtons = [
-  document.getElementById('menu-revert'),
-  document.getElementById('menu-cloud-revert'),
-].filter(Boolean);
-
-function syncRevert() {
-  const dirtyNow = () => dirty.isDirty();
-  for (const btn of revertButtons) {
-    if (root.dataset.readonly === 'true') {
-      btn.disabled = true;
-      continue;
-    }
-    syncRevertMenuItem(btn, dirtyNow);
-  }
-  syncDocumentTitles();
-  cloudUi?.syncSaveState?.();
-}
-syncRevert();
-document
-  .querySelector('[data-menu="file"] .menu-label')
-  ?.addEventListener('click', syncRevert);
-document
-  .querySelector('[data-menu="cloud"] .menu-label')
-  ?.addEventListener('click', syncRevert);
-root.addEventListener('input', () => {
-  applyDocumentUpdated(new Date());
-  syncRevert();
-});
-
-function onRevert() {
-  if (root.dataset.readonly === 'true') return;
-  const ok = revertToCleanSnapshot({
-    isDirty: () => dirty.isDirty(),
-    getBaseline: () => dirty.getBaseline(),
-    getRoot: () => root,
-    parseOpml,
-    loadOutline,
-    setTitle: (title) => {
-      applyDocumentTitle(title);
-    },
-    run: (mutate) => outlineHistory.run(mutate),
-  });
-  if (ok) {
-    syncFocusMenus();
-    const first = root.querySelector('[data-item]');
-    if (first) focusItem(first);
-  }
-  syncRevert();
-}
-
-document.getElementById('menu-revert')?.addEventListener('click', onRevert);
-document.getElementById('menu-cloud-revert')?.addEventListener('click', onRevert);
-
-function reclaimOutlineFocusIfIdle() {
-  const active = document.activeElement;
-  if (active && root.contains(active)) return;
-  if (active?.closest?.('dialog[open]')) return;
-  if (isForeignMoveShortcutTarget(active)) return;
-  restoreOutlineFocus();
-}
-reclaimOutlineFocusIfIdle();
-// Refresh / bfcache restore often leaves focus on chrome or a leftover dialog
-// control; reclaim so ⌘← / ⌘→ hit the outline. (Avoid window `focus` — that
-// steals clicks on the document title when returning to the tab.)
-requestAnimationFrame(reclaimOutlineFocusIfIdle);
-window.addEventListener('pageshow', reclaimOutlineFocusIfIdle);
 
 outlineSession = createOutlineSession({
   root,
@@ -484,7 +278,7 @@ outlineSession = createOutlineSession({
   syncFocusMenus,
   syncHelpEnabled: () => outlinerMenuUi.syncHelpEnabled(),
   syncRevert,
-  clearLocalFileHandle,
+  clearLocalFileHandle: () => clearLocalFileHandle(),
   flushTitle: () => flushDocumentTitleEditor(documentTitleEl),
   focusFirstItem: () => {
     const item = root.querySelector('[data-item]');
