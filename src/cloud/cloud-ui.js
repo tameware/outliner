@@ -3,8 +3,9 @@
  */
 
 import { hasCloudSaveName, syncCloudSaveMenuLabel } from '../chrome/menubar.js';
-import { outlineTitleFromFileName } from '../file/local-file.js';
-import { shouldSaveUnderNewName } from '../chrome/document-title.js';
+import { createCloudSaveController } from './cloud-ui-save.js';
+import { createCloudPickerController } from './cloud-ui-picker.js';
+import { createCloudShareController } from './cloud-ui-share.js';
 
 /**
  * @param {object} options
@@ -47,13 +48,6 @@ export function mountCloudUi({
   const deleteListEl = document.getElementById('cloud-delete-list');
   const btnDeleteCancel = document.getElementById('btn-cloud-delete-cancel');
   const statusEl = document.getElementById('cloud-status');
-
-  /** @type {'save' | 'save-as'} */
-  let saveDialogMode = 'save';
-  /** @type {'open' | 'insert'} */
-  let outlinePickerMode = 'open';
-  /** @type {((ok: boolean) => void) | null} */
-  let saveDialogWaiter = null;
 
   if (!bar) {
     return { destroy() {}, async saveCurrent() { return false; } };
@@ -185,405 +179,49 @@ export function mountCloudUi({
     await withBusy('Signing out…', () => auth.signOut());
   }
 
-  function closeDialog(el) {
-    if (el?.close) el.close();
-    else if (el) el.removeAttribute('open');
-  }
+  /** @type {Parameters<typeof createCloudSaveController>[0]} */
+  const host = {
+    outline,
+    cloud,
+    editShareMode,
+    readOnlyView,
+    getUser: () => user,
+    withBusy,
+    setStatus,
+    syncSaveLabel,
+    rememberDriveFileId,
+  };
 
-  function openDialogEl(el) {
-    if (el?.showModal) el.showModal();
-    else if (el) el.setAttribute('open', '');
-  }
+  const save = createCloudSaveController({
+    ...host,
+    saveDialog,
+    saveNameInput,
+  });
 
-  function resolveSaveDialog(ok) {
-    const resolve = saveDialogWaiter;
-    saveDialogWaiter = null;
-    resolve?.(ok);
-  }
+  const picker = createCloudPickerController({
+    ...host,
+    getActiveDriveFileId: () => activeDriveFileId,
+    openDialog,
+    openDialogHeading,
+    listEl,
+    deleteDialog,
+    deleteListEl,
+  });
 
-  function openSaveDialog(mode) {
-    saveDialogMode = mode;
-    if (saveNameInput) {
-      saveNameInput.value = outline.getTitle?.() || 'Untitled';
-    }
-    const heading = saveDialog?.querySelector('h2');
-    if (heading) {
-      heading.textContent = mode === 'save-as' ? 'Save As' : 'Save to Google Drive';
-    }
-    openDialogEl(saveDialog);
-    saveNameInput?.focus?.();
-    saveNameInput?.select?.();
-    return new Promise((resolve) => {
-      saveDialogWaiter = resolve;
-    });
-  }
-
-  async function onSave() {
-    outline.flushTitle?.();
-    const id = outline.getOutlineId?.();
-    const title = outline.getTitle?.() || 'Untitled';
-    if (id) {
-      return saveWithName(title, { forceNew: false });
-    }
-    // File → Open (and other named docs) already have a title — skip the dialog.
-    if (hasCloudSaveName(title)) {
-      return saveWithName(title, { forceNew: false });
-    }
-    return openSaveDialog('save');
-  }
-
-  function onSaveAs() {
-    return openSaveDialog('save-as');
-  }
-
-  /**
-   * Save the current outline (prompt for name when needed).
-   * @returns {Promise<boolean>}
-   */
-  async function saveCurrent() {
-    if (readOnlyView) return false;
-    if (!user && !editShareMode) {
-      window.alert('Sign in with Google to save to Google Drive.');
-      return false;
-    }
-    return onSave();
-  }
-
-  async function saveWithName(title, { forceNew = false } = {}) {
-    outline.flushTitle?.();
-    // Caller name (Save As dialog) wins; onSave passes the flushed chrome title.
-    const name =
-      String(title || outline.getTitle?.() || '').trim() || 'Untitled';
-    const ok = await withBusy('Saving to Google Drive…', async () => {
-      let id = outline.getOutlineId?.();
-      // Edit-link guests always overwrite; owner rename acts like Save As.
-      const saveAsNew = shouldSaveUnderNewName({
-        currentTitle: name,
-        boundTitle: outline.getBoundTitle?.(),
-        hasBinding: Boolean(id),
-        forceNew,
-        allowSaveAsNew: !editShareMode,
-      });
-
-      // Keep UI title/Updated unchanged until Drive accepts the write.
-      const savedAt = new Date();
-      const opml = outline.toOpml({ title: name, dateModified: savedAt });
-
-      if (!id || saveAsNew) {
-        const created = await cloud.createOutline({ title: name, opml });
-        id = created.id;
-        // Drive v3 often omits ETag; revision is optional (last-write-wins).
-        const revision = created.revision ?? null;
-        rememberDriveFileId(id);
-        outline.commitCloudSave({
-          id,
-          revision,
-          title: name,
-          updatedAt: savedAt,
-        });
-        syncSaveLabel();
-        setStatus(`Saved “${name}”`);
-        return;
-      }
-
-      let revision = outline.getRevision?.();
-
-      // Best-effort refresh when missing; never block save — Drive has no reliable etag.
-      if (revision == null && cloud.getOutline) {
-        try {
-          const got = await cloud.getOutline(id);
-          revision = typeof got === 'string' ? null : got.revision;
-          outline.setRevision?.(revision);
-        } catch {
-          /* save without If-Match */
-        }
-      }
-
-      let leaseToken = null;
-      try {
-        if (cloud.acquireLock) {
-          const lease = await cloud.acquireLock(id);
-          leaseToken = lease.token;
-          outline.setLeaseToken?.(leaseToken);
-        }
-
-        const saved = await cloud.saveOutline(id, {
-          opml,
-          revision,
-          leaseToken,
-          title: name,
-        });
-        rememberDriveFileId(id);
-        outline.commitCloudSave({
-          id,
-          revision: saved?.revision ?? revision,
-          title: name,
-          updatedAt: savedAt,
-        });
-        syncSaveLabel();
-        setStatus(`Saved “${name}”`);
-      } finally {
-        if (leaseToken && cloud.releaseLock) {
-          try {
-            await cloud.releaseLock(id, leaseToken);
-          } catch {
-            /* best-effort unlock — lease TTL is the backstop */
-          }
-          outline.setLeaseToken?.(null);
-        }
-      }
-    });
-    if (ok) outline.markClean?.();
-    return ok;
-  }
-
-  function sortedOutlines(outlines) {
-    return [...outlines].sort((a, b) =>
-      String(a.title || a.id).localeCompare(String(b.title || b.id), undefined, {
-        sensitivity: 'base',
-      }),
-    );
-  }
-
-  /**
-   * @param {HTMLElement | null} list
-   * @param {Array<{ id: string, title?: string }>} outlines
-   * @param {(item: { id: string, title?: string }) => void} onPick
-   * @param {string} emptyMessage
-   */
-  function fillOutlinePicker(list, outlines, onPick, emptyMessage) {
-    if (!list) return;
-    list.replaceChildren();
-    const sorted = sortedOutlines(outlines);
-    if (!sorted.length) {
-      const empty = document.createElement('li');
-      empty.textContent = emptyMessage;
-      list.appendChild(empty);
-      return;
-    }
-    for (const item of sorted) {
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = item.title || item.id;
-      btn.addEventListener('click', () => onPick(item));
-      li.appendChild(btn);
-      list.appendChild(li);
-    }
-  }
-
-  /**
-   * @param {'open' | 'insert'} mode
-   */
-  async function showOutlinePicker(mode) {
-    outlinePickerMode = mode;
-    if (openDialogHeading) {
-      openDialogHeading.textContent =
-        mode === 'insert' ? 'Insert from Google Drive' : 'Open from Google Drive';
-    }
-    await withBusy('Loading list…', async () => {
-      const outlines = await cloud.listOutlines();
-      fillOutlinePicker(
-        listEl,
-        outlines,
-        (item) => {
-          if (outlinePickerMode === 'insert') {
-            void insertOutlineFromCloud(item.id, item.title);
-          } else {
-            void openOutline(item.id, item.title);
-          }
-        },
-        'No outlines yet. Save to Google Drive to create one.',
-      );
-      openDialogEl(openDialog);
-    });
-  }
-
-  async function onOpen() {
-    await showOutlinePicker('open');
-  }
-
-  async function onInsert() {
-    await showOutlinePicker('insert');
-  }
-
-  async function onDeleteMenu() {
-    await withBusy('Loading list…', async () => {
-      const outlines = await cloud.listOutlines();
-      fillOutlinePicker(
-        deleteListEl,
-        outlines,
-        (item) => {
-          void deleteOutline(item.id, item.title);
-        },
-        'No outlines to delete.',
-      );
-      openDialogEl(deleteDialog);
-    });
-  }
-
-  async function deleteOutline(id, listedTitle) {
-    const label = listedTitle || id;
-    const okConfirm = window.confirm(
-      `Delete “${label}”? It will move to Google Drive trash.`,
-    );
-    if (!okConfirm) return;
-    const ok = await withBusy('Deleting…', async () => {
-      await cloud.deleteOutline(id);
-      if (outline.getOutlineId?.() === id || activeDriveFileId === id) {
-        rememberDriveFileId(null);
-        outline.clearCloudBinding();
-        syncSaveLabel();
-      }
-      closeDialog(deleteDialog);
-    });
-    if (ok) setStatus(`Deleted “${label}”`);
-  }
-
-  async function openOutline(id, listedTitle) {
-    if (outline.beforeReplace) {
-      const allow = await outline.beforeReplace();
-      if (!allow) return;
-    }
-    outline.beginLoading?.();
-    closeDialog(openDialog);
-    const ok = await withBusy('Opening…', async () => {
-      const got = await cloud.getOutline(id);
-      const opml = typeof got === 'string' ? got : got.opml;
-      const revision = typeof got === 'string' ? null : got.revision;
-      const driveTitle =
-        typeof got === 'string' ? null : got.title;
-      const tree = outline.parseOpml(opml);
-      const modifiedTime =
-        typeof got === 'string' ? null : got.modifiedTime || tree.dateModified;
-      const driveId =
-        (typeof got === 'string' ? null : got.fileId) || id;
-      const title = outlineTitleFromFileName(listedTitle || driveTitle, tree.title);
-      rememberDriveFileId(driveId);
-      outline.applyCloudOpen({
-        tree,
-        driveId,
-        revision: revision ?? tree.revision ?? null,
-        title,
-        modifiedTime: modifiedTime ?? null,
-      });
-      syncSaveLabel();
-      setStatus(title ? `Opened “${title}”` : `Opened ${driveId}`);
-    });
-    if (!ok) outline.hideLoading?.();
-  }
-
-  /**
-   * Insert a Drive outline below the caret without replacing the current document.
-   * @param {string} id
-   * @param {string | undefined} listedTitle
-   */
-  async function insertOutlineFromCloud(id, listedTitle) {
-    if (typeof outline.insertOutline !== 'function') return;
-    let title = listedTitle;
-    const ok = await withBusy('Inserting…', async () => {
-      const got = await cloud.getOutline(id);
-      const opml = typeof got === 'string' ? got : got.opml;
-      const tree = outline.parseOpml(opml);
-      title = listedTitle || tree.title;
-      outline.insertOutline(tree);
-      closeDialog(openDialog);
-    });
-    if (ok) setStatus(title ? `Inserted “${title}”` : `Inserted ${id}`);
-  }
-
-  function absoluteShareUrl(urlPath) {
-    try {
-      return new URL(urlPath, window.location.origin).href;
-    } catch {
-      return urlPath;
-    }
-  }
-
-  async function copyShareLink(result, copiedLabel) {
-    const href = absoluteShareUrl(result.urlPath);
-    try {
-      await navigator.clipboard.writeText(href);
-      setStatus(copiedLabel);
-    } catch {
-      window.prompt('Copy this link:', href);
-      setStatus(copiedLabel.replace(/copied$/i, 'ready'));
-    }
-  }
-
-  function requireSavedOutline(kind) {
-    const boundId = outline.getOutlineId?.() || null;
-    // File Open clears the Drive binding — drop any remembered id too.
-    if (!boundId) {
-      rememberDriveFileId(null);
-      window.alert(
-        kind === 'edit'
-          ? 'Save this outline to Google Drive before creating an editable link.'
-          : 'Save this outline to Google Drive before creating a read-only link.',
-      );
-      return null;
-    }
-    if (outline.isDirty?.()) {
-      window.alert(
-        kind === 'edit'
-          ? 'Save this outline to Google Drive before creating an editable link.'
-          : 'Save this outline to Google Drive before creating a read-only link.',
-      );
-      return null;
-    }
-    // Prefer the last Cloud Open/Save id when getOutlineId was clobbered (stale deep-link).
-    const id = activeDriveFileId || boundId;
-    if (boundId !== id) {
-      outline.setOutlineId?.(id);
-      if (outline.syncUrl) outline.syncUrl(id);
-    }
-    return id;
-  }
-
-  async function onShare() {
-    const id = requireSavedOutline('view');
-    if (!id) return;
-    /** @type {{ urlPath: string } | undefined} */
-    let result;
-    const ok = await withBusy('Creating link…', async () => {
-      result = await cloud.createShareLink(id);
-    });
-    if (ok && result) await copyShareLink(result, 'Read-only link copied');
-  }
-
-  async function onShareEdit() {
-    const id = requireSavedOutline('edit');
-    if (!id) return;
-    /** @type {{ urlPath: string } | undefined} */
-    let result;
-    const ok = await withBusy('Creating link…', async () => {
-      result = await cloud.createEditShareLink(id);
-    });
-    if (ok && result) await copyShareLink(result, 'Editable link copied');
-  }
-
-  function onCancelOpen() {
-    closeDialog(openDialog);
-  }
-
-  function onCancelDelete() {
-    closeDialog(deleteDialog);
-  }
-
-  function onCancelSave() {
-    closeDialog(saveDialog);
-    resolveSaveDialog(false);
-  }
+  const share = createCloudShareController({
+    ...host,
+    getActiveDriveFileId: () => activeDriveFileId,
+  });
 
   btnAuth?.addEventListener('click', () => {
     if (user) void onSignOut();
     else void onSignIn();
   });
   btnSave?.addEventListener('click', () => {
-    void onSave();
+    void save.onSave();
   });
   btnSaveAs?.addEventListener('click', () => {
-    void onSaveAs();
+    void save.onSaveAs();
   });
 
   /** ⌘S / Ctrl+S → Cloud Save (overrides the browser’s Save Page). */
@@ -595,27 +233,27 @@ export function mountCloudUi({
     if (key !== 's') return;
     event.preventDefault();
     if (btnSave?.disabled) return;
-    void saveCurrent();
+    void save.saveCurrent();
   }
   document.addEventListener('keydown', onSaveShortcut, true);
   btnOpen?.addEventListener('click', () => {
-    void onOpen();
+    void picker.onOpen();
   });
   btnInsert?.addEventListener('click', () => {
-    void onInsert();
+    void picker.onInsert();
   });
   btnDelete?.addEventListener('click', () => {
-    void onDeleteMenu();
+    void picker.onDeleteMenu();
   });
   btnShare?.addEventListener('click', () => {
-    void onShare();
+    void share.onShare();
   });
   btnShareEdit?.addEventListener('click', () => {
-    void onShareEdit();
+    void share.onShareEdit();
   });
-  btnCancel?.addEventListener('click', onCancelOpen);
-  btnDeleteCancel?.addEventListener('click', onCancelDelete);
-  btnSaveCancel?.addEventListener('click', onCancelSave);
+  btnCancel?.addEventListener('click', picker.onCancelOpen);
+  btnDeleteCancel?.addEventListener('click', picker.onCancelDelete);
+  btnSaveCancel?.addEventListener('click', save.onCancelSave);
   saveForm?.addEventListener('submit', (event) => {
     event.preventDefault();
     const name = saveNameInput?.value?.trim();
@@ -623,10 +261,7 @@ export function mountCloudUi({
       saveNameInput?.focus?.();
       return;
     }
-    closeDialog(saveDialog);
-    void saveWithName(name, { forceNew: saveDialogMode === 'save-as' }).then((ok) => {
-      resolveSaveDialog(ok);
-    });
+    void save.submitSaveDialog(name);
   });
 
   if (readOnlyView) {
@@ -645,6 +280,6 @@ export function mountCloudUi({
     syncSaveLabel,
     /** Re-evaluate Save enabled/label after dirty or outline-id changes. */
     syncSaveState: syncAuthUi,
-    saveCurrent,
+    saveCurrent: save.saveCurrent,
   };
 }

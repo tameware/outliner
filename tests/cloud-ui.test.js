@@ -879,8 +879,11 @@ describe('cloud UI', () => {
     assert.deepEqual(titles, ['From Drive meta']);
   });
 
-  it('wires outlineTitleFromFileName for Drive Open in cloud-ui.js', () => {
-    const src = readFileSync(join(repoRoot, 'src/cloud/cloud-ui.js'), 'utf8');
+  it('wires outlineTitleFromFileName for Drive Open in cloud-ui-picker.js', () => {
+    const src = readFileSync(
+      join(repoRoot, 'src/cloud/cloud-ui-picker.js'),
+      'utf8',
+    );
     assert.match(src, /outlineTitleFromFileName/);
     assert.match(
       src,
