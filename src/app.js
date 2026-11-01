@@ -44,6 +44,8 @@ import { applyMenuShortcuts } from './chrome/menu-shortcuts.js';
 import {
   mountDocumentTitleEditor,
   flushDocumentTitleEditor,
+  documentTitleLabel,
+  stripDirtyTitleSuffix,
 } from './chrome/document-title.js';
 import { createDocumentSession } from './chrome/document-session.js';
 import { bindOutlineChrome } from './chrome/outline-chrome.js';
@@ -65,8 +67,6 @@ const menubar = document.querySelector('.menubar');
 const documentTitleEl = document.getElementById('document-title');
 const documentUpdatedEl = document.getElementById('document-updated');
 
-/** @type {ReturnType<typeof createDirtyTracker>} */
-let dirty;
 /** @type {HTMLElement} */
 let root;
 /** @type {() => void} */
@@ -75,6 +75,22 @@ let syncRevert = () => {};
 let syncFocusMenus = () => {};
 /** @type {() => void} */
 let clearLocalFileHandle = () => {};
+
+/** Same title base docSession uses — available before that object exists. */
+function outlineTitleForSnapshot() {
+  return documentTitleLabel(stripDirtyTitleSuffix(document.title));
+}
+
+// Dirty tracker before docSession: isDirty() must be safe if titles sync early.
+const dirty = createDirtyTracker({
+  getContentSnapshot: () =>
+    toOpml(rootEl, {
+      title: outlineTitleForSnapshot(),
+      includeExpansionState: false,
+    }),
+  getRevertSnapshot: () =>
+    toOpml(rootEl, { title: outlineTitleForSnapshot() }),
+});
 
 const docSession = createDocumentSession({
   titleEl: documentTitleEl,
@@ -152,14 +168,6 @@ let cloudSaveAvailable = false;
 /** @type {ReturnType<typeof createOutlineSession> | null} */
 let outlineSession = null;
 
-dirty = createDirtyTracker({
-  getContentSnapshot: () =>
-    toOpml(root, {
-      title: outlineTitleBase(),
-      includeExpansionState: false,
-    }),
-  getRevertSnapshot: () => toOpml(root, { title: outlineTitleBase() }),
-});
 const askUnsavedChanges = mountUnsavedChangesDialog(
   document.getElementById('unsaved-dialog'),
 );
