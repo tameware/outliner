@@ -129,9 +129,14 @@ describe('sticky chrome menubar', () => {
     assert.ok(heading.querySelector('#document-title'));
     assert.ok(heading.querySelector('#document-updated'));
     assert.ok(heading.querySelector('#cloud-user'));
-    const statusBar = sticky.querySelector('[data-cloud-bar]');
-    assert.ok(statusBar, 'Editable / Read-only status should stick with the menu bar');
+    const meta = sticky.querySelector('.chrome-meta');
+    const statusBar = meta.querySelector('[data-cloud-bar]');
+    assert.ok(
+      statusBar,
+      'Editable / Read-only status should share the brand row (no extra vertical space)',
+    );
     assert.ok(statusBar.querySelector('#cloud-status'));
+    assert.equal(heading.contains(statusBar), false);
     assert.equal(
       document.querySelector('header.chrome .document-heading'),
       null,
@@ -144,7 +149,7 @@ describe('sticky chrome menubar', () => {
     );
     const menubar = sticky.querySelector('.menubar');
     assert.equal(menubar.compareDocumentPosition(heading) & 4, 4);
-    assert.equal(heading.compareDocumentPosition(statusBar) & 4, 4);
+    assert.equal(meta.compareDocumentPosition(menubar) & 4, 4);
   });
 
   it('pins .chrome-sticky with an opaque bar so menus stay visible while the outline scrolls', () => {
