@@ -16,7 +16,7 @@ import {
   parseOpml,
   clearOutline,
 } from '../src/outliner/outliner.js';
-import { createOutlineHistory } from '../src/outliner/clear-outline-ui.js';
+import { createOutlineHistory } from '../src/outliner/outline-history.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 

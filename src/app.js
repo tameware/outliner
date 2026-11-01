@@ -21,7 +21,7 @@ import {
 } from './cloud/cloud.js';
 import { bootCloud } from './cloud/boot.js';
 import { applyReadOnlyToolbar } from './chrome/readonly-toolbar.js';
-import { createOutlineHistory } from './outliner/clear-outline-ui.js';
+import { createOutlineHistory } from './outliner/outline-history.js';
 import { blankOutlineForDeepLink } from './share/deep-link-boot.js';
 import {
   bindDeepLinkOutlineLoad,

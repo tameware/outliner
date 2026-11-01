@@ -14,7 +14,7 @@ import {
   promoteItem,
   addItemAfter,
 } from '../src/outliner/outliner.js';
-import { createOutlineHistory } from '../src/outliner/clear-outline-ui.js';
+import { createOutlineHistory } from '../src/outliner/outline-history.js';
 
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><body>

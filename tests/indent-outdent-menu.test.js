@@ -12,7 +12,7 @@ import {
   loadOutline,
   clearOutline,
 } from '../src/outliner/outliner.js';
-import { createOutlineHistory } from '../src/outliner/clear-outline-ui.js';
+import { createOutlineHistory } from '../src/outliner/outline-history.js';
 import { mountIndentOutdentMenu } from '../src/outliner/indent-outdent.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');

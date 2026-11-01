@@ -8,7 +8,7 @@ import {
   loadOutline,
   getItemTexts,
 } from '../src/outliner/outliner.js';
-import { createOutlineHistory } from '../src/outliner/clear-outline-ui.js';
+import { createOutlineHistory } from '../src/outliner/outline-history.js';
 import { createDirtyTracker } from '../src/outliner/dirty-tracker.js';
 import {
   revertToCleanSnapshot,

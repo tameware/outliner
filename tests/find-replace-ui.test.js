@@ -13,7 +13,7 @@ import {
   clearOutline,
   setReadOnly,
 } from '../src/outliner/outliner.js';
-import { createOutlineHistory } from '../src/outliner/clear-outline-ui.js';
+import { createOutlineHistory } from '../src/outliner/outline-history.js';
 import { mountFindReplace } from '../src/outliner/find-replace-ui.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
