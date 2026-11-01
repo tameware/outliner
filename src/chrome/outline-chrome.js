@@ -14,9 +14,9 @@ import { handlePromoteDemoteShortcut } from '../outliner/promote-demote-keys.js'
 import {
   handleMoveUpDownShortcut,
   isForeignMoveShortcutTarget,
-} from '../outliner/move-up-down-keys.js';
-import { mountIndentOutdentMenu } from '../outliner/indent-outdent-menu.js';
-import { mountMoveUpDownMenu } from '../outliner/move-up-down-menu.js';
+  mountMoveUpDownMenu,
+} from '../outliner/move-up-down.js';
+import { mountIndentOutdentMenu } from '../outliner/indent-outdent.js';
 import { mountFindReplace } from '../outliner/find-replace-ui.js';
 import {
   focusOutlineItem,

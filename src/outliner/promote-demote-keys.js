@@ -6,7 +6,7 @@
  * Always preventDefault when matched so the browser cannot treat ⌘[ as Back.
  */
 
-import { isForeignMoveShortcutTarget } from './move-up-down-keys.js';
+import { isForeignMoveShortcutTarget } from './move-up-down.js';
 
 /**
  * @param {{ key?: string, metaKey?: boolean, ctrlKey?: boolean, shiftKey?: boolean, altKey?: boolean }} event

@@ -3,7 +3,7 @@
  */
 
 import { tryInsertSuitShortcut } from './suit-shortcuts.js';
-import { isForeignMoveShortcutTarget } from './move-up-down-keys.js';
+import { isForeignMoveShortcutTarget } from './move-up-down.js';
 import {
   textEl,
   hasChildren,

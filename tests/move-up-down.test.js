@@ -8,8 +8,8 @@ import {
   matchMoveUpDownShortcut,
   handleMoveUpDownShortcut,
   isForeignMoveShortcutTarget,
-} from '../src/outliner/move-up-down-keys.js';
-import { mountMoveUpDownMenu } from '../src/outliner/move-up-down-menu.js';
+  mountMoveUpDownMenu,
+} from '../src/outliner/move-up-down.js';
 import {
   mountOutliner,
   loadOutline,
