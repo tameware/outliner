@@ -13,7 +13,8 @@ import { shouldSaveUnderNewName } from '../chrome/document-title.js';
  * @param {boolean} [options.editShareMode] guest editing via ?edit= token (no Google sign-in)
  * @param {{ onAuthStateChanged: Function, signInWithGoogle: Function, signOut: Function }} options.auth
  * @param {ReturnType<import('./drive-cloud.js').createDriveCloudClient>} options.cloud
- * @param {object} options.outline
+ * @param {object} options.outline typed façade from createOutlineSession
+ *   (commitCloudSave / applyCloudOpen / clearCloudBinding + title/binding getters)
  */
 export function mountCloudUi({
   configured,
@@ -273,14 +274,13 @@ export function mountCloudUi({
         id = created.id;
         // Drive v3 often omits ETag; revision is optional (last-write-wins).
         const revision = created.revision ?? null;
-        outline.setOutlineId?.(id);
         rememberDriveFileId(id);
-        outline.setRevision?.(revision);
-        outline.setLeaseToken?.(null);
-        outline.setTitle?.(name);
-        outline.setBoundTitle?.(name);
-        outline.setUpdatedAt?.(savedAt);
-        if (outline.syncUrl) outline.syncUrl(id);
+        outline.commitCloudSave({
+          id,
+          revision,
+          title: name,
+          updatedAt: savedAt,
+        });
         syncSaveLabel();
         setStatus(`Saved “${name}”`);
         return;
@@ -314,10 +314,12 @@ export function mountCloudUi({
           title: name,
         });
         rememberDriveFileId(id);
-        outline.setRevision?.(saved?.revision ?? revision);
-        outline.setTitle?.(name);
-        outline.setBoundTitle?.(name);
-        outline.setUpdatedAt?.(savedAt);
+        outline.commitCloudSave({
+          id,
+          revision: saved?.revision ?? revision,
+          title: name,
+          updatedAt: savedAt,
+        });
         syncSaveLabel();
         setStatus(`Saved “${name}”`);
       } finally {
@@ -429,11 +431,8 @@ export function mountCloudUi({
     const ok = await withBusy('Deleting…', async () => {
       await cloud.deleteOutline(id);
       if (outline.getOutlineId?.() === id || activeDriveFileId === id) {
-        outline.setOutlineId?.(null);
         rememberDriveFileId(null);
-        outline.setRevision?.(null);
-        outline.setLeaseToken?.(null);
-        if (outline.syncUrl) outline.syncUrl(null);
+        outline.clearCloudBinding();
         syncSaveLabel();
       }
       closeDialog(deleteDialog);
@@ -457,21 +456,18 @@ export function mountCloudUi({
       const tree = outline.parseOpml(opml);
       const modifiedTime =
         typeof got === 'string' ? null : got.modifiedTime || tree.dateModified;
-      outline.loadOutline(tree);
-      // After loadOutline: Drive Last-Modified wins over any OPML dateModified.
-      outline.setUpdatedAt?.(modifiedTime ?? null);
       const driveId =
         (typeof got === 'string' ? null : got.fileId) || id;
-      outline.setOutlineId?.(driveId);
-      rememberDriveFileId(driveId);
-      outline.setRevision?.(revision ?? tree.revision ?? null);
-      outline.setLeaseToken?.(null);
       const title = outlineTitleFromFileName(listedTitle || driveTitle, tree.title);
-      outline.setTitle?.(title);
-      outline.setBoundTitle?.(title);
-      if (outline.syncUrl) outline.syncUrl(driveId);
+      rememberDriveFileId(driveId);
+      outline.applyCloudOpen({
+        tree,
+        driveId,
+        revision: revision ?? tree.revision ?? null,
+        title,
+        modifiedTime: modifiedTime ?? null,
+      });
       syncSaveLabel();
-      outline.markClean?.();
       setStatus(title ? `Opened “${title}”` : `Opened ${driveId}`);
     });
     if (!ok) outline.hideLoading?.();

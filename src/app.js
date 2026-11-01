@@ -46,13 +46,12 @@ import {
   hideOutlineLoading,
   isOutlineLoading,
 } from './outliner/outline-loading.js';
-import { clearCloudOutlineBinding } from './cloud/cloud-binding.js';
 import {
-  cloudOpenUpdatedAt,
   deepLinkDocumentTitle,
   shouldIgnoreStaleDeepLink,
   shouldSyncOwnerUrlAfterDeepLink,
 } from './cloud/loaded-outline.js';
+import { createOutlineSession } from './cloud/outline-session.js';
 import { mountMenubar } from './chrome/menubar.js';
 import { mountOutlinerMenu } from './chrome/outliner-menu.js';
 import { applyMenuShortcuts } from './chrome/menu-shortcuts.js';
@@ -156,9 +155,6 @@ restoreOutlineFocus = () => {
   if (item) focusItem(item);
 };
 
-let currentOutlineId = outlineIdFromLocation(window.location);
-let currentRevision = null;
-let leaseToken = null;
 const viewShareToken = viewTokenFromLocation(window.location);
 const editShareToken = editTokenFromLocation(window.location);
 const readOnlyShare = isReadOnlyViewFromLocation(window.location);
@@ -168,6 +164,8 @@ let cloudUi = null;
 /** @type {{ invalidate?: () => void } | null} */
 let deepLinkLoad = null;
 let cloudSaveAvailable = false;
+/** @type {ReturnType<typeof createOutlineSession> | null} */
+let outlineSession = null;
 
 dirty = createDirtyTracker({
   getContentSnapshot: () =>
@@ -220,8 +218,8 @@ mountDocumentTitleEditor(documentTitleEl, {
 });
 bindBeforeUnloadGuard(window, () => dirty.isDirty());
 
+/** History rewrite only — Drive id lives on outlineSession. */
 function syncUrl(id) {
-  currentOutlineId = id;
   // Owner bookmarks use ?id= only; keep opaque ?view= / ?edit= share URLs intact.
   if (viewShareToken || editShareToken) return;
   const next = locationWithOutlineId(window.location, id);
@@ -386,18 +384,7 @@ const localSession = createLocalSession({
   onReplaceDocument: () => {
     deepLinkLoad?.invalidate?.();
     // File Open replaces the document — do not overwrite the previously opened Drive file.
-    clearCloudOutlineBinding({
-      setOutlineId: (id) => {
-        currentOutlineId = id;
-      },
-      setRevision: (rev) => {
-        currentRevision = rev;
-      },
-      setLeaseToken: (token) => {
-        leaseToken = token;
-      },
-      syncUrl,
-    });
+    outlineSession?.facade.clearCloudBinding();
     cloudUi?.syncSaveLabel?.();
   },
   getActiveItem: () => api.getActiveItem?.(),
@@ -481,8 +468,43 @@ reclaimOutlineFocusIfIdle();
 requestAnimationFrame(reclaimOutlineFocusIfIdle);
 window.addEventListener('pageshow', reclaimOutlineFocusIfIdle);
 
+outlineSession = createOutlineSession({
+  root,
+  initialOutlineId: outlineIdFromLocation(window.location),
+  dirty,
+  docSession,
+  toOpml,
+  parseOpml,
+  loadOutline,
+  applyOpenExpansion,
+  insertOutline,
+  showOutlineLoading,
+  hideOutlineLoading,
+  outlineHistoryDiscard: () => outlineHistory.discard(),
+  syncFocusMenus,
+  syncHelpEnabled: () => outlinerMenuUi.syncHelpEnabled(),
+  syncRevert,
+  clearLocalFileHandle,
+  flushTitle: () => flushDocumentTitleEditor(documentTitleEl),
+  focusFirstItem: () => {
+    const item = root.querySelector('[data-item]');
+    if (item) focusItem(item);
+  },
+  getActiveItem: () => api.getActiveItem?.(),
+  runStructural: (mutate) => outlineHistory.run(mutate),
+  syncUrl,
+  beforeReplace,
+  onMarkClean: () => {
+    cloudUi?.syncSaveState?.();
+  },
+  invalidateDeepLink: () => {
+    deepLinkLoad?.invalidate?.();
+  },
+});
+
 void (async () => {
-  const deepLinkKey = editShareToken || viewShareToken || currentOutlineId;
+  const deepLinkKey =
+    editShareToken || viewShareToken || outlineSession.getOutlineId();
   const booted = await bootCloud({
     editShareToken,
     viewShareToken,
@@ -493,79 +515,7 @@ void (async () => {
       setReadOnly(root, true);
       applyReadOnlyToolbar(document.querySelector('.menubar'));
     },
-    outlineFacade: {
-      root,
-      toOpml: (opts = {}) =>
-        toOpml(root, {
-          title: opts.title ?? outlineTitleBase(),
-          dateModified: opts.dateModified ?? getUpdatedAt() ?? new Date(),
-        }),
-      parseOpml,
-      beginLoading: () => {
-        deepLinkLoad?.invalidate?.();
-        showOutlineLoading(root, { loadOutline });
-        outlineHistory.discard();
-        dirty.markClean();
-        syncDocumentTitles();
-      },
-      hideLoading: () => {
-        hideOutlineLoading(root);
-      },
-      loadOutline: (tree) => {
-        hideOutlineLoading(root);
-        clearLocalFileHandle();
-        loadOutline(root, tree);
-        applyOpenExpansion(root);
-        outlineHistory.discard();
-        // Title comes from the Drive file name via setTitle (not OPML <head><title>).
-        // Prefer OPML date when present; callers (Cloud Open) set Drive time afterward.
-        applyDocumentUpdated(cloudOpenUpdatedAt(tree));
-        syncFocusMenus();
-        outlinerMenuUi.syncHelpEnabled();
-        const item = root.querySelector('[data-item]');
-        if (item) focusItem(item);
-      },
-      setUpdatedAt: (date) => {
-        applyDocumentUpdated(date);
-      },
-      insertOutline: (tree) => {
-        outlineHistory.run(() => {
-          const after = api.getActiveItem?.() ?? null;
-          return Boolean(insertOutline(root, tree, after));
-        });
-        syncRevert();
-      },
-      getTitle: () => outlineTitleBase(),
-      flushTitle: () => flushDocumentTitleEditor(documentTitleEl),
-      setTitle: (title) => {
-        applyDocumentTitle(title);
-      },
-      getBoundTitle,
-      setBoundTitle: (title) => {
-        rememberBoundTitle(title);
-      },
-      getOutlineId: () => currentOutlineId,
-      setOutlineId: (id) => {
-        currentOutlineId = id;
-      },
-      getRevision: () => currentRevision,
-      setRevision: (rev) => {
-        currentRevision = rev;
-      },
-      getLeaseToken: () => leaseToken,
-      setLeaseToken: (token) => {
-        leaseToken = token;
-      },
-      syncUrl: (id) => syncUrl(id),
-      beforeReplace,
-      isDirty: () => dirty.isDirty(),
-      markClean: () => {
-        dirty.markClean();
-        rememberBoundTitle();
-        syncDocumentTitles();
-        cloudUi?.syncSaveState?.();
-      },
-    },
+    outlineFacade: outlineSession.facade,
     bindDeepLink: deepLinkKey
       ? ({ auth, cloud }) =>
           // Eager load (public anyone-with-link or existing token). Also retry when
@@ -576,45 +526,43 @@ void (async () => {
             auth,
             cloud,
             getOutlineId: () =>
-              editShareToken || viewShareToken || currentOutlineId,
+              editShareToken || viewShareToken || outlineSession.getOutlineId(),
             applyOutline: async (got, requestedId) => {
               const shareMode = Boolean(editShareToken || viewShareToken);
+              const currentId = outlineSession.getOutlineId();
               if (
                 shouldIgnoreStaleDeepLink({
                   shareMode,
                   requestedId,
-                  currentOutlineId,
+                  currentOutlineId: currentId,
                 })
               ) {
                 return;
               }
               const tree = parseOpml(got.opml);
-              hideOutlineLoading(root);
-              loadOutline(root, tree);
-              applyOpenExpansion(root);
-              clearLocalFileHandle();
-              outlinerMenuUi.syncHelpEnabled();
-              const title = deepLinkDocumentTitle(
-                got,
-                tree,
-                outlineTitleFromFileName,
-              );
+              const title =
+                deepLinkDocumentTitle(got, tree, outlineTitleFromFileName) ||
+                '';
+              outlineSession.facade.loadOutline(tree);
               if (title) applyDocumentTitle(title);
-              applyDocumentUpdated(got.modifiedTime ?? tree.dateModified ?? null);
-              // Match Cloud Open: keep currentOutlineId + owner ?id= URL in sync.
-              // Share ?view= / ?edit= URLs stay opaque (syncUrl no-ops the history rewrite).
+              applyDocumentUpdated(
+                got.modifiedTime ?? tree.dateModified ?? null,
+              );
+              // Match Cloud Open: keep outline id + owner ?id= URL in sync.
+              // Share ?view= / ?edit= URLs stay opaque (syncUrl no-ops the rewrite).
               if (
                 shouldSyncOwnerUrlAfterDeepLink({
                   shareMode,
                   fileId: got.fileId,
                   requestedId,
-                  currentOutlineId,
+                  currentOutlineId: currentId,
                 })
               ) {
+                outlineSession.setOutlineId(got.fileId);
                 syncUrl(got.fileId);
               }
-              currentRevision = got.revision ?? null;
-              leaseToken = null;
+              outlineSession.setRevision(got.revision ?? null);
+              outlineSession.setLeaseToken(null);
               dirty.markClean();
               rememberBoundTitle();
               syncDocumentTitles();
@@ -624,8 +572,6 @@ void (async () => {
                 setReadOnly(root, true);
                 applyReadOnlyToolbar(document.querySelector('.menubar'));
               }
-              const item = root.querySelector('[data-item]');
-              if (item) focusItem(item);
             },
             onError: (error) => {
               console.warn('Could not load outline from Google Drive', error);

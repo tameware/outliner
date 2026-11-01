@@ -151,6 +151,11 @@ describe('cloud UI', () => {
       setTitle: (t) => {
         outline._title = t;
       },
+      getBoundTitle: () => outline._boundTitle,
+      setBoundTitle: (t) => {
+        outline._boundTitle = t;
+      },
+      setUpdatedAt: () => {},
       getOutlineId: () => outlineId,
       setOutlineId: (id) => {
         outlineId = id;
@@ -165,6 +170,33 @@ describe('cloud UI', () => {
       isDirty: () => outlineDirty,
       markClean: () => {
         outlineDirty = false;
+      },
+      clearCloudBinding() {
+        outline.setOutlineId?.(null);
+        outline.setRevision?.(null);
+        outline.setLeaseToken?.(null);
+        outline.syncUrl?.(null);
+      },
+      commitCloudSave({ id, revision, title, updatedAt }) {
+        outline.setOutlineId?.(id);
+        outline.setRevision?.(revision);
+        outline.setLeaseToken?.(null);
+        outline.setTitle?.(title);
+        outline.setBoundTitle?.(title);
+        outline.setUpdatedAt?.(updatedAt);
+        outline.syncUrl?.(id);
+      },
+      applyCloudOpen({ tree, driveId, revision, title, modifiedTime }) {
+        outline.loadOutline?.(tree);
+        // Drive Last-Modified wins over any OPML date applied during load.
+        outline.setUpdatedAt?.(modifiedTime ?? null);
+        outline.setOutlineId?.(driveId);
+        outline.setRevision?.(revision);
+        outline.setLeaseToken?.(null);
+        outline.setTitle?.(title);
+        outline.setBoundTitle?.(title);
+        outline.syncUrl?.(driveId);
+        outline.markClean?.();
       },
     };
   });
