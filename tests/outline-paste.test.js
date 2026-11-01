@@ -165,8 +165,8 @@ describe('outline paste uses the default font', () => {
   });
 
   it('wires paste handling from mountOutliner / outline-paste.js', () => {
-    const outlinerJs = readFileSync(join(rootDir, 'src/outliner/outliner.js'), 'utf8');
-    assert.match(outlinerJs, /outline-paste\.js/);
-    assert.match(outlinerJs, /bindOutlinePlainPaste|handleOutlinePaste/);
+    const mountJs = readFileSync(join(rootDir, 'src/outliner/mount.js'), 'utf8');
+    assert.match(mountJs, /outline-paste\.js/);
+    assert.match(mountJs, /bindOutlinePlainPaste|handleOutlinePaste/);
   });
 });
