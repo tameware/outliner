@@ -7,6 +7,7 @@ import { JSDOM } from 'jsdom';
 import {
   matchMoveUpDownShortcut,
   handleMoveUpDownShortcut,
+  isForeignMoveShortcutTarget,
 } from '../move-up-down-keys.js';
 import { mountMoveUpDownMenu } from '../move-up-down-menu.js';
 import {
@@ -146,6 +147,17 @@ describe('move up/down shortcuts', () => {
     assert.equal(event.prevented, true);
     assert.deepEqual(runs, []);
     assert.equal(beeps.length, 1);
+  });
+
+  it('treats plaintext-only document-title as a foreign shortcut target', () => {
+    const dom = new JSDOM(`<!DOCTYPE html><body>
+      <p id="document-title" contenteditable="plaintext-only">Name</p>
+      <ol data-outline-root>
+        <li data-item><div class="row"><div class="text" contenteditable="true">A</div></div></li>
+      </ol>
+    </body>`);
+    const title = dom.window.document.getElementById('document-title');
+    assert.equal(isForeignMoveShortcutTarget(title), true);
   });
 
   it('ignores Cmd+Arrow from document-title and Find inputs outside the outline', () => {

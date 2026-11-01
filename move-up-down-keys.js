@@ -15,7 +15,9 @@ export function isForeignMoveShortcutTarget(target) {
   if (el.closest('input, textarea, select')) return true;
   if (
     el.isContentEditable ||
-    el.closest?.('[contenteditable=""], [contenteditable="true"]')
+    el.closest?.(
+      '[contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]',
+    )
   ) {
     return true;
   }

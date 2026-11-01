@@ -170,6 +170,7 @@ describe('document title display', () => {
     assert.match(appJs, /from ['"]\.\/document-title\.js['"]/);
     assert.match(appJs, /dirty:\s*dirty\.isDirty\(\)|\{[^}]*dirty:/);
     assert.match(appJs, /syncTabTitle:\s*true/);
+    assert.match(appJs, /onChange:\s*\(title\)\s*=>\s*\{[^}]*applyDocumentTitle/);
   });
 });
 
@@ -299,6 +300,29 @@ describe('document title editor', () => {
     el.textContent = 'Typing';
     syncDocumentTitleDisplay(el, 'Other', { dirty: true });
     assert.equal(el.textContent, 'Typing');
+  });
+
+  it('syncTabTitle while editing mirrors the in-progress name onto document.title', () => {
+    beginEdit();
+    el.textContent = 'Bridge notes';
+    syncDocumentTitleDisplay(el, 'Untitled', { dirty: true, syncTabTitle: true });
+    assert.equal(el.textContent, 'Bridge notes');
+    assert.equal(document.title, 'Bridge notes •');
+  });
+
+  it('notifies onChange while typing so the tab title can track the rename', () => {
+    unbind();
+    const changes = [];
+    unbind = mountDocumentTitleEditor(el, {
+      onCommit: (title) => commits.push(title),
+      onChange: (title) => changes.push(title),
+      isReadOnly: () => false,
+    });
+    beginEdit();
+    el.textContent = 'Live name';
+    el.dispatchEvent(new window.InputEvent('input', { bubbles: true }));
+    assert.deepEqual(changes, ['Live name']);
+    assert.deepEqual(commits, []);
   });
 
   it('disables editing while read-only', () => {

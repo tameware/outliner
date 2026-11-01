@@ -250,6 +250,9 @@ mountDocumentTitleEditor(documentTitleEl, {
     applyDocumentTitle(title);
     syncRevert();
   },
+  onChange: (title) => {
+    applyDocumentTitle(title);
+  },
   isReadOnly: () => root.dataset.readonly === 'true',
 });
 bindBeforeUnloadGuard(window, () => dirty.isDirty());

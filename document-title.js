@@ -72,14 +72,18 @@ function isEditingDocumentTitle(el) {
  * @param {{ dirty?: boolean, syncTabTitle?: boolean }} [options]
  */
 export function syncDocumentTitleDisplay(el, title, options = {}) {
-  const source =
-    title !== undefined
+  const editing = isEditingDocumentTitle(el);
+  // While renaming, prefer the in-progress chrome text so syncTabTitle does not
+  // clobber the tab with a stale bound title (e.g. File menu → syncRevert).
+  const source = editing && el
+    ? el.textContent
+    : title !== undefined
       ? title
       : typeof document !== 'undefined'
         ? document.title
         : '';
   const labeled = documentTitleLabel(source, { dirty: Boolean(options.dirty) });
-  if (el && !isEditingDocumentTitle(el)) el.textContent = labeled;
+  if (el && !editing) el.textContent = labeled;
   if (options.syncTabTitle && typeof document !== 'undefined') {
     document.title = labeled;
   }
@@ -91,6 +95,7 @@ export function syncDocumentTitleDisplay(el, title, options = {}) {
  * @param {HTMLElement | null | undefined} el
  * @param {{
  *   onCommit?: (title: string) => void,
+ *   onChange?: (title: string) => void,
  *   isReadOnly?: () => boolean,
  * }} [options]
  * @returns {() => void} unbind
@@ -111,6 +116,7 @@ export function mountDocumentTitleEditor(el, options = {}) {
   if (!el) return () => {};
 
   const onCommit = options.onCommit;
+  const onChange = options.onChange;
   const isReadOnly = options.isReadOnly ?? (() => false);
 
   /** @type {string} */
@@ -176,16 +182,24 @@ export function mountDocumentTitleEditor(el, options = {}) {
     selectAll();
   }
 
+  function currentEditorTitle() {
+    return (
+      stripDirtyTitleSuffix(el.textContent).trim() || UNTITLED_DOCUMENT_TITLE
+    );
+  }
+
   function commitFromEditor() {
-    const next =
-      stripDirtyTitleSuffix(el.textContent).trim() || UNTITLED_DOCUMENT_TITLE;
-    onCommit?.(next);
+    onCommit?.(currentEditorTitle());
   }
 
   function flush() {
-    if (suppressCommit || isReadOnly()) return;
-    if (!isEditingDocumentTitle(el)) return;
+    if (suppressCommit || isReadOnly() || !editing) return;
     commitFromEditor();
+  }
+
+  function onInput() {
+    if (!editing || isReadOnly()) return;
+    onChange?.(currentEditorTitle());
   }
 
   function onBlur() {
@@ -203,6 +217,12 @@ export function mountDocumentTitleEditor(el, options = {}) {
     if (event.isComposing || event.keyCode === 229) return;
     if (event.key === 'Enter') {
       event.preventDefault();
+      // Commit before blur so the tab title updates even if blur is skipped.
+      commitFromEditor();
+      suppressCommit = true;
+      armEdit = false;
+      editing = false;
+      syncEditable();
       el.blur?.();
       return;
     }
@@ -210,6 +230,7 @@ export function mountDocumentTitleEditor(el, options = {}) {
       event.preventDefault();
       suppressCommit = true;
       el.textContent = editBaseline;
+      onChange?.(editBaseline);
       el.blur?.();
     }
   }
@@ -219,6 +240,7 @@ export function mountDocumentTitleEditor(el, options = {}) {
   el.addEventListener('mousedown', onPointerArm);
   el.addEventListener('focus', onFocus);
   el.addEventListener('blur', onBlur);
+  el.addEventListener('input', onInput);
   el.addEventListener('keydown', onKeyDown);
 
   return () => {
@@ -226,6 +248,7 @@ export function mountDocumentTitleEditor(el, options = {}) {
     el.removeEventListener('mousedown', onPointerArm);
     el.removeEventListener('focus', onFocus);
     el.removeEventListener('blur', onBlur);
+    el.removeEventListener('input', onInput);
     el.removeEventListener('keydown', onKeyDown);
   };
 }
