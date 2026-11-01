@@ -1,6 +1,9 @@
-.PHONY: test test-host
+.PHONY: build test test-host
 
-test:
+build:
+	npm run build
+
+test: build
 	npm test
 
 # Optional Flask Drive proxy / share-token kit (host/).

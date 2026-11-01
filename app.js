@@ -16,6 +16,7 @@ import {
   clearOutline,
   applyOpenExpansion,
 } from './outliner.js';
+import { DEFAULT_OUTLINE_OPML } from './default-outline.js';
 import {
   isCloudConfigured,
   googleClientIdFromConfig,
@@ -237,7 +238,9 @@ async function beforeReplace() {
 if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
   outlineHistory.discard();
 } else {
+  loadOutline(root, parseOpml(DEFAULT_OUTLINE_OPML));
   applyOpenExpansion(root);
+  outlineHistory.discard();
 }
 dirty.markClean();
 rememberBoundTitle();

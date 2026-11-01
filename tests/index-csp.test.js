@@ -8,6 +8,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import { JSDOM } from 'jsdom';
+import { parseOpml, loadOutline, mountOutliner } from '../outliner.js';
+import { DEFAULT_OUTLINE_OPML } from '../default-outline.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -30,15 +32,23 @@ describe('index.html CSP-safe entry', () => {
   });
 
   it('starter tip says show or hide children (show before hide)', () => {
-    const html = readFileSync(join(root, 'index.html'), 'utf8');
-    assert.match(html, /to show or hide its children/);
-    assert.doesNotMatch(html, /to hide or show its children/);
+    const opml = readFileSync(join(root, 'default-outline.opml'), 'utf8');
+    assert.match(opml, /to show or hide its children/);
+    assert.doesNotMatch(opml, /to hide or show its children/);
   });
 
   it('places the expand/collapse tip as item 2 under How to use this outliner', () => {
-    const html = readFileSync(join(root, 'index.html'), 'utf8');
-    const dom = new JSDOM(html);
-    const outline = dom.window.document.querySelector('[data-outline-root]');
+    const dom = new JSDOM(
+      `<!DOCTYPE html><body><ol class="outline" data-outline-root></ol></body>`,
+      { url: 'http://localhost/' },
+    );
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.Node = dom.window.Node;
+    globalThis.DOMParser = dom.window.DOMParser;
+    const outline = document.querySelector('[data-outline-root]');
+    mountOutliner(outline, { bindEvents: false });
+    loadOutline(outline, parseOpml(DEFAULT_OUTLINE_OPML));
     const howTo = [...outline.children].find((el) =>
       /How to use this outliner/.test(
         el.querySelector(':scope > .row .text')?.textContent ?? '',
@@ -82,31 +92,36 @@ describe('index.html CSP-safe entry', () => {
   });
 
   it('how-to outline does not mention undo/redo shortcuts', () => {
-    const html = readFileSync(join(root, 'index.html'), 'utf8');
-    const tips = [...html.matchAll(/class="text" contenteditable="true">([^<]*)</g)].map(
-      (m) => m[1],
-    );
-    assert.ok(tips.some((t) => /How to use this outliner/.test(t)));
-    for (const tip of tips) {
-      assert.doesNotMatch(tip, /undo with/i);
-      assert.doesNotMatch(tip, /to redo/i);
-      assert.doesNotMatch(tip, /⌘Z/);
-      assert.doesNotMatch(tip, /Ctrl\+Z/);
-      assert.doesNotMatch(tip, /Ctrl\+Y/);
-      assert.doesNotMatch(tip, /⇧⌘Z/);
-    }
+    const opml = readFileSync(join(root, 'default-outline.opml'), 'utf8');
+    assert.match(opml, /How to use this outliner/);
+    assert.doesNotMatch(opml, /undo with/i);
+    assert.doesNotMatch(opml, /to redo/i);
+    assert.doesNotMatch(opml, /⌘Z/);
+    assert.doesNotMatch(opml, /Ctrl\+Z/);
+    assert.doesNotMatch(opml, /Ctrl\+Y/);
+    assert.doesNotMatch(opml, /⇧⌘Z/);
   });
 
   it('suit tip shows red hearts and diamonds without explaining the color in prose', () => {
-    const html = readFileSync(join(root, 'index.html'), 'utf8');
-    const tip = html.match(
-      /class="text" contenteditable="true">(!c !d !h !s[\s\S]*?)<\/div>/,
-    )?.[1];
+    const dom = new JSDOM(
+      `<!DOCTYPE html><body><ol class="outline" data-outline-root></ol></body>`,
+      { url: 'http://localhost/' },
+    );
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.Node = dom.window.Node;
+    globalThis.DOMParser = dom.window.DOMParser;
+    const outline = document.querySelector('[data-outline-root]');
+    mountOutliner(outline, { bindEvents: false });
+    loadOutline(outline, parseOpml(DEFAULT_OUTLINE_OPML));
+    const tip = [...outline.querySelectorAll('.text')].find((el) =>
+      /!c !d !h !s/.test(el.textContent),
+    );
     assert.ok(tip, 'expected !c !d !h !s tip');
-    assert.match(tip, /<span class="suit suit-red"[^>]*>♦<\/span>/);
-    assert.match(tip, /<span class="suit suit-red"[^>]*>♥<\/span>/);
-    assert.match(tip, /contenteditable="false"/);
-    assert.doesNotMatch(tip, /red for hearts/i);
+    assert.match(tip.innerHTML, /<span class="suit suit-red"[^>]*>♦<\/span>/);
+    assert.match(tip.innerHTML, /<span class="suit suit-red"[^>]*>♥<\/span>/);
+    assert.match(tip.innerHTML, /contenteditable="false"/);
+    assert.doesNotMatch(tip.textContent, /red for hearts/i);
   });
 
   it('has no Add line toolbar button (Enter adds a line)', () => {

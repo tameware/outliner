@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head>
+    <title>How to use this outliner</title>
+    <expansionState>1,3,7,17,19</expansionState>
+  </head>
+  <body>
+    <outline text="How to use this outliner">
+      <outline text="Click any line to edit it. Type freely — this is a nested outline, not a flat document."/>
+      <outline text="Click ▸ or ▾ beside a parent to show or hide its children">
+        <outline text="⌘→ / ⌘← will do the same"/>
+        <outline text="⌘⌥→ expands this heading’s subheads completely"/>
+        <outline text="⌘⌥← collapses this heading’s subheads completely"/>
+      </outline>
+      <outline text="Keyboard">
+        <outline text="Enter — new line below (same level, or first child if this line has subheads)"/>
+        <outline text="Tab — indent this line under the one above"/>
+        <outline text="Shift+Tab — move this line out one level"/>
+        <outline text="Promote (⌘[ / Ctrl+[) — lift this line’s children up beside it"/>
+        <outline text="Demote (⌘] / Ctrl+]) — pull the following same-level lines under this one"/>
+        <outline text="↑ / ↓ — previous or next line; ⌥↑ / ⌥↓ — same level"/>
+        <outline text="!c !d !h !s — insert ♣ ♦ ♥ ♠"/>
+        <outline text="A PBN deal line (e.g. N:73.QJT.AQ54.T752 …) gets a suit-diagram child"/>
+        <outline text="Backspace at the start of a line — merge with the line above"/>
+      </outline>
+      <outline text="Expand and collapse">
+        <outline text="Use View → Expand All / Collapse All for the whole outline"/>
+      </outline>
+      <outline text="Open and Save">
+        <outline text="File → Open… / Save — OPML on your computer (re-saves in place when the browser supports it)"/>
+        <outline text="Cloud → Open… / Save / Save As… / Delete… — Google Drive outlines after Sign in with Google"/>
+        <outline text="Cloud → Copy read-only / editable link — distinct opaque share URLs (not interchangeable)"/>
+      </outline>
+      <outline text="Edit → Clear Outline removes all lines"/>
+      <outline text="Replace these tips with your own outline whenever you are ready."/>
+    </outline>
+  </body>
+</opml>

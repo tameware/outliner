@@ -17,7 +17,7 @@ export function hasRemoteOutlineParams(locationLike) {
 }
 
 /**
- * Replace baked-in starter content before an async id load finishes.
+ * Clear the outline before an async id/share load finishes (no starter flash).
  * @param {HTMLElement} root
  * @param {{ search?: string, hash?: string }} locationLike
  * @param {{ loadOutline: typeof import('./outliner.js').loadOutline }} options
