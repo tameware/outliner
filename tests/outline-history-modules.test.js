@@ -20,13 +20,11 @@ describe('outline history module', () => {
     assert.equal(typeof mod.createOutlineHistory, 'function');
   });
 
-  it('keeps clear-outline-ui.js as a thin compatibility re-export', async () => {
-    const src = readFileSync(join(root, 'src/outliner/clear-outline-ui.js'), 'utf8');
-    assert.match(src, /outline-history\.js/);
-    assert.match(src, /createOutlineHistory/);
-    // Implementation should not remain here.
-    assert.doesNotMatch(src, /function createOutlineHistory/);
-    assert.ok(src.split('\n').length < 40);
+  it('does not keep a clear-outline-ui.js shim', async () => {
+    await assert.rejects(
+      () => access(join(root, 'src/outliner/clear-outline-ui.js')),
+      { code: 'ENOENT' },
+    );
   });
 
   it('app.js imports createOutlineHistory from outline-history.js', () => {
