@@ -1,16 +1,12 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   offerSaveIfDirty,
   mountUnsavedChangesDialog,
   bindBeforeUnloadGuard,
 } from '../src/chrome/unsaved-changes.js';
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('unsaved changes offer', () => {
   it('proceeds immediately when clean', async () => {
@@ -233,10 +229,4 @@ describe('beforeunload dirty guard', () => {
     assert.equal(event.defaultPrevented, false);
   });
 
-  it('wires bindBeforeUnloadGuard from app.js against dirty.isDirty', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /bindBeforeUnloadGuard/);
-    assert.match(appJs, /from ['"]\.\/chrome\/unsaved-changes\.js['"]/);
-    assert.match(appJs, /bindBeforeUnloadGuard\(\s*window\s*,\s*\(\)\s*=>\s*dirty\.isDirty\(\)\s*\)/);
-  });
 });

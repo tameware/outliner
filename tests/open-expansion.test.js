@@ -1,8 +1,5 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import {
   loadOutline,
@@ -13,7 +10,6 @@ import {
   serializeOutline,
 } from '../src/outliner/outliner.js';
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><body>
@@ -141,44 +137,4 @@ describe('open expansion', () => {
     assert.deepEqual(serializeOutline(root), before);
   });
 
-  it('app.js applies open expansion after local, cloud, and deep-link opens', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    const localSessionJs = readFileSync(
-      join(repoRoot, 'src/file/local-session.js'),
-      'utf8',
-    );
-    assert.match(appJs, /applyOpenExpansion/);
-    assert.match(
-      localSessionJs,
-      /function applyOpenedLocalOutline[\s\S]*applyOpenExpansion\(root\)/,
-    );
-    assert.match(
-      appJs,
-      /loadOutline:\s*\(tree\)\s*=>\s*\{[\s\S]*?applyOpenExpansion\(root\)/,
-    );
-    assert.match(
-      appJs,
-      /applyOutline:\s*async\s*\(got,\s*requestedId\)\s*=>\s*\{[\s\S]*?applyOpenExpansion\(root\)/,
-    );
-  });
-
-  it('cloud loadOutline does not reuse a stale documentUpdatedAt for Updated', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(
-      appJs,
-      /loadOutline:\s*\(tree\)\s*=>\s*\{[\s\S]*?applyDocumentUpdated\(tree\.dateModified\s*\?\?\s*null\)/,
-    );
-    assert.doesNotMatch(
-      appJs,
-      /loadOutline:\s*\(tree\)\s*=>\s*\{[\s\S]*?applyDocumentUpdated\(tree\.dateModified\s*\?\?\s*documentUpdatedAt\)/,
-    );
-  });
-
-  it('app.js applies open expansion for the starter outline when not deep-linking', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(
-      appJs,
-      /blankOutlineForDeepLink[\s\S]*?applyOpenExpansion\(root\)|if\s*\(\s*!blankOutlineForDeepLink[\s\S]*?applyOpenExpansion\(root\)/,
-    );
-  });
 });

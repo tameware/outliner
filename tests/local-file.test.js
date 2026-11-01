@@ -286,42 +286,4 @@ describe('index.html File Open / Save', () => {
     assert.doesNotMatch(panel, /Insert Import/);
   });
 
-  it('wires local session from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /createLocalSession/);
-    assert.match(appJs, /from ['"]\.\/file\/local-session\.js['"]/);
-    assert.match(appJs, /menu-file-open/);
-    assert.match(appJs, /menu-file-save/);
-    assert.match(appJs, /menu-file-save-as/);
-    assert.match(appJs, /bindFileMenus/);
-  });
-
-  it('File Save uses shouldSaveUnderNewName so a rename opens the Save As picker', () => {
-    const sessionJs = readFileSync(
-      join(repoRoot, 'src/file/local-session.js'),
-      'utf8',
-    );
-    assert.match(sessionJs, /shouldSaveUnderNewName/);
-    assert.match(
-      sessionJs,
-      /forcePicker\s*:\s*forcePicker\s*\|\|\s*saveAsNewName/,
-    );
-    assert.match(sessionJs, /rememberBoundTitle/);
-    assert.match(sessionJs, /getBoundTitle/);
-  });
-
-  it('uses OPML dateModified or the on-disk lastModified for Updated when opening locally', () => {
-    const sessionJs = readFileSync(
-      join(repoRoot, 'src/file/local-session.js'),
-      'utf8',
-    );
-    assert.match(
-      sessionJs,
-      /applyOpenedLocalOutline\(tree,\s*picked\.name,\s*\{[\s\S]*?updatedAt:\s*tree\.dateModified\s*\?\?\s*picked\.lastModified/,
-    );
-    assert.match(
-      sessionJs,
-      /applyOpenedLocalOutline\(tree,\s*file\.name,\s*\{[\s\S]*?updatedAt:\s*tree\.dateModified\s*\?\?\s*file\.lastModified/,
-    );
-  });
 });

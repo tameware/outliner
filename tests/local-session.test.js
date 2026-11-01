@@ -1,15 +1,11 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { createLocalSession } from '../src/file/local-session.js';
 import { createDocumentSession } from '../src/chrome/document-session.js';
 import { createDirtyTracker } from '../src/outliner/dirty-tracker.js';
 import { toOpml, parseOpml, loadOutline, mountOutliner } from '../src/outliner/outliner.js';
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('local session', () => {
   /** @type {ReturnType<typeof createLocalSession>} */
@@ -103,9 +99,53 @@ describe('local session', () => {
     assert.equal(docSession.getBoundTitle(), 'Renamed');
   });
 
-  it('is wired from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /createLocalSession/);
-    assert.match(appJs, /from ['"]\.\/file\/local-session\.js['"]/);
+  it('replace open notifies onReplaceDocument and applies open expansion', () => {
+    let replaced = 0;
+    local = createLocalSession({
+      root,
+      documentTitleEl: document.getElementById('document-title'),
+      fileInput: document.getElementById('file-open'),
+      fileSaveButton: saveButton,
+      dirty,
+      docSession,
+      toOpml,
+      parseOpml,
+      loadOutline,
+      downloadOpml: () => {},
+      beforeReplace: async () => true,
+      syncRevert: () => {},
+      syncFocusMenus: () => {},
+      syncHelpEnabled: () => {},
+      onReplaceDocument: () => {
+        replaced += 1;
+      },
+      getActiveItem: () => root.querySelector('[data-item]'),
+      runStructural: (mutate) => mutate(),
+      insertOutline: () => true,
+      outlineHistoryDiscard: () => {},
+    });
+    local.applyOpenedLocalOutline(
+      {
+        title: 'Imported',
+        items: [
+          {
+            text: 'Parent A',
+            children: [{ text: 'Child A', children: [] }],
+          },
+          {
+            text: 'Parent B',
+            children: [{ text: 'Child B', children: [] }],
+          },
+        ],
+      },
+      'Imported.opml',
+      { updatedAt: new Date('2026-03-01T00:00:00Z') },
+    );
+    assert.equal(replaced, 1);
+    assert.equal(docSession.getUpdatedAt()?.toISOString(), '2026-03-01T00:00:00.000Z');
+    // Multiple top-level parents → openDepth 0 → parents stay collapsed.
+    const parents = [...root.querySelectorAll(':scope > [data-item]')];
+    assert.equal(parents.length, 2);
+    assert.ok(parents.every((item) => item.dataset.state === 'collapsed'));
   });
 });

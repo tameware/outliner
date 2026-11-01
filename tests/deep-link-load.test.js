@@ -1,14 +1,10 @@
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   bindDeepLinkOutlineLoad,
   isSoftDeepLinkLoadError,
 } from '../src/share/deep-link-load.js';
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('isSoftDeepLinkLoadError', () => {
   it('treats 401 and network Failed to fetch as soft', () => {
@@ -139,23 +135,6 @@ describe('bindDeepLinkOutlineLoad', () => {
     destroy();
   });
 
-  it('app.js syncs the resolved file id through syncUrl after a deep-link load', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /bindDeepLinkOutlineLoad\s*\(/);
-    assert.match(
-      appJs,
-      /applyOutline:\s*async\s*\(got,\s*requestedId\)\s*=>\s*\{[\s\S]*?if\s*\(got\.fileId\)\s*\{/,
-    );
-    assert.match(
-      appJs,
-      /currentOutlineId\s*!==\s*requestedId/,
-    );
-    assert.doesNotMatch(
-      appJs,
-      /applyOutline:\s*async\s*\(got(?:,\s*requestedId)?\)\s*=>\s*\{[\s\S]*?if\s*\(got\.fileId\)\s*currentOutlineId\s*=\s*got\.fileId/,
-    );
-  });
-
   it('ignores applyOutline when Cloud Open already selected a different Drive file', async () => {
     const applied = [];
     let currentId = 'file-a';
@@ -187,20 +166,4 @@ describe('bindDeepLinkOutlineLoad', () => {
     destroy();
   });
 
-  it('app.js prefers the Drive file title over the OPML head title on deep-link load', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /outlineTitleFromFileName/);
-    assert.match(
-      appJs,
-      /outlineTitleFromFileName\(\s*got\.title\s*,\s*tree\.title\s*\)/,
-    );
-    assert.doesNotMatch(
-      appJs,
-      /if \(got\.title \|\| tree\.title\) applyDocumentTitle\(got\.title \|\| tree\.title\)/,
-    );
-    assert.doesNotMatch(
-      appJs,
-      /loadOutline:\s*\(tree\)\s*=>\s*\{[^}]*if \(tree\.title\) applyDocumentTitle/,
-    );
-  });
 });

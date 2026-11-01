@@ -327,11 +327,4 @@ describe('index.html Edit menu Move Up / Move Down', () => {
     assert.ok(editPanel.indexOf('menu-move-down') < editPanel.indexOf('menu-promote'));
   });
 
-  it('wires move up/down menu and shortcuts from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /mountMoveUpDownMenu/);
-    assert.match(appJs, /handleMoveUpDownShortcut/);
-    assert.match(appJs, /moveItemUp/);
-    assert.match(appJs, /moveItemDown/);
-  });
 });

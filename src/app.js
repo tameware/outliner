@@ -47,6 +47,12 @@ import {
   isOutlineLoading,
 } from './outliner/outline-loading.js';
 import { clearCloudOutlineBinding } from './cloud/cloud-binding.js';
+import {
+  cloudOpenUpdatedAt,
+  deepLinkDocumentTitle,
+  shouldIgnoreStaleDeepLink,
+  shouldSyncOwnerUrlAfterDeepLink,
+} from './cloud/loaded-outline.js';
 import { mountMenubar } from './chrome/menubar.js';
 import { mountOutlinerMenu } from './chrome/outliner-menu.js';
 import { applyMenuShortcuts } from './chrome/menu-shortcuts.js';
@@ -513,8 +519,7 @@ void (async () => {
         outlineHistory.discard();
         // Title comes from the Drive file name via setTitle (not OPML <head><title>).
         // Prefer OPML date when present; callers (Cloud Open) set Drive time afterward.
-        // Do not fall back to documentUpdatedAt — that can keep a previous file's stamp.
-        applyDocumentUpdated(tree.dateModified ?? null);
+        applyDocumentUpdated(cloudOpenUpdatedAt(tree));
         syncFocusMenus();
         outlinerMenuUi.syncHelpEnabled();
         const item = root.querySelector('[data-item]');
@@ -573,13 +578,13 @@ void (async () => {
             getOutlineId: () =>
               editShareToken || viewShareToken || currentOutlineId,
             applyOutline: async (got, requestedId) => {
-              // Cloud Open may have moved on while this deep-link fetch was in flight.
+              const shareMode = Boolean(editShareToken || viewShareToken);
               if (
-                !editShareToken &&
-                !viewShareToken &&
-                requestedId &&
-                currentOutlineId &&
-                currentOutlineId !== requestedId
+                shouldIgnoreStaleDeepLink({
+                  shareMode,
+                  requestedId,
+                  currentOutlineId,
+                })
               ) {
                 return;
               }
@@ -589,21 +594,24 @@ void (async () => {
               applyOpenExpansion(root);
               clearLocalFileHandle();
               outlinerMenuUi.syncHelpEnabled();
-              const title = outlineTitleFromFileName(got.title, tree.title);
+              const title = deepLinkDocumentTitle(
+                got,
+                tree,
+                outlineTitleFromFileName,
+              );
               if (title) applyDocumentTitle(title);
               applyDocumentUpdated(got.modifiedTime ?? tree.dateModified ?? null);
               // Match Cloud Open: keep currentOutlineId + owner ?id= URL in sync.
               // Share ?view= / ?edit= URLs stay opaque (syncUrl no-ops the history rewrite).
-              if (got.fileId) {
-                if (
-                  editShareToken ||
-                  viewShareToken ||
-                  !currentOutlineId ||
-                  currentOutlineId === requestedId ||
-                  currentOutlineId === got.fileId
-                ) {
-                  syncUrl(got.fileId);
-                }
+              if (
+                shouldSyncOwnerUrlAfterDeepLink({
+                  shareMode,
+                  fileId: got.fileId,
+                  requestedId,
+                  currentOutlineId,
+                })
+              ) {
+                syncUrl(got.fileId);
               }
               currentRevision = got.revision ?? null;
               leaseToken = null;

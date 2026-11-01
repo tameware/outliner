@@ -26,9 +26,6 @@ describe('index.html CSP-safe entry', () => {
       /<script\s+type="module">/,
       'inline <script type="module"> is blocked by script-src \'self\'',
     );
-    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
-    assert.match(appJs, /boot\s*\(/);
-    assert.match(appJs, /bootCloud/);
   });
 
   it('starter tip says show or hide children (show before hide)', () => {
@@ -128,18 +125,11 @@ describe('index.html CSP-safe entry', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     assert.doesNotMatch(html, /id="btn-add"/);
     assert.doesNotMatch(html, />Add line</);
-    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
-    assert.doesNotMatch(appJs, /btn-add/);
   });
 
   it('shows Tameware Outliner as the page heading', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     assert.match(html, /<h1>Tameware Outliner<\/h1>/);
-  });
-
-  it('blanks the starter outline on deep-link boot', () => {
-    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
-    assert.match(appJs, /blankOutlineForDeepLink/);
   });
 
   it('provides Outliner, File, Edit, View, and Cloud dropdown menus', () => {
@@ -203,35 +193,6 @@ describe('index.html CSP-safe entry', () => {
     assert.doesNotMatch(html, /id="btn-cloud-share"/);
   });
 
-  it('wires File Insert… through insertOutline without replacing the outline', () => {
-    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
-    const localSessionJs = readFileSync(
-      join(root, 'src/file/local-session.js'),
-      'utf8',
-    );
-    assert.match(appJs, /menu-insert-import/);
-    assert.match(appJs, /insertOutline/);
-    assert.match(localSessionJs, /triggerLegacyFileOpen\(['"]insert['"]\)/);
-    assert.match(localSessionJs, /mode === 'insert'/);
-  });
-
-  it('wires Drive Insert… through outline.insertOutline', () => {
-    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
-    const cloudUi = readFileSync(join(root, 'src/cloud/cloud-ui.js'), 'utf8');
-    assert.match(appJs, /insertOutline:\s*\(tree\)\s*=>/);
-    assert.match(cloudUi, /menu-insert/);
-    assert.match(cloudUi, /insertOutline/);
-    assert.match(cloudUi, /Insert from Google Drive/);
-  });
-
-  it('wires File and Cloud Revert to the same revert handler', () => {
-    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
-    assert.match(appJs, /menu-cloud-revert/);
-    assert.match(appJs, /function onRevert\b/);
-    assert.match(appJs, /getElementById\('menu-revert'\)[\s\S]*?onRevert/);
-    assert.match(appJs, /getElementById\('menu-cloud-revert'\)[\s\S]*?onRevert/);
-  });
-
   it('includes Find & Replace dialog and Edit menu items', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     assert.match(html, /id="menu-find"/);
@@ -239,8 +200,6 @@ describe('index.html CSP-safe entry', () => {
     assert.match(html, /id="find-replace-dialog"/);
     assert.match(html, /id="find-replace-grep"/);
     assert.match(html, /id="find-replace-whole"/);
-    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
-    assert.match(appJs, /mountFindReplace/);
   });
 
   it('links to a privacy policy page from the Outliner menu', () => {

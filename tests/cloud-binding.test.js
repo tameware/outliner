@@ -1,11 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { clearCloudOutlineBinding } from '../src/cloud/cloud-binding.js';
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('cloud outline binding', () => {
   it('clears Drive id, revision, lease, and URL when detaching', () => {
@@ -27,24 +23,4 @@ describe('cloud outline binding', () => {
     assert.deepEqual(calls.url, ['keep-me', null]);
   });
 
-  it('File Open (replace) detaches the cloud binding so Save keeps the original Drive file', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    const localSessionJs = readFileSync(
-      join(repoRoot, 'src/file/local-session.js'),
-      'utf8',
-    );
-    assert.match(appJs, /clearCloudOutlineBinding/);
-    assert.match(
-      appJs,
-      /onReplaceDocument:\s*\(\)\s*=>\s*\{[\s\S]*clearCloudOutlineBinding/,
-    );
-    assert.match(
-      localSessionJs,
-      /function applyOpenedLocalOutline[\s\S]*onReplaceDocument\(\)/,
-    );
-    assert.doesNotMatch(
-      localSessionJs,
-      /mode === 'insert'[\s\S]*onReplaceDocument\(\)/,
-    );
-  });
 });

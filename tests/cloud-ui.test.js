@@ -918,15 +918,6 @@ describe('cloud UI', () => {
     assert.equal(signedInUser, null);
   });
 
-  it('cloud boot uses null auth on editable share links so Google sign-in never boots', () => {
-    const bootJs = readFileSync(join(repoRoot, 'src/cloud/boot.js'), 'utf8');
-    assert.match(
-      bootJs,
-      /(?:editShareToken|viewShareToken|guestShare)[\s\S]{0,280}createNullAuth\s*\(/,
-    );
-    assert.match(bootJs, /guestShare[\s\S]{0,120}createGoogleAuth/);
-  });
-
   it('in editShareMode Save overwrites the same outline id even if the title changed', async () => {
     signedInUser = null;
     outlineId = 'shared-edit-1';

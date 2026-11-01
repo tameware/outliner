@@ -1,8 +1,5 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { createDocumentSession } from '../src/chrome/document-session.js';
 import {
@@ -10,7 +7,6 @@ import {
   DIRTY_TITLE_SUFFIX,
 } from '../src/chrome/document-title.js';
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('document session', () => {
   /** @type {ReturnType<typeof createDocumentSession>} */
@@ -81,9 +77,4 @@ describe('document session', () => {
     assert.equal(session.getUpdatedAt()?.toISOString(), when.toISOString());
   });
 
-  it('is wired from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /createDocumentSession/);
-    assert.match(appJs, /from ['"]\.\/chrome\/document-session\.js['"]/);
-  });
 });

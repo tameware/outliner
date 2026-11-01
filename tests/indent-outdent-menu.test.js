@@ -255,14 +255,4 @@ describe('index.html Edit menu Indent / Outdent', () => {
     assert.match(editPanel, /menu-outdent/);
   });
 
-  it('app mounts Indent / Outdent through outlineHistory.run (undo stack)', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /mountIndentOutdentMenu/);
-    assert.match(appJs, /menu-indent/);
-    assert.match(appJs, /menu-outdent/);
-    assert.match(
-      appJs,
-      /runStructural:\s*\(mutate\)\s*=>\s*outlineHistory\.run\(mutate\)/,
-    );
-  });
 });

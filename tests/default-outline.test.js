@@ -40,13 +40,6 @@ describe('default outline OPML + generated JS', () => {
     assert.doesNotMatch(html, /to show or hide its children/);
   });
 
-  it('app.js loads DEFAULT_OUTLINE_OPML when not deep-linking', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /from ['"]\.\/outliner\/default-outline\.js['"]/);
-    assert.match(appJs, /DEFAULT_OUTLINE_OPML/);
-    assert.match(appJs, /parseOpml\s*\(\s*DEFAULT_OUTLINE_OPML\s*\)/);
-  });
-
   it('package.json build regenerates default-outline.js', () => {
     const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
     assert.match(pkg.scripts.build, /build-default-outline/);

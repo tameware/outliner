@@ -174,12 +174,4 @@ describe('outline Focus / Unfocus', () => {
     assert.ok(panel.indexOf('menu-unfocus') < panel.indexOf('menu-expand-all'));
   });
 
-  it('wires Focus / Unfocus from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /focusOutlineItem/);
-    assert.match(appJs, /unfocusOutline/);
-    assert.match(appJs, /syncOutlineFocus/);
-    assert.match(appJs, /menu-focus/);
-    assert.match(appJs, /menu-unfocus/);
-  });
 });

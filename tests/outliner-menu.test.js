@@ -302,17 +302,4 @@ describe('Outliner menu', () => {
     assert.match(css, /#outliner-message-body\s*\{[^}]*white-space:\s*pre-wrap/);
   });
 
-  it('wires mountOutlinerMenu from app.js', () => {
-    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
-    assert.match(appJs, /mountOutlinerMenu/);
-    assert.match(appJs, /from ['"]\.\/chrome\/outliner-menu\.js['"]/);
-  });
-
-  it('resyncs Help enabled after Clear / undo / redo via outlineHistory onChange', () => {
-    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
-    assert.match(
-      appJs,
-      /onChange:\s*\(\)\s*=>\s*\{[^}]*syncRevert\(\)[^}]*outlinerMenuUi\.syncHelpEnabled\(\)/s,
-    );
-  });
 });

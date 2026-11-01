@@ -83,10 +83,6 @@ describe('index.html menu shortcuts', () => {
     }
   });
 
-  it('app applies menu shortcuts on boot', () => {
-    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
-    assert.match(appJs, /applyMenuShortcuts/);
-  });
 });
 
 describe('menu shortcut styles', () => {

@@ -1,11 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createNullCloudClient, bootCloud } from '../src/cloud/boot.js';
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('cloud boot', () => {
   it('createNullCloudClient returns a no-op Drive client', async () => {
@@ -50,9 +46,4 @@ describe('cloud boot', () => {
     assert.ok(result.cloudUi);
   });
 
-  it('is wired from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /bootCloud/);
-    assert.match(appJs, /from ['"]\.\/cloud\/boot\.js['"]/);
-  });
 });

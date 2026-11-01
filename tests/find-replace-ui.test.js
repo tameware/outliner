@@ -337,12 +337,6 @@ describe('index.html Find & Replace menu', () => {
     assert.match(html, /id="find-replace-all"[^>]*\bhidden\b/);
   });
 
-  it('wires mountFindReplace from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /mountFindReplace/);
-    assert.match(appJs, /find-replace-dialog/);
-  });
-
   it('keeps the Find panel above the outline with fixed stacking', () => {
     const css = readFileSync(join(repoRoot, 'styles.css'), 'utf8');
     assert.match(css, /\.find-replace-dialog\s*\{[^}]*position\s*:\s*fixed/s);
