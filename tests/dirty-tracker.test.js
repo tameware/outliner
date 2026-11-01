@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDirtyTracker } from '../dirty-tracker.js';
+import { createDirtyTracker } from '../src/outliner/dirty-tracker.js';
 
 describe('dirty tracker', () => {
   it('starts clean and becomes dirty when the snapshot changes', () => {

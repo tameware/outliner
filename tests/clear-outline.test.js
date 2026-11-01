@@ -13,8 +13,8 @@ import {
   demoteItem,
   promoteItem,
   addItemAfter,
-} from '../outliner.js';
-import { createOutlineHistory } from '../clear-outline-ui.js';
+} from '../src/outliner/outliner.js';
+import { createOutlineHistory } from '../src/outliner/clear-outline-ui.js';
 
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><body>

@@ -1,6 +1,6 @@
 /** Product / help menu for the Outliner app chrome. */
 
-import { hasRemoteOutlineParams } from './deep-link-boot.js';
+import { hasRemoteOutlineParams } from '../share/deep-link-boot.js';
 
 /** Display version: major.minor only. */
 export const OUTLINER_VERSION = '1.64';

@@ -26,7 +26,7 @@ import {
   loadOutline,
   focusSameLevelSibling,
   focusAdjacentItem,
-} from '../outliner.js';
+} from '../src/outliner/outliner.js';
 
 function placeCaretAtStart(textEl) {
   textEl.focus();

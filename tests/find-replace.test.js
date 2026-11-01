@@ -7,7 +7,7 @@ import {
   getItemText,
   serializeOutline,
   isExpanded,
-} from '../outliner.js';
+} from '../src/outliner/outliner.js';
 import {
   collectSearchableItems,
   findMatches,
@@ -18,8 +18,8 @@ import {
   replaceAllMatches,
   selectTextRange,
   expandCollapsedAncestors,
-} from '../find-replace.js';
-import { syncDealDiagram } from '../deal-diagram.js';
+} from '../src/outliner/find-replace.js';
+import { syncDealDiagram } from '../src/outliner/deal-diagram.js';
 
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><body>

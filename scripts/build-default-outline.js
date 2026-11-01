@@ -1,5 +1,5 @@
 /**
- * Copy default-outline.opml into default-outline.js for the browser bundle.
+ * Copy default-outline.opml into src/outliner/default-outline.js for the app.
  * Run via `npm run build` (also pretest).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const opmlPath = join(root, 'default-outline.opml');
-const outPath = join(root, 'default-outline.js');
+const outPath = join(root, 'src/outliner/default-outline.js');
 
 const opml = readFileSync(opmlPath, 'utf8').replace(/\r\n/g, '\n');
 const escaped = JSON.stringify(opml);

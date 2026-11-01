@@ -1,6 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createGoogleAuth, createNullAuth, DRIVE_SCOPE } from '../auth-google.js';
+import { createGoogleAuth, createNullAuth, DRIVE_SCOPE } from '../src/cloud/auth-google.js';
 
 describe('Google Identity Services auth', () => {
   beforeEach(() => {
@@ -96,7 +96,7 @@ describe('Google Identity Services auth', () => {
 
   it('removes a failed GIS script tag so the next sign-in retries the download', async () => {
     const { JSDOM } = await import('jsdom');
-    const { createGoogleAuth: createAuth } = await import('../auth-google.js');
+    const { createGoogleAuth: createAuth } = await import('../src/cloud/auth-google.js');
     const dom = new JSDOM('<!DOCTYPE html><html><head></head><body></body></html>');
     globalThis.window = dom.window;
     globalThis.document = dom.window.document;

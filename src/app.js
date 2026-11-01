@@ -15,8 +15,8 @@ import {
   setReadOnly,
   clearOutline,
   applyOpenExpansion,
-} from './outliner.js';
-import { DEFAULT_OUTLINE_OPML } from './default-outline.js';
+} from './outliner/outliner.js';
+import { DEFAULT_OUTLINE_OPML } from './outliner/default-outline.js';
 import {
   isCloudConfigured,
   googleClientIdFromConfig,
@@ -28,35 +28,35 @@ import {
   isEditableShareFromLocation,
   viewTokenFromLocation,
   editTokenFromLocation,
-} from './cloud.js';
-import { createDriveCloudClient } from './drive-cloud.js';
-import { mountCloudUi } from './cloud-ui.js';
-import { createGoogleAuth, createNullAuth } from './auth-google.js';
-import { applyReadOnlyToolbar } from './readonly-toolbar.js';
-import { createOutlineHistory } from './clear-outline-ui.js';
-import { handlePromoteDemoteShortcut } from './promote-demote-keys.js';
+} from './cloud/cloud.js';
+import { createDriveCloudClient } from './cloud/drive-cloud.js';
+import { mountCloudUi } from './cloud/cloud-ui.js';
+import { createGoogleAuth, createNullAuth } from './cloud/auth-google.js';
+import { applyReadOnlyToolbar } from './chrome/readonly-toolbar.js';
+import { createOutlineHistory } from './outliner/clear-outline-ui.js';
+import { handlePromoteDemoteShortcut } from './outliner/promote-demote-keys.js';
 import {
   handleMoveUpDownShortcut,
   isForeignMoveShortcutTarget,
-} from './move-up-down-keys.js';
-import { systemBeep } from './system-beep.js';
-import { mountIndentOutdentMenu } from './indent-outdent-menu.js';
-import { mountMoveUpDownMenu } from './move-up-down-menu.js';
-import { mountFindReplace } from './find-replace-ui.js';
-import { blankOutlineForDeepLink } from './deep-link-boot.js';
+} from './outliner/move-up-down-keys.js';
+import { systemBeep } from './chrome/system-beep.js';
+import { mountIndentOutdentMenu } from './outliner/indent-outdent-menu.js';
+import { mountMoveUpDownMenu } from './outliner/move-up-down-menu.js';
+import { mountFindReplace } from './outliner/find-replace-ui.js';
+import { blankOutlineForDeepLink } from './share/deep-link-boot.js';
 import {
   bindDeepLinkOutlineLoad,
   isSoftDeepLinkLoadError,
-} from './deep-link-load.js';
+} from './share/deep-link-load.js';
 import {
   showOutlineLoading,
   hideOutlineLoading,
   isOutlineLoading,
-} from './outline-loading.js';
-import { clearCloudOutlineBinding } from './cloud-binding.js';
-import { mountMenubar } from './menubar.js';
-import { mountOutlinerMenu } from './outliner-menu.js';
-import { applyMenuShortcuts } from './menu-shortcuts.js';
+} from './outliner/outline-loading.js';
+import { clearCloudOutlineBinding } from './cloud/cloud-binding.js';
+import { mountMenubar } from './chrome/menubar.js';
+import { mountOutlinerMenu } from './chrome/outliner-menu.js';
+import { applyMenuShortcuts } from './chrome/menu-shortcuts.js';
 import {
   documentTitleLabel,
   stripDirtyTitleSuffix,
@@ -66,23 +66,23 @@ import {
   coerceDocumentUpdatedAt,
   mountDocumentTitleEditor,
   flushDocumentTitleEditor,
-} from './document-title.js';
+} from './chrome/document-title.js';
 import {
   focusOutlineItem,
   unfocusOutline,
   isOutlineFocusActive,
   syncOutlineFocus,
-} from './outline-focus.js';
-import { createDirtyTracker } from './dirty-tracker.js';
+} from './outliner/outline-focus.js';
+import { createDirtyTracker } from './outliner/dirty-tracker.js';
 import {
   offerSaveIfDirty,
   mountUnsavedChangesDialog,
   bindBeforeUnloadGuard,
-} from './unsaved-changes.js';
+} from './chrome/unsaved-changes.js';
 import {
   revertToCleanSnapshot,
   syncRevertMenuItem,
-} from './revert-outline.js';
+} from './outliner/revert-outline.js';
 import {
   supportsFileSystemAccess,
   localSaveMenuLabel,
@@ -92,7 +92,7 @@ import {
   saveOutlineLocally,
   isAbortError,
   isFilePickerUnavailableError,
-} from './local-file.js';
+} from './file/local-file.js';
 
 const rootEl = document.querySelector('[data-outline-root]');
 const menubar = document.querySelector('.menubar');

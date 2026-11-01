@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { applyReadOnlyToolbar } from '../readonly-toolbar.js';
+import { applyReadOnlyToolbar } from '../src/chrome/readonly-toolbar.js';
 
 describe('read-only toolbar', () => {
   it('keeps Outliner, File, Edit, and View visible and enables info plus Export/Expand/Collapse', () => {

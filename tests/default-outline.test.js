@@ -5,8 +5,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { execFileSync } from 'node:child_process';
-import { parseOpml, loadOutline, mountOutliner, getItemText } from '../outliner.js';
-import { DEFAULT_OUTLINE_OPML } from '../default-outline.js';
+import { parseOpml, loadOutline, mountOutliner, getItemText } from '../src/outliner/outliner.js';
+import { DEFAULT_OUTLINE_OPML } from '../src/outliner/default-outline.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -24,9 +24,9 @@ describe('default outline OPML + generated JS', () => {
   it('copies the OPML into default-outline.js at build time', () => {
     const script = join(repoRoot, 'scripts/build-default-outline.js');
     assert.equal(existsSync(script), true);
-    const before = readFileSync(join(repoRoot, 'default-outline.js'), 'utf8');
+    const before = readFileSync(join(repoRoot, 'src/outliner/default-outline.js'), 'utf8');
     execFileSync(process.execPath, [script], { cwd: repoRoot });
-    const after = readFileSync(join(repoRoot, 'default-outline.js'), 'utf8');
+    const after = readFileSync(join(repoRoot, 'src/outliner/default-outline.js'), 'utf8');
     assert.equal(after, before, 'default-outline.js should match a fresh build');
     assert.match(after, /export const DEFAULT_OUTLINE_OPML/);
     assert.match(after, /How to use this outliner/);
@@ -41,8 +41,8 @@ describe('default outline OPML + generated JS', () => {
   });
 
   it('app.js loads DEFAULT_OUTLINE_OPML when not deep-linking', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
-    assert.match(appJs, /from ['"]\.\/default-outline\.js['"]/);
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
+    assert.match(appJs, /from ['"]\.\/outliner\/default-outline\.js['"]/);
     assert.match(appJs, /DEFAULT_OUTLINE_OPML/);
     assert.match(appJs, /parseOpml\s*\(\s*DEFAULT_OUTLINE_OPML\s*\)/);
   });

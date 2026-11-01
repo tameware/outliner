@@ -9,9 +9,9 @@ import {
   showOutlineLoading,
   hideOutlineLoading,
   isOutlineLoading,
-} from '../outline-loading.js';
-import { blankOutlineForDeepLink } from '../deep-link-boot.js';
-import { loadOutline, getItemTexts } from '../outliner.js';
+} from '../src/outliner/outline-loading.js';
+import { blankOutlineForDeepLink } from '../src/share/deep-link-boot.js';
+import { loadOutline, getItemTexts } from '../src/outliner/outliner.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -170,7 +170,7 @@ describe('outline loading panel', () => {
   });
 
   it('app.js skips syncing Untitled into the heading while the outline is loading', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /isOutlineLoading/);
     assert.match(
       appJs,

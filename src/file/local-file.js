@@ -2,7 +2,7 @@
  * Local OPML Open / Save via the File System Access API (with caller fallbacks).
  */
 
-import { APP_DOCUMENT_TITLE } from './document-title.js';
+import { APP_DOCUMENT_TITLE } from '../chrome/document-title.js';
 
 /** @type {FilePickerAcceptType[]} */
 export const OPML_FILE_TYPES = [

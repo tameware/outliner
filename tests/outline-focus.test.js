@@ -4,14 +4,14 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
-import { loadOutline, getItemTexts } from '../outliner.js';
+import { loadOutline, getItemTexts } from '../src/outliner/outliner.js';
 import {
   focusOutlineItem,
   unfocusOutline,
   clearOutlineFocus,
   isOutlineFocusActive,
   syncOutlineFocus,
-} from '../outline-focus.js';
+} from '../src/outliner/outline-focus.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -175,7 +175,7 @@ describe('outline Focus / Unfocus', () => {
   });
 
   it('wires Focus / Unfocus from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /focusOutlineItem/);
     assert.match(appJs, /unfocusOutline/);
     assert.match(appJs, /syncOutlineFocus/);

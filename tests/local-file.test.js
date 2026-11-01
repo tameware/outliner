@@ -16,7 +16,7 @@ import {
   saveOutlineLocally,
   isAbortError,
   isFilePickerUnavailableError,
-} from '../local-file.js';
+} from '../src/file/local-file.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -287,8 +287,8 @@ describe('index.html File Open / Save', () => {
   });
 
   it('wires local-file helpers from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
-    assert.match(appJs, /from ['"]\.\/local-file\.js['"]/);
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
+    assert.match(appJs, /from ['"]\.\/file\/local-file\.js['"]/);
     assert.match(appJs, /menu-file-open/);
     assert.match(appJs, /menu-file-save/);
     assert.match(appJs, /menu-file-save-as/);
@@ -305,7 +305,7 @@ describe('index.html File Open / Save', () => {
   });
 
   it('File Save uses shouldSaveUnderNewName so a rename opens the Save As picker', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /shouldSaveUnderNewName/);
     assert.match(
       appJs,
@@ -317,7 +317,7 @@ describe('index.html File Open / Save', () => {
   });
 
   it('uses OPML dateModified or the on-disk lastModified for Updated when opening locally', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(
       appJs,
       /applyOpenedLocalOutline\(tree,\s*picked\.name,\s*\{[\s\S]*?updatedAt:\s*tree\.dateModified\s*\?\?\s*picked\.lastModified/,

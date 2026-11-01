@@ -8,8 +8,8 @@ import {
   matchMoveUpDownShortcut,
   handleMoveUpDownShortcut,
   isForeignMoveShortcutTarget,
-} from '../move-up-down-keys.js';
-import { mountMoveUpDownMenu } from '../move-up-down-menu.js';
+} from '../src/outliner/move-up-down-keys.js';
+import { mountMoveUpDownMenu } from '../src/outliner/move-up-down-menu.js';
 import {
   mountOutliner,
   loadOutline,
@@ -17,8 +17,8 @@ import {
   toOpml,
   parseOpml,
   clearOutline,
-} from '../outliner.js';
-import { createOutlineHistory } from '../clear-outline-ui.js';
+} from '../src/outliner/outliner.js';
+import { createOutlineHistory } from '../src/outliner/clear-outline-ui.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -328,7 +328,7 @@ describe('index.html Edit menu Move Up / Move Down', () => {
   });
 
   it('wires move up/down menu and shortcuts from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /mountMoveUpDownMenu/);
     assert.match(appJs, /handleMoveUpDownShortcut/);
     assert.match(appJs, /moveItemUp/);

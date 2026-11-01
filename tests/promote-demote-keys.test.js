@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 import {
   matchPromoteDemoteShortcut,
   handlePromoteDemoteShortcut,
-} from '../promote-demote-keys.js';
+} from '../src/outliner/promote-demote-keys.js';
 
 describe('promote/demote shortcuts', () => {
   it('maps Cmd/Ctrl/Alt+[ to promote and Cmd/Ctrl/Alt+] to demote', () => {

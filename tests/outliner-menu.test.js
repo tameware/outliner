@@ -19,7 +19,7 @@ import {
   outlinerVersionLabel,
   isDefaultHelpOutlineOpen,
   mountOutlinerMenu,
-} from '../outliner-menu.js';
+} from '../src/chrome/outliner-menu.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -303,13 +303,13 @@ describe('Outliner menu', () => {
   });
 
   it('wires mountOutlinerMenu from app.js', () => {
-    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
     assert.match(appJs, /mountOutlinerMenu/);
-    assert.match(appJs, /from ['"]\.\/outliner-menu\.js['"]/);
+    assert.match(appJs, /from ['"]\.\/chrome\/outliner-menu\.js['"]/);
   });
 
   it('resyncs Help enabled after Clear / undo / redo via outlineHistory onChange', () => {
-    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
     assert.match(
       appJs,
       /onChange:\s*\(\)\s*=>\s*\{[^}]*syncRevert\(\)[^}]*outlinerMenuUi\.syncHelpEnabled\(\)/s,

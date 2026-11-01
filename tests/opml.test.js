@@ -10,7 +10,7 @@ import {
   loadOutline,
   insertOutline,
   getItemText,
-} from '../outliner.js';
+} from '../src/outliner/outliner.js';
 
 function setupDom(html) {
   const dom = new JSDOM(`<!DOCTYPE html><html><body>${html}</body></html>`, {

@@ -7,13 +7,13 @@ import {
   parseOpml,
   loadOutline,
   getItemTexts,
-} from '../outliner.js';
-import { createOutlineHistory } from '../clear-outline-ui.js';
-import { createDirtyTracker } from '../dirty-tracker.js';
+} from '../src/outliner/outliner.js';
+import { createOutlineHistory } from '../src/outliner/clear-outline-ui.js';
+import { createDirtyTracker } from '../src/outliner/dirty-tracker.js';
 import {
   revertToCleanSnapshot,
   syncRevertMenuItem,
-} from '../revert-outline.js';
+} from '../src/outliner/revert-outline.js';
 
 describe('revert outline', () => {
   /** @type {HTMLElement} */

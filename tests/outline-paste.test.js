@@ -4,13 +4,13 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
-import { mountOutliner } from '../outliner.js';
+import { mountOutliner } from '../src/outliner/outliner.js';
 import {
   clipboardPlainText,
   pastePlainTextIntoLine,
   handleOutlinePaste,
-} from '../outline-paste.js';
-import { SUIT_GLYPHS } from '../suit-shortcuts.js';
+} from '../src/outliner/outline-paste.js';
+import { SUIT_GLYPHS } from '../src/outliner/suit-shortcuts.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -165,7 +165,7 @@ describe('outline paste uses the default font', () => {
   });
 
   it('wires paste handling from mountOutliner / outline-paste.js', () => {
-    const outlinerJs = readFileSync(join(rootDir, 'outliner.js'), 'utf8');
+    const outlinerJs = readFileSync(join(rootDir, 'src/outliner/outliner.js'), 'utf8');
     assert.match(outlinerJs, /outline-paste\.js/);
     assert.match(outlinerJs, /bindOutlinePlainPaste|handleOutlinePaste/);
   });

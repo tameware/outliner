@@ -7,7 +7,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
-import { OUTLINER_CHANGELOG_URL } from '../outliner-menu.js';
+import { OUTLINER_CHANGELOG_URL } from '../src/chrome/outliner-menu.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 

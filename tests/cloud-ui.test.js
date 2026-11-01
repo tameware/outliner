@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
-import { mountCloudUi } from '../cloud-ui.js';
+import { mountCloudUi } from '../src/cloud/cloud-ui.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -667,7 +667,7 @@ describe('cloud UI', () => {
   it('Save after detaching a cloud id creates a new Drive file instead of overwriting', async () => {
     outlineId = 'original-cloud-id';
     outline.getTitle = () => 'Imported outline';
-    const { clearCloudOutlineBinding } = await import('../cloud-binding.js');
+    const { clearCloudOutlineBinding } = await import('../src/cloud/cloud-binding.js');
     mountCloudUi({ auth, cloud, outline, configured: true });
     clearCloudOutlineBinding(outline);
 
@@ -848,7 +848,7 @@ describe('cloud UI', () => {
   });
 
   it('wires outlineTitleFromFileName for Drive Open in cloud-ui.js', () => {
-    const src = readFileSync(join(repoRoot, 'cloud-ui.js'), 'utf8');
+    const src = readFileSync(join(repoRoot, 'src/cloud/cloud-ui.js'), 'utf8');
     assert.match(src, /outlineTitleFromFileName/);
     assert.match(
       src,
@@ -919,7 +919,7 @@ describe('cloud UI', () => {
   });
 
   it('app.js uses null auth on editable share links so Google sign-in never boots', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(
       appJs,
       /(?:editShareToken|viewShareToken|guestShare)[\s\S]{0,280}createNullAuth\s*\(/,

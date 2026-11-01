@@ -61,13 +61,13 @@ Outliner → Change log opens the [commit history on `main`](https://github.com/
 | `index.html` | Demo page and toolbar |
 | `privacy.html` | Privacy policy (also for Google OAuth consent) |
 | `logo.png` | App icon (120×120); upload in Google Auth Platform branding |
-| `outliner.js` | Outline behavior and OPML import/export |
-| `deal-diagram.js` | PBN deal detection and compass diagrams |
 | `styles.css` | Layout and outline numbering |
-| `cloud.js` / `cloud-ui.js` | Config helpers, deep links, and cloud UI |
-| `deep-link-load.js` | Eager `?id=` outline load (+ auth retry) |
-| `drive-cloud.js` | Google Drive outline storage client |
-| `auth-google.js` | Google Identity Services sign-in (Drive scope) |
+| `src/app.js` | Boot / wiring |
+| `src/outliner/` | Outline model, editing, OPML, find/replace |
+| `src/chrome/` | Menubar, document title, About/Help menus |
+| `src/cloud/` | Drive client, auth, cloud UI |
+| `src/file/` | Local OPML open/save |
+| `src/share/` | Deep-link boot / load / first paint |
 | `config.js` | Committed cloud defaults (`null` = local-only) |
 | `config.local.js` | Gitignored overrides (`googleClientId`) |
 | `config.example.js` | Template for `config.local.js` |
@@ -106,7 +106,7 @@ With the default committed config, the cloud bar stays hidden (including on GitH
 Serve the app files, then:
 
 ```js
-import { boot, toOpml, parseOpml, loadOutline } from './outliner.js';
+import { boot, toOpml, parseOpml, loadOutline } from './src/outliner/outliner.js';
 
 const api = boot(); // mounts `[data-outline-root]`
 ```

@@ -2,9 +2,9 @@
  * Toolbar/UI wiring for optional cloud auth and save/restore.
  */
 
-import { hasCloudSaveName, syncCloudSaveMenuLabel } from './menubar.js';
-import { outlineTitleFromFileName } from './local-file.js';
-import { shouldSaveUnderNewName } from './document-title.js';
+import { hasCloudSaveName, syncCloudSaveMenuLabel } from '../chrome/menubar.js';
+import { outlineTitleFromFileName } from '../file/local-file.js';
+import { shouldSaveUnderNewName } from '../chrome/document-title.js';
 
 /**
  * @param {object} options

@@ -1,7 +1,7 @@
 /**
  * Sync boot (not a module): hide the starter outline before first paint when
  * the URL is a Drive deep link. Must run from <head> before <main> exists.
- * Module app.js finishes loading later.
+ * Module src/app.js finishes loading later.
  * Keep detection aligned with hasRemoteOutlineParams / viewTokenFromLocation.
  */
 (function () {

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveCloudConfig } from '../cloud.js';
+import { resolveCloudConfig } from '../src/cloud/cloud.js';
 
 describe('resolveCloudConfig', () => {
   it('uses the base config when no local override exists', () => {

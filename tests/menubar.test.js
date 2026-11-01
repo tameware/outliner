@@ -8,7 +8,7 @@ import {
   cloudSaveMenuLabel,
   mountMenubar,
   syncCloudSaveMenuLabel,
-} from '../menubar.js';
+} from '../src/chrome/menubar.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 

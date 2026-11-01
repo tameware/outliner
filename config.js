@@ -5,6 +5,6 @@
  * For real credentials, copy config.example.js → config.local.js
  * (config.local.js is gitignored).
  *
- * @type {import('./cloud.js').CloudConfig | null}
+ * @type {import('./src/cloud/cloud.js').CloudConfig | null}
  */
 export default null;

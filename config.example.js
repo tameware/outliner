@@ -10,7 +10,7 @@
  *
  * `config.local.js` is gitignored. The public repo keeps config.js as null.
  *
- * @type {import('./cloud.js').CloudConfig}
+ * @type {import('./src/cloud/cloud.js').CloudConfig}
  */
 export default {
   googleClientId: 'YOUR_CLIENT_ID.apps.googleusercontent.com',

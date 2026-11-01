@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { clearCloudOutlineBinding } from '../cloud-binding.js';
+import { clearCloudOutlineBinding } from '../src/cloud/cloud-binding.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -28,7 +28,7 @@ describe('cloud outline binding', () => {
   });
 
   it('File Open (replace) detaches the cloud binding so Save keeps the original Drive file', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /clearCloudOutlineBinding/);
     assert.match(
       appJs,

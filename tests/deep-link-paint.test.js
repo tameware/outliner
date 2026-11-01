@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
-import { OUTLINE_LOADING_MESSAGE } from '../outline-loading.js';
+import { OUTLINE_LOADING_MESSAGE } from '../src/outliner/outline-loading.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-const paintSource = readFileSync(join(repoRoot, 'deep-link-paint.js'), 'utf8');
+const paintSource = readFileSync(join(repoRoot, 'src/share/deep-link-paint.js'), 'utf8');
 
 /**
  * Paint must run in <head> before <main> exists — that is the FOUC case for share links.
@@ -75,7 +75,7 @@ describe('deep-link early paint', () => {
     assert.ok(paintAt >= 0 && paintAt < headEnd);
     assert.ok(paintAt < outlineAt);
     assert.doesNotMatch(html, /<script\s+type="module"\s+src="\.\/deep-link-paint/);
-    const paint = readFileSync(join(repoRoot, 'deep-link-paint.js'), 'utf8');
+    const paint = readFileSync(join(repoRoot, 'src/share/deep-link-paint.js'), 'utf8');
     assert.match(paint, /data-outline-loading/);
     assert.match(paint, /documentElement/);
   });

@@ -16,7 +16,7 @@ import {
   flushDocumentTitleEditor,
   formatDocumentUpdatedLabel,
   syncDocumentUpdatedDisplay,
-} from '../document-title.js';
+} from '../src/chrome/document-title.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -161,13 +161,13 @@ describe('document title display', () => {
   });
 
   it('wires syncDocumentTitleDisplay and mountDocumentTitleEditor from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /syncDocumentTitleDisplay/);
     assert.match(appJs, /syncDocumentUpdatedDisplay/);
     assert.match(appJs, /mountDocumentTitleEditor/);
     assert.match(appJs, /flushDocumentTitleEditor/);
     assert.match(appJs, /flushTitle:\s*\(\)\s*=>\s*flushDocumentTitleEditor/);
-    assert.match(appJs, /from ['"]\.\/document-title\.js['"]/);
+    assert.match(appJs, /from ['"]\.\/chrome\/document-title\.js['"]/);
     assert.match(appJs, /dirty:\s*dirty\.isDirty\(\)|\{[^}]*dirty:/);
     assert.match(appJs, /syncTabTitle:\s*true/);
     assert.match(appJs, /onChange:\s*\(title\)\s*=>\s*\{[^}]*applyDocumentTitle/);

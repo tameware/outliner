@@ -11,7 +11,7 @@ import {
   itemOutlineDepth,
   applyOpenExpansion,
   serializeOutline,
-} from '../outliner.js';
+} from '../src/outliner/outliner.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -142,7 +142,7 @@ describe('open expansion', () => {
   });
 
   it('app.js applies open expansion after local, cloud, and deep-link opens', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /applyOpenExpansion/);
     assert.match(
       appJs,
@@ -159,7 +159,7 @@ describe('open expansion', () => {
   });
 
   it('cloud loadOutline does not reuse a stale documentUpdatedAt for Updated', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(
       appJs,
       /loadOutline:\s*\(tree\)\s*=>\s*\{[\s\S]*?applyDocumentUpdated\(tree\.dateModified\s*\?\?\s*null\)/,
@@ -171,7 +171,7 @@ describe('open expansion', () => {
   });
 
   it('app.js applies open expansion for the starter outline when not deep-linking', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(
       appJs,
       /blankOutlineForDeepLink[\s\S]*?applyOpenExpansion\(root\)|if\s*\(\s*!blankOutlineForDeepLink[\s\S]*?applyOpenExpansion\(root\)/,

@@ -11,9 +11,9 @@ import {
   parseOpml,
   loadOutline,
   clearOutline,
-} from '../outliner.js';
-import { createOutlineHistory } from '../clear-outline-ui.js';
-import { mountIndentOutdentMenu } from '../indent-outdent-menu.js';
+} from '../src/outliner/outliner.js';
+import { createOutlineHistory } from '../src/outliner/clear-outline-ui.js';
+import { mountIndentOutdentMenu } from '../src/outliner/indent-outdent-menu.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -256,7 +256,7 @@ describe('index.html Edit menu Indent / Outdent', () => {
   });
 
   it('app mounts Indent / Outdent through outlineHistory.run (undo stack)', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /mountIndentOutdentMenu/);
     assert.match(appJs, /menu-indent/);
     assert.match(appJs, /menu-outdent/);

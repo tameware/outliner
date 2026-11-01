@@ -1,13 +1,13 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { fillTextWithSuits, SUIT_GLYPHS } from '../suit-shortcuts.js';
+import { fillTextWithSuits, SUIT_GLYPHS } from '../src/outliner/suit-shortcuts.js';
 import {
   findWebLinks,
   hrefForWebLink,
   bindOutlineLinks,
-} from '../outline-links.js';
-import { mountOutliner, loadOutline, getItemText } from '../outliner.js';
+} from '../src/outliner/outline-links.js';
+import { mountOutliner, loadOutline, getItemText } from '../src/outliner/outliner.js';
 
 describe('web links in outline text', () => {
   it('findWebLinks locates http(s) and www URLs and trims trailing punctuation', () => {

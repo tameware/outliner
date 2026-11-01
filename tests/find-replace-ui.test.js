@@ -12,9 +12,9 @@ import {
   parseOpml,
   clearOutline,
   setReadOnly,
-} from '../outliner.js';
-import { createOutlineHistory } from '../clear-outline-ui.js';
-import { mountFindReplace } from '../find-replace-ui.js';
+} from '../src/outliner/outliner.js';
+import { createOutlineHistory } from '../src/outliner/clear-outline-ui.js';
+import { mountFindReplace } from '../src/outliner/find-replace-ui.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -338,7 +338,7 @@ describe('index.html Find & Replace menu', () => {
   });
 
   it('wires mountFindReplace from app.js', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /mountFindReplace/);
     assert.match(appJs, /find-replace-dialog/);
   });

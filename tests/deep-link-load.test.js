@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   bindDeepLinkOutlineLoad,
   isSoftDeepLinkLoadError,
-} from '../deep-link-load.js';
+} from '../src/share/deep-link-load.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -140,7 +140,7 @@ describe('bindDeepLinkOutlineLoad', () => {
   });
 
   it('app.js syncs the resolved file id through syncUrl after a deep-link load', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /bindDeepLinkOutlineLoad\s*\(/);
     assert.match(
       appJs,
@@ -188,7 +188,7 @@ describe('bindDeepLinkOutlineLoad', () => {
   });
 
   it('app.js prefers the Drive file title over the OPML head title on deep-link load', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /outlineTitleFromFileName/);
     assert.match(
       appJs,

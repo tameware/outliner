@@ -8,8 +8,8 @@ import {
   demoteItem,
   getItemText,
   toOpml,
-} from '../outliner.js';
-import { createDirtyTracker } from '../dirty-tracker.js';
+} from '../src/outliner/outliner.js';
+import { createDirtyTracker } from '../src/outliner/dirty-tracker.js';
 
 describe('content dirty vs expand/navigate', () => {
   /** @type {HTMLOListElement} */

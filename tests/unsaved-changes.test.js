@@ -8,7 +8,7 @@ import {
   offerSaveIfDirty,
   mountUnsavedChangesDialog,
   bindBeforeUnloadGuard,
-} from '../unsaved-changes.js';
+} from '../src/chrome/unsaved-changes.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -234,9 +234,9 @@ describe('beforeunload dirty guard', () => {
   });
 
   it('wires bindBeforeUnloadGuard from app.js against dirty.isDirty', () => {
-    const appJs = readFileSync(join(repoRoot, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
     assert.match(appJs, /bindBeforeUnloadGuard/);
-    assert.match(appJs, /from ['"]\.\/unsaved-changes\.js['"]/);
+    assert.match(appJs, /from ['"]\.\/chrome\/unsaved-changes\.js['"]/);
     assert.match(appJs, /bindBeforeUnloadGuard\(\s*window\s*,\s*\(\)\s*=>\s*dirty\.isDirty\(\)\s*\)/);
   });
 });

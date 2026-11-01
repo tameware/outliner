@@ -9,7 +9,7 @@ import {
   viewTokenFromLocation,
   editTokenFromLocation,
   driveWriterServiceAccountFromConfig,
-} from '../cloud.js';
+} from '../src/cloud/cloud.js';
 
 describe('cloud config', () => {
   it('is disabled when config is null or missing googleClientId', () => {

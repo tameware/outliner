@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import { JSDOM } from 'jsdom';
-import { applyMenuShortcuts, formatMenuShortcut } from '../menu-shortcuts.js';
+import { applyMenuShortcuts, formatMenuShortcut } from '../src/chrome/menu-shortcuts.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -84,7 +84,7 @@ describe('index.html menu shortcuts', () => {
   });
 
   it('app applies menu shortcuts on boot', () => {
-    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
     assert.match(appJs, /applyMenuShortcuts/);
   });
 });

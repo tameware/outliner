@@ -8,8 +8,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import { JSDOM } from 'jsdom';
-import { parseOpml, loadOutline, mountOutliner } from '../outliner.js';
-import { DEFAULT_OUTLINE_OPML } from '../default-outline.js';
+import { parseOpml, loadOutline, mountOutliner } from '../src/outliner/outliner.js';
+import { DEFAULT_OUTLINE_OPML } from '../src/outliner/default-outline.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -18,15 +18,15 @@ describe('index.html CSP-safe entry', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     assert.match(
       html,
-      /<script\s+type="module"\s+src="\.\/app\.js"><\/script>/,
-      'expected <script type="module" src="./app.js"></script>',
+      /<script\s+type="module"\s+src="\.\/src\/app\.js"><\/script>/,
+      'expected <script type="module" src="./src/app.js"></script>',
     );
     assert.doesNotMatch(
       html,
       /<script\s+type="module">/,
       'inline <script type="module"> is blocked by script-src \'self\'',
     );
-    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
     assert.match(appJs, /boot\s*\(/);
     assert.match(appJs, /initCloud|loadCloudConfig/);
   });
@@ -128,7 +128,7 @@ describe('index.html CSP-safe entry', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     assert.doesNotMatch(html, /id="btn-add"/);
     assert.doesNotMatch(html, />Add line</);
-    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
     assert.doesNotMatch(appJs, /btn-add/);
   });
 
@@ -138,7 +138,7 @@ describe('index.html CSP-safe entry', () => {
   });
 
   it('blanks the starter outline on deep-link boot', () => {
-    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
     assert.match(appJs, /blankOutlineForDeepLink/);
   });
 
@@ -204,7 +204,7 @@ describe('index.html CSP-safe entry', () => {
   });
 
   it('wires File Insert… through insertOutline without replacing the outline', () => {
-    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
     assert.match(appJs, /menu-insert-import/);
     assert.match(appJs, /insertOutline/);
     assert.match(appJs, /triggerLegacyFileOpen\(['"]insert['"]\)/);
@@ -212,8 +212,8 @@ describe('index.html CSP-safe entry', () => {
   });
 
   it('wires Drive Insert… through outline.insertOutline', () => {
-    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
-    const cloudUi = readFileSync(join(root, 'cloud-ui.js'), 'utf8');
+    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
+    const cloudUi = readFileSync(join(root, 'src/cloud/cloud-ui.js'), 'utf8');
     assert.match(appJs, /insertOutline:\s*\(tree\)\s*=>/);
     assert.match(cloudUi, /menu-insert/);
     assert.match(cloudUi, /insertOutline/);
@@ -221,7 +221,7 @@ describe('index.html CSP-safe entry', () => {
   });
 
   it('wires File and Cloud Revert to the same revert handler', () => {
-    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
     assert.match(appJs, /menu-cloud-revert/);
     assert.match(appJs, /function onRevert\b/);
     assert.match(appJs, /getElementById\('menu-revert'\)[\s\S]*?onRevert/);
@@ -235,7 +235,7 @@ describe('index.html CSP-safe entry', () => {
     assert.match(html, /id="find-replace-dialog"/);
     assert.match(html, /id="find-replace-grep"/);
     assert.match(html, /id="find-replace-whole"/);
-    const appJs = readFileSync(join(root, 'app.js'), 'utf8');
+    const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
     assert.match(appJs, /mountFindReplace/);
   });
 

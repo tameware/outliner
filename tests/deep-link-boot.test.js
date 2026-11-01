@@ -4,8 +4,8 @@ import { JSDOM } from 'jsdom';
 import {
   hasRemoteOutlineParams,
   blankOutlineForDeepLink,
-} from '../deep-link-boot.js';
-import { loadOutline, getItemTexts } from '../outliner.js';
+} from '../src/share/deep-link-boot.js';
+import { loadOutline, getItemTexts } from '../src/outliner/outliner.js';
 
 describe('deep-link boot', () => {
   it('detects outline id query params', () => {

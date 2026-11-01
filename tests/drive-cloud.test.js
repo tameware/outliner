@@ -4,7 +4,7 @@ import {
   APP_FOLDER_NAME,
   createDriveCloudClient,
   CloudApiError,
-} from '../drive-cloud.js';
+} from '../src/cloud/drive-cloud.js';
 
 describe('Drive cloud client', () => {
   let fetchMock;

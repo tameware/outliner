@@ -66,13 +66,13 @@ export function resolveCloudConfig(base, local) {
 }
 
 /**
- * Load `./config.js` then optional `./config.local.js` (404 → ignore).
+ * Load `../../config.js` then optional `../../config.local.js` (404 → ignore).
  * @param {(specifier: string) => Promise<{ default: CloudConfig | null }>} [importer]
  */
 export async function loadCloudConfig(importer = (specifier) => import(specifier)) {
-  const baseMod = await importer('./config.js');
+  const baseMod = await importer('../../config.js');
   try {
-    const localMod = await importer('./config.local.js');
+    const localMod = await importer('../../config.local.js');
     return resolveCloudConfig(baseMod.default, localMod.default);
   } catch {
     return resolveCloudConfig(baseMod.default, undefined);

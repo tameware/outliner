@@ -5,7 +5,7 @@ import {
   parseDealFromLine,
   syncDealDiagram,
   isDealDiagramItem,
-} from '../deal-diagram.js';
+} from '../src/outliner/deal-diagram.js';
 import {
   mountOutliner,
   getItemText,
@@ -13,7 +13,7 @@ import {
   loadOutline,
   toOpml,
   parseOpml,
-} from '../outliner.js';
+} from '../src/outliner/outliner.js';
 
 const SAMPLE =
   '73.QJT.AQ54.T752 QT6.876.KJ9.AQ84 5.A95432.7632.K6 AKJ9842.K.T8.J93';

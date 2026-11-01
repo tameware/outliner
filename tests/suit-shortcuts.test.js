@@ -8,8 +8,8 @@ import {
   expandSuitBangShortcuts,
   tryInsertSuitShortcutInInput,
   SUIT_GLYPHS,
-} from '../suit-shortcuts.js';
-import { mountOutliner, getItemText } from '../outliner.js';
+} from '../src/outliner/suit-shortcuts.js';
+import { mountOutliner, getItemText } from '../src/outliner/outliner.js';
 
 describe('suit shortcuts', () => {
   it('maps !c !d !h !s to clubs diamonds hearts spades', () => {
