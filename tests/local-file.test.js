@@ -286,44 +286,41 @@ describe('index.html File Open / Save', () => {
     assert.doesNotMatch(panel, /Insert Import/);
   });
 
-  it('wires local-file helpers from app.js', () => {
+  it('wires local session from app.js', () => {
     const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /from ['"]\.\/file\/local-file\.js['"]/);
+    assert.match(appJs, /createLocalSession/);
+    assert.match(appJs, /from ['"]\.\/file\/local-session\.js['"]/);
     assert.match(appJs, /menu-file-open/);
     assert.match(appJs, /menu-file-save/);
     assert.match(appJs, /menu-file-save-as/);
-    assert.match(appJs, /forcePicker\s*:\s*true|saveLocalOutline\(\s*\{\s*forcePicker/);
-    assert.match(appJs, /supportsFileSystemAccess|openOpmlWithFilePicker/);
-    assert.match(
-      appJs,
-      /outlineTitleFromFileName\(fallbackName,\s*tree\.title\)/,
-    );
-    assert.match(
-      appJs,
-      /const title = outlineTitleFromFileName\(fallbackName,\s*tree\.title\);\s*\n\s*if \(title\) applyDocumentTitle\(title\);/,
-    );
+    assert.match(appJs, /bindFileMenus/);
   });
 
   it('File Save uses shouldSaveUnderNewName so a rename opens the Save As picker', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /shouldSaveUnderNewName/);
+    const sessionJs = readFileSync(
+      join(repoRoot, 'src/file/local-session.js'),
+      'utf8',
+    );
+    assert.match(sessionJs, /shouldSaveUnderNewName/);
     assert.match(
-      appJs,
+      sessionJs,
       /forcePicker\s*:\s*forcePicker\s*\|\|\s*saveAsNewName/,
     );
-    assert.match(appJs, /boundDocumentTitle/);
-    assert.match(appJs, /rememberBoundTitle/);
-    assert.match(appJs, /getBoundTitle/);
+    assert.match(sessionJs, /rememberBoundTitle/);
+    assert.match(sessionJs, /getBoundTitle/);
   });
 
   it('uses OPML dateModified or the on-disk lastModified for Updated when opening locally', () => {
-    const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
+    const sessionJs = readFileSync(
+      join(repoRoot, 'src/file/local-session.js'),
+      'utf8',
+    );
     assert.match(
-      appJs,
+      sessionJs,
       /applyOpenedLocalOutline\(tree,\s*picked\.name,\s*\{[\s\S]*?updatedAt:\s*tree\.dateModified\s*\?\?\s*picked\.lastModified/,
     );
     assert.match(
-      appJs,
+      sessionJs,
       /applyOpenedLocalOutline\(tree,\s*file\.name,\s*\{[\s\S]*?updatedAt:\s*tree\.dateModified\s*\?\?\s*file\.lastModified/,
     );
   });

@@ -143,9 +143,13 @@ describe('open expansion', () => {
 
   it('app.js applies open expansion after local, cloud, and deep-link opens', () => {
     const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
+    const localSessionJs = readFileSync(
+      join(repoRoot, 'src/file/local-session.js'),
+      'utf8',
+    );
     assert.match(appJs, /applyOpenExpansion/);
     assert.match(
-      appJs,
+      localSessionJs,
       /function applyOpenedLocalOutline[\s\S]*applyOpenExpansion\(root\)/,
     );
     assert.match(

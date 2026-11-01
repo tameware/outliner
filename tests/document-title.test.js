@@ -160,17 +160,22 @@ describe('document title display', () => {
     assert.match(title.outerHTML, /contenteditable/);
   });
 
-  it('wires syncDocumentTitleDisplay and mountDocumentTitleEditor from app.js', () => {
+  it('wires mountDocumentTitleEditor from app.js via document-session', () => {
     const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
-    assert.match(appJs, /syncDocumentTitleDisplay/);
-    assert.match(appJs, /syncDocumentUpdatedDisplay/);
+    assert.match(appJs, /createDocumentSession/);
+    assert.match(appJs, /from ['"]\.\/chrome\/document-session\.js['"]/);
     assert.match(appJs, /mountDocumentTitleEditor/);
     assert.match(appJs, /flushDocumentTitleEditor/);
     assert.match(appJs, /flushTitle:\s*\(\)\s*=>\s*flushDocumentTitleEditor/);
     assert.match(appJs, /from ['"]\.\/chrome\/document-title\.js['"]/);
-    assert.match(appJs, /dirty:\s*dirty\.isDirty\(\)|\{[^}]*dirty:/);
-    assert.match(appJs, /syncTabTitle:\s*true/);
     assert.match(appJs, /onChange:\s*\(title\)\s*=>\s*\{[^}]*applyDocumentTitle/);
+    const sessionJs = readFileSync(
+      join(repoRoot, 'src/chrome/document-session.js'),
+      'utf8',
+    );
+    assert.match(sessionJs, /syncDocumentTitleDisplay/);
+    assert.match(sessionJs, /syncDocumentUpdatedDisplay/);
+    assert.match(sessionJs, /syncTabTitle:\s*true/);
   });
 });
 

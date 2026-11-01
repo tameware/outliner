@@ -29,14 +29,22 @@ describe('cloud outline binding', () => {
 
   it('File Open (replace) detaches the cloud binding so Save keeps the original Drive file', () => {
     const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
+    const localSessionJs = readFileSync(
+      join(repoRoot, 'src/file/local-session.js'),
+      'utf8',
+    );
     assert.match(appJs, /clearCloudOutlineBinding/);
     assert.match(
       appJs,
-      /function applyOpenedLocalOutline[\s\S]*clearCloudOutlineBinding/,
+      /onReplaceDocument:\s*\(\)\s*=>\s*\{[\s\S]*clearCloudOutlineBinding/,
+    );
+    assert.match(
+      localSessionJs,
+      /function applyOpenedLocalOutline[\s\S]*onReplaceDocument\(\)/,
     );
     assert.doesNotMatch(
-      appJs,
-      /function applyOpenedLocalOutline[\s\S]*mode === 'insert'[\s\S]*clearCloudOutlineBinding/,
+      localSessionJs,
+      /mode === 'insert'[\s\S]*onReplaceDocument\(\)/,
     );
   });
 });

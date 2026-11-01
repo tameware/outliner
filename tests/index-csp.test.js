@@ -28,7 +28,7 @@ describe('index.html CSP-safe entry', () => {
     );
     const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
     assert.match(appJs, /boot\s*\(/);
-    assert.match(appJs, /initCloud|loadCloudConfig/);
+    assert.match(appJs, /bootCloud/);
   });
 
   it('starter tip says show or hide children (show before hide)', () => {
@@ -205,10 +205,14 @@ describe('index.html CSP-safe entry', () => {
 
   it('wires File Insert… through insertOutline without replacing the outline', () => {
     const appJs = readFileSync(join(root, 'src/app.js'), 'utf8');
+    const localSessionJs = readFileSync(
+      join(root, 'src/file/local-session.js'),
+      'utf8',
+    );
     assert.match(appJs, /menu-insert-import/);
     assert.match(appJs, /insertOutline/);
-    assert.match(appJs, /triggerLegacyFileOpen\(['"]insert['"]\)/);
-    assert.match(appJs, /mode === 'insert'/);
+    assert.match(localSessionJs, /triggerLegacyFileOpen\(['"]insert['"]\)/);
+    assert.match(localSessionJs, /mode === 'insert'/);
   });
 
   it('wires Drive Insert… through outline.insertOutline', () => {

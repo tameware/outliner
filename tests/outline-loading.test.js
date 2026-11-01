@@ -171,10 +171,18 @@ describe('outline loading panel', () => {
 
   it('app.js skips syncing Untitled into the heading while the outline is loading', () => {
     const appJs = readFileSync(join(repoRoot, 'src/app.js'), 'utf8');
+    const documentSessionJs = readFileSync(
+      join(repoRoot, 'src/chrome/document-session.js'),
+      'utf8',
+    );
     assert.match(appJs, /isOutlineLoading/);
     assert.match(
       appJs,
-      /function syncDocumentTitles\([\s\S]*?isOutlineLoading\(root\)/,
+      /isLoading:\s*\(\)\s*=>\s*isOutlineLoading\(root\)/,
+    );
+    assert.match(
+      documentSessionJs,
+      /function syncDocumentTitles\([\s\S]*?isLoading\(\)/,
     );
   });
 });
