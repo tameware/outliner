@@ -80,7 +80,8 @@ const docSession = createDocumentSession({
   titleEl: documentTitleEl,
   updatedEl: documentUpdatedEl,
   isDirty: () => dirty.isDirty(),
-  isLoading: () => isOutlineLoading(root),
+  // rootEl is available immediately; `root` is only assigned after boot().
+  isLoading: () => isOutlineLoading(rootEl),
 });
 const {
   outlineTitleBase,
