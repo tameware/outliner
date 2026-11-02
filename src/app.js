@@ -192,9 +192,11 @@ async function beforeReplace() {
 if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
   outlineHistory.discard();
 } else {
-  loadOutline(root, parseOpml(DEFAULT_OUTLINE_OPML));
+  const starter = parseOpml(DEFAULT_OUTLINE_OPML);
+  loadOutline(root, starter);
   applyOpenExpansion(root);
   outlineHistory.discard();
+  if (starter.title) applyDocumentTitle(starter.title);
 }
 dirty.markClean();
 rememberBoundTitle();

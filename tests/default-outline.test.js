@@ -15,7 +15,7 @@ describe('default outline OPML + generated JS', () => {
     const opmlPath = join(repoRoot, 'default-outline.opml');
     assert.equal(existsSync(opmlPath), true);
     const opml = readFileSync(opmlPath, 'utf8');
-    assert.match(opml, /<title>How to use this outliner<\/title>/);
+    assert.match(opml, /<title>Frequently Asked Questions<\/title>/);
     assert.match(opml, /to show or hide its children/);
     assert.doesNotMatch(opml, /to hide or show its children/);
     assert.match(opml, /!c !d !h !s — insert ♣ ♦ ♥ ♠/);

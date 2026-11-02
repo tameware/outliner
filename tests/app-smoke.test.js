@@ -82,6 +82,11 @@ describe('app.js smoke boot', () => {
     assert.ok(top);
     assert.match(top.querySelector('.text')?.textContent ?? '', /How to use this outliner/);
     assert.equal(top.dataset.state, 'expanded');
+    assert.equal(
+      document.getElementById('document-title')?.textContent,
+      'Frequently Asked Questions',
+    );
+    assert.match(document.title, /^Frequently Asked Questions/);
   });
 
   it('fills menu shortcut labels on boot', () => {
