@@ -113,7 +113,7 @@ describe('Outliner menu', () => {
     assert.equal(OUTLINER_ISSUES_MAILTO, 'mailto:outliner@tameware.com');
     assert.equal(
       OUTLINER_ABOUT_TEXT,
-      'Tameware Outliner is a WYSIWYG HTML outliner with expand/collapse editing, OPML import/export, optional Google Drive sync, and special features for bridge players. It was written by Adam Wildavsky using Cursor AI.',
+      'Tameware Outliner is a browser-based WYSIWYG outliner for creating and editing hierarchical documents, with expand-and-collapse navigation, OPML import/export, and optional Google Drive sync. It includes specialized features for bridge players.\n\nCreated by Adam Wildavsky with Cursor AI, Tameware Outliner was inspired by MORE™, Dave Winer’s classic Macintosh outliner.',
     );
     assert.equal(
       OUTLINER_COOKIES_TEXT,

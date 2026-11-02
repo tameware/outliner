@@ -27,7 +27,7 @@ export const OUTLINER_ISSUES_URL = 'https://github.com/tameware/outliner/issues'
 export const OUTLINER_ISSUES_MAILTO = 'mailto:outliner@tameware.com';
 
 export const OUTLINER_ABOUT_TEXT =
-  'Tameware Outliner is a WYSIWYG HTML outliner with expand/collapse editing, OPML import/export, optional Google Drive sync, and special features for bridge players. It was written by Adam Wildavsky using Cursor AI.';
+  'Tameware Outliner is a browser-based WYSIWYG outliner for creating and editing hierarchical documents, with expand-and-collapse navigation, OPML import/export, and optional Google Drive sync. It includes specialized features for bridge players.\n\nCreated by Adam Wildavsky with Cursor AI, Tameware Outliner was inspired by MORE™, Dave Winer’s classic Macintosh outliner.';
 
 export const OUTLINER_COOKIES_TEXT =
   'The Outliner app itself does not write cookies. There’s neither document.cookie nor cookie helpers in the product code. Further, it uses neither localStorage nor sessionStorage. Outline data stays in page memory unless you export a file or save to Google Drive.\n\nIf you use Sign in with Google, Google’s Identity Services on Google’s domains may set their own cookies; that’s Google, not Outliner.';
