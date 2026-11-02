@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <opml version="2.0">
   <head>
-    <title>Frequently Asked Questions</title>
+    <title>Getting Started</title>
     <expansionState>1,3,7,16,21</expansionState>
   </head>
   <body>
@@ -34,7 +34,8 @@
         <outline text="A PBN deal line (e.g. N:73.QJT.AQ54.T752 …) gets a suit-diagram child"/>
         <outline text="Backspace at the start of a line — merge with the line above"/>
       </outline>
-      <outline text="Replace these tips with your own outline whenever you are ready."/>
+      <outline text="Replace these tips with your own outline whenever you’re ready."/>
+      <outline text="There&apos;s no charge for using the app. It’s &quot;Free as in beer.&quot;"/>
     </outline>
   </body>
 </opml>
