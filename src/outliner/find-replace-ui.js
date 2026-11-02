@@ -11,6 +11,7 @@ import {
   expandCollapsedAncestors,
 } from './find-replace.js';
 import { tryInsertSuitShortcutInInput } from './suit-shortcuts.js';
+import { bindDialogDismissKeys } from '../cloud/cloud-ui-dom.js';
 
 /**
  * @param {{
@@ -321,6 +322,7 @@ export function mountFindReplace({
   btnClose?.addEventListener('click', () => {
     closeDialog();
   });
+  const unbindDismiss = bindDialogDismissKeys(dialog, { onDismiss: closeDialog });
 
   for (const el of [findInput, grepInput, caseInput, wholeInput]) {
     el?.addEventListener('input', () => {
@@ -376,6 +378,7 @@ export function mountFindReplace({
     replaceAll: runReplaceAll,
     destroy() {
       document.removeEventListener('keydown', onKeyDown, true);
+      unbindDismiss();
     },
   };
 }

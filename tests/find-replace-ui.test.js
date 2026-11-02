@@ -290,6 +290,33 @@ describe('Find & Replace UI', () => {
     assert.equal(input.value, 'AK♥');
   });
 
+  it('closes on Escape and Cmd/Ctrl+.', () => {
+    document.getElementById('menu-find').click();
+    const dialog = document.getElementById('find-replace-dialog');
+    assert.ok(dialog.hasAttribute('open'));
+    const findInput = document.getElementById('find-replace-find');
+    findInput.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(dialog.hasAttribute('open'), false);
+
+    document.getElementById('menu-find').click();
+    assert.ok(dialog.hasAttribute('open'));
+    findInput.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: '.',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(dialog.hasAttribute('open'), false);
+  });
+
   it('allows Find (but not Replace) while read-only', () => {
     setReadOnly(root, true);
 

@@ -214,6 +214,33 @@ describe('Outliner menu', () => {
     assert.deepEqual(alerts, []);
   });
 
+  it('closes the message dialog on Escape and Cmd+.', () => {
+    mountOutlinerMenu(document);
+    const dialog = document.getElementById('outliner-message-dialog');
+    document.getElementById('menu-about').click();
+    assert.ok(dialog.hasAttribute('open'));
+    dialog.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(dialog.hasAttribute('open'), false);
+
+    document.getElementById('menu-about').click();
+    assert.ok(dialog.hasAttribute('open'));
+    dialog.dispatchEvent(
+      new window.KeyboardEvent('keydown', {
+        key: '.',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    assert.equal(dialog.hasAttribute('open'), false);
+  });
+
   it('restores outline focus when About closes so shortcuts keep working', () => {
     const restores = [];
     mountOutlinerMenu(document, {

@@ -1,6 +1,7 @@
 /** Product / help menu for the Outliner app chrome. */
 
 import { hasRemoteOutlineParams } from '../share/deep-link-boot.js';
+import { bindDialogDismissKeys } from '../cloud/cloud-ui-dom.js';
 
 /** Display version: major.minor only. */
 export const OUTLINER_VERSION = '1.64';
@@ -82,6 +83,9 @@ function ensureMessageDialogWired(dialog) {
   dialog.addEventListener('cancel', (event) => {
     event.preventDefault();
     closeMessageDialog(dialog);
+  });
+  bindDialogDismissKeys(dialog, {
+    onDismiss: () => closeMessageDialog(dialog),
   });
 }
 

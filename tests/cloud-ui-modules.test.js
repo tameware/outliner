@@ -26,6 +26,8 @@ describe('cloud-ui module split', () => {
     const mod = await import('../src/cloud/cloud-ui-dom.js');
     assert.equal(typeof mod.closeDialog, 'function');
     assert.equal(typeof mod.openDialogEl, 'function');
+    assert.equal(typeof mod.isDialogOpen, 'function');
+    assert.equal(typeof mod.bindDialogDismissKeys, 'function');
   });
 
   it('exports createCloudSaveController from cloud-ui-save.js', async () => {

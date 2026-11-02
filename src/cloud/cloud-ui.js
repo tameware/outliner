@@ -6,6 +6,7 @@ import { hasCloudSaveName, syncCloudSaveMenuLabel } from '../chrome/menubar.js';
 import { createCloudSaveController } from './cloud-ui-save.js';
 import { createCloudPickerController } from './cloud-ui-picker.js';
 import { createCloudShareController } from './cloud-ui-share.js';
+import { bindDialogDismissKeys } from './cloud-ui-dom.js';
 
 /**
  * @param {object} options
@@ -254,6 +255,9 @@ export function mountCloudUi({
   btnCancel?.addEventListener('click', picker.onCancelOpen);
   btnDeleteCancel?.addEventListener('click', picker.onCancelDelete);
   btnSaveCancel?.addEventListener('click', save.onCancelSave);
+  bindDialogDismissKeys(saveDialog, { onDismiss: save.onCancelSave });
+  bindDialogDismissKeys(openDialog, { onDismiss: picker.onCancelOpen });
+  bindDialogDismissKeys(deleteDialog, { onDismiss: picker.onCancelDelete });
   saveForm?.addEventListener('submit', (event) => {
     event.preventDefault();
     const name = saveNameInput?.value?.trim();
