@@ -23,7 +23,7 @@ import { clearCloudOutlineBinding } from './cloud-binding.js';
  *   },
  *   toOpml: Function,
  *   parseOpml: Function,
- *   loadOutline: Function,
+ *   loadOutline: (root: HTMLElement, tree: object) => unknown,
  *   applyOpenExpansion: (root: HTMLElement) => void,
  *   insertOutline: Function,
  *   showOutlineLoading: Function,
@@ -149,7 +149,7 @@ export function createOutlineSession(deps) {
   }) {
     hideOutlineLoading(root);
     clearLocalFileHandle();
-    loadOutlineFn(tree);
+    loadOutlineFn(root, tree);
     applyOpenExpansion(root);
     outlineHistoryDiscard();
     // Drive Last-Modified wins; fall back only when the caller omitted it.
@@ -196,7 +196,7 @@ export function createOutlineSession(deps) {
     loadOutline: (tree) => {
       hideOutlineLoading(root);
       clearLocalFileHandle();
-      loadOutlineFn(tree);
+      loadOutlineFn(root, tree);
       applyOpenExpansion(root);
       outlineHistoryDiscard();
       docSession.applyDocumentUpdated(cloudOpenUpdatedAt(tree));

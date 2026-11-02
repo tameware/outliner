@@ -67,9 +67,10 @@ describe('outline session', () => {
         docSession,
         toOpml,
         parseOpml,
-        loadOutline: (tree) => {
+        // Same shape app.js passes: loadOutline(root, tree).
+        loadOutline: (outlineRoot, tree) => {
           loadedTitles.push(tree?.title ?? '');
-          loadOutline(root, tree);
+          loadOutline(outlineRoot, tree);
         },
         applyOpenExpansion: () => {},
         insertOutline: () => true,
@@ -126,7 +127,7 @@ describe('outline session', () => {
     assert.deepEqual(syncedUrls, ['drive-1']);
   });
 
-  it('applyCloudOpen loads the tree, binds Drive metadata, and marks clean', () => {
+  it('applyCloudOpen loads the tree into the DOM root, binds Drive metadata, and marks clean', () => {
     const session = makeSession();
     const when = new Date('2026-05-01T00:00:00Z');
     session.facade.applyCloudOpen({
@@ -141,6 +142,8 @@ describe('outline session', () => {
       modifiedTime: when,
     });
     assert.deepEqual(loadedTitles, ['OPML Head']);
+    // Regression: must call loadOutline(root, tree), not loadOutline(tree).
+    assert.equal(root.querySelector('[data-item] .text')?.textContent, 'Hello');
     assert.equal(session.getOutlineId(), 'opened-1');
     assert.equal(session.getRevision(), 2);
     assert.equal(session.facade.getTitle(), 'Drive Name');
