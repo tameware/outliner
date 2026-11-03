@@ -352,16 +352,27 @@ export function mountFindReplace({
 
   function onKeyDown(event) {
     const mod = event.metaKey || event.ctrlKey;
-    if (!mod) return;
+    if (!mod || event.shiftKey) return;
     const key = event.key?.toLowerCase?.() || '';
+    // ⌥⌘F / Ctrl+Alt+F — Find (claim the chord so the browser search UI does not).
     if (key === 'f' && event.altKey) {
-      if (isReadOnly?.()) return;
       event.preventDefault();
+      event.stopPropagation();
+      openDialog(false);
+      return;
+    }
+    // ⌥⌘R / Ctrl+Alt+R — Replace.
+    if (key === 'r' && event.altKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (isReadOnly?.()) return;
       openDialog(true);
       return;
     }
-    if (key === 'f' && !event.altKey && !event.shiftKey) {
+    // ⌘F / Ctrl+F — Find (also claim from the browser find bar).
+    if (key === 'f' && !event.altKey) {
       event.preventDefault();
+      event.stopPropagation();
       openDialog(false);
     }
   }

@@ -68,8 +68,8 @@ describe('index.html menu shortcuts', () => {
       ['menu-move-down', 'mod+down'],
       ['menu-promote', 'mod+['],
       ['menu-demote', 'mod+]'],
-      ['menu-find', 'mod+f'],
-      ['menu-replace', 'mod+alt+f'],
+      ['menu-find', 'mod+alt+f'],
+      ['menu-replace', 'mod+alt+r'],
       ['menu-save', 'mod+s'],
     ]) {
       const start = html.indexOf(`id="${id}"`);

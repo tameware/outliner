@@ -76,6 +76,39 @@ describe('Find & Replace UI', () => {
     });
   });
 
+  it('opens Find with Cmd/Ctrl+Option+F and claims the event from the browser', () => {
+    const dialog = document.getElementById('find-replace-dialog');
+    const event = new window.KeyboardEvent('keydown', {
+      key: 'f',
+      metaKey: true,
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    const allowed = document.dispatchEvent(event);
+    assert.equal(allowed, false);
+    assert.equal(event.defaultPrevented, true);
+    assert.ok(dialog.hasAttribute('open'));
+    assert.equal(dialog.getAttribute('data-mode'), 'find');
+    assert.equal(document.activeElement, document.getElementById('find-replace-find'));
+  });
+
+  it('opens Replace with Cmd/Ctrl+Option+R', () => {
+    const dialog = document.getElementById('find-replace-dialog');
+    const event = new window.KeyboardEvent('keydown', {
+      key: 'r',
+      metaKey: true,
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+    assert.ok(dialog.hasAttribute('open'));
+    assert.equal(dialog.getAttribute('data-mode'), 'replace');
+    assert.equal(document.activeElement, document.getElementById('find-replace-replace'));
+  });
+
   it('opens the shared dialog from Find… focused on Find without Replace options', () => {
     document.getElementById('menu-find').click();
     const dialog = document.getElementById('find-replace-dialog');
