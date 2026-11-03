@@ -2,12 +2,12 @@
 
 import { hasRemoteOutlineParams } from '../share/deep-link-boot.js';
 import { bindDialogDismissKeys } from '../cloud/cloud-ui-dom.js';
+import {
+  OUTLINER_UPDATED,
+  OUTLINER_VERSION,
+} from './outliner-version.js';
 
-/** Display version: major.minor only. */
-export const OUTLINER_VERSION = '1.64';
-
-/** ISO date the shipped code was last updated (bump when shipping meaningful changes). */
-export const OUTLINER_UPDATED = '2026-10-30';
+export { OUTLINER_UPDATED, OUTLINER_VERSION };
 
 export const OUTLINER_CHANGELOG_URL =
   'https://github.com/tameware/outliner/commits/main/';
