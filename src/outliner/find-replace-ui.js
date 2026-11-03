@@ -13,6 +13,30 @@ import {
 import { tryInsertSuitShortcutInInput } from './suit-shortcuts.js';
 import { bindDialogDismissKeys } from '../cloud/cloud-ui-dom.js';
 
+/** macOS Option+letter glyphs when browsers omit a usable `code`. */
+const OPTION_KEY_LETTERS = Object.freeze({
+  '\u0192': 'f', // Option+F → ƒ
+  '\u00ae': 'r', // Option+R → ®
+});
+
+/**
+ * Letter for a Find/Replace chord. Prefer `code` so macOS Option-modified
+ * keys still match KeyF / KeyR; fall back to known Option glyphs.
+ * @param {{ key?: string, code?: string }} event
+ * @returns {string} lower-case a–z, or ''
+ */
+export function shortcutLetterFromEvent(event) {
+  const code = String(event.code || '');
+  const fromCode = /^Key([A-Z])$/.exec(code);
+  if (fromCode) return fromCode[1].toLowerCase();
+  const raw = String(event.key || '');
+  const fromOption = OPTION_KEY_LETTERS[raw];
+  if (fromOption) return fromOption;
+  const key = raw.toLowerCase();
+  if (key.length === 1 && key >= 'a' && key <= 'z') return key;
+  return '';
+}
+
 /**
  * @param {{
  *   dialog?: HTMLDialogElement | HTMLElement | null,
@@ -353,31 +377,36 @@ export function mountFindReplace({
   function onKeyDown(event) {
     const mod = event.metaKey || event.ctrlKey;
     if (!mod || event.shiftKey) return;
-    const key = event.key?.toLowerCase?.() || '';
+    // Prefer event.code: macOS Option+F/R yield key "ƒ"/"®", not "f"/"r".
+    const letter = shortcutLetterFromEvent(event);
     // ⌥⌘F / Ctrl+Alt+F — Find (claim the chord so the browser search UI does not).
-    if (key === 'f' && event.altKey) {
+    if (letter === 'f' && event.altKey) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation?.();
       openDialog(false);
       return;
     }
     // ⌥⌘R / Ctrl+Alt+R — Replace.
-    if (key === 'r' && event.altKey) {
+    if (letter === 'r' && event.altKey) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation?.();
       if (isReadOnly?.()) return;
       openDialog(true);
       return;
     }
     // ⌘F / Ctrl+F — Find (also claim from the browser find bar).
-    if (key === 'f' && !event.altKey) {
+    if (letter === 'f' && !event.altKey) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation?.();
       openDialog(false);
     }
   }
 
-  document.addEventListener('keydown', onKeyDown, true);
+  // window capture runs before document; claim before other page handlers.
+  window.addEventListener('keydown', onKeyDown, true);
 
   return {
     open: openDialog,
@@ -388,7 +417,7 @@ export function mountFindReplace({
     replaceAndFind: runReplaceAndFind,
     replaceAll: runReplaceAll,
     destroy() {
-      document.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('keydown', onKeyDown, true);
       unbindDismiss();
     },
   };

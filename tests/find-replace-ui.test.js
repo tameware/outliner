@@ -14,7 +14,10 @@ import {
   setReadOnly,
 } from '../src/outliner/outliner.js';
 import { createOutlineHistory } from '../src/outliner/outline-history.js';
-import { mountFindReplace } from '../src/outliner/find-replace-ui.js';
+import {
+  mountFindReplace,
+  shortcutLetterFromEvent,
+} from '../src/outliner/find-replace-ui.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -35,6 +38,20 @@ function setupDom() {
   };
   return dom;
 }
+
+describe('shortcutLetterFromEvent', () => {
+  it('prefers Key* codes over Option-modified key characters', () => {
+    assert.equal(shortcutLetterFromEvent({ key: 'ƒ', code: 'KeyF' }), 'f');
+    assert.equal(shortcutLetterFromEvent({ key: '®', code: 'KeyR' }), 'r');
+    assert.equal(shortcutLetterFromEvent({ key: 'f', code: 'KeyF' }), 'f');
+    assert.equal(shortcutLetterFromEvent({ key: 'F' }), 'f');
+  });
+
+  it('maps macOS Option glyphs when code is missing', () => {
+    assert.equal(shortcutLetterFromEvent({ key: 'ƒ' }), 'f');
+    assert.equal(shortcutLetterFromEvent({ key: '®' }), 'r');
+  });
+});
 
 describe('Find & Replace UI', () => {
   /** @type {HTMLElement} */
@@ -80,12 +97,13 @@ describe('Find & Replace UI', () => {
     const dialog = document.getElementById('find-replace-dialog');
     const event = new window.KeyboardEvent('keydown', {
       key: 'f',
+      code: 'KeyF',
       metaKey: true,
       altKey: true,
       bubbles: true,
       cancelable: true,
     });
-    const allowed = document.dispatchEvent(event);
+    const allowed = window.dispatchEvent(event);
     assert.equal(allowed, false);
     assert.equal(event.defaultPrevented, true);
     assert.ok(dialog.hasAttribute('open'));
@@ -93,20 +111,70 @@ describe('Find & Replace UI', () => {
     assert.equal(document.activeElement, document.getElementById('find-replace-find'));
   });
 
-  it('opens Replace with Cmd/Ctrl+Option+R', () => {
+  it('opens Find when macOS Option+F reports key ƒ (uses event.code)', () => {
     const dialog = document.getElementById('find-replace-dialog');
     const event = new window.KeyboardEvent('keydown', {
-      key: 'r',
+      key: 'ƒ',
+      code: 'KeyF',
       metaKey: true,
       altKey: true,
       bubbles: true,
       cancelable: true,
     });
-    document.dispatchEvent(event);
+    const allowed = window.dispatchEvent(event);
+    assert.equal(allowed, false);
+    assert.equal(event.defaultPrevented, true);
+    assert.ok(dialog.hasAttribute('open'));
+    assert.equal(dialog.getAttribute('data-mode'), 'find');
+  });
+
+  it('opens Find for Option+F glyph without code (Comet/macOS)', () => {
+    const dialog = document.getElementById('find-replace-dialog');
+    const event = new window.KeyboardEvent('keydown', {
+      key: 'ƒ',
+      metaKey: true,
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    const allowed = window.dispatchEvent(event);
+    assert.equal(allowed, false);
+    assert.equal(event.defaultPrevented, true);
+    assert.ok(dialog.hasAttribute('open'));
+    assert.equal(dialog.getAttribute('data-mode'), 'find');
+  });
+
+  it('opens Replace with Cmd/Ctrl+Option+R', () => {
+    const dialog = document.getElementById('find-replace-dialog');
+    const event = new window.KeyboardEvent('keydown', {
+      key: 'r',
+      code: 'KeyR',
+      metaKey: true,
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    window.dispatchEvent(event);
     assert.equal(event.defaultPrevented, true);
     assert.ok(dialog.hasAttribute('open'));
     assert.equal(dialog.getAttribute('data-mode'), 'replace');
     assert.equal(document.activeElement, document.getElementById('find-replace-replace'));
+  });
+
+  it('opens Replace when macOS Option+R reports key ® (uses event.code)', () => {
+    const dialog = document.getElementById('find-replace-dialog');
+    const event = new window.KeyboardEvent('keydown', {
+      key: '®',
+      code: 'KeyR',
+      metaKey: true,
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    window.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+    assert.ok(dialog.hasAttribute('open'));
+    assert.equal(dialog.getAttribute('data-mode'), 'replace');
   });
 
   it('opens the shared dialog from Find… focused on Find without Replace options', () => {
