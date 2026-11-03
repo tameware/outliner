@@ -213,16 +213,15 @@ export function mountFindReplace({
   }
 
   /**
-   * @param {boolean} [focusReplace]
+   * @param {boolean} [showReplaceFields] open with Replace fields visible
    */
-  function openDialog(focusReplace = false) {
-    const showReplace = Boolean(focusReplace);
-    if (!setReplaceMode(showReplace)) return;
+  function openDialog(showReplaceFields = false) {
+    if (!setReplaceMode(Boolean(showReplaceFields))) return;
     if (dialog.show) dialog.show();
     else dialog.setAttribute('open', '');
-    const target = showReplace ? replaceInput : findInput;
-    target?.focus();
-    target?.select?.();
+    // Always start in Find (BBEdit-style); Replace field is next for Tab.
+    findInput?.focus();
+    findInput?.select?.();
   }
 
   function closeDialog() {
@@ -331,8 +330,13 @@ export function mountFindReplace({
       beep();
       return;
     }
-    replaceInput?.focus();
-    replaceInput?.select?.();
+    // Jump to Replace only once Find has something to replace.
+    if (String(findInput?.value ?? '').trim()) {
+      replaceInput?.focus();
+      replaceInput?.select?.();
+    } else {
+      findInput?.focus();
+    }
   });
   btnReplace?.addEventListener('click', () => {
     runReplaceCurrent();
