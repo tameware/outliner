@@ -11,8 +11,8 @@ import { DEFAULT_OUTLINE_OPML } from '../src/outliner/default-outline.js';
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('default outline OPML + generated JS', () => {
-  it('keeps the canonical starter in default-outline.opml', () => {
-    const opmlPath = join(repoRoot, 'default-outline.opml');
+  it('keeps the canonical starter in Getting Started.opml', () => {
+    const opmlPath = join(repoRoot, 'Getting Started.opml');
     assert.equal(existsSync(opmlPath), true);
     const opml = readFileSync(opmlPath, 'utf8');
     assert.match(opml, /<title>Getting Started<\/title>/);
@@ -20,7 +20,7 @@ describe('default outline OPML + generated JS', () => {
     assert.doesNotMatch(opml, /to hide or show its children/);
     assert.doesNotMatch(opml, /<outline text="Expand and collapse"/);
     assert.match(opml, /Backspace at the start of a line/);
-    assert.match(opml, /On Windows, use Ctrl wherever you see ⌘/);
+    assert.match(opml, /On Windows or Linux, use Ctrl wherever you see ⌘/);
     assert.match(opml, /Edit the title above the outline/);
     assert.match(opml, /Find…/);
     assert.match(opml, /View → Focus/);
@@ -43,7 +43,10 @@ describe('default outline OPML + generated JS', () => {
     assert.equal(after, before, 'default-outline.js should match a fresh build');
     assert.match(after, /export const DEFAULT_OUTLINE_OPML/);
     assert.match(after, /How to use this outliner/);
-    assert.equal(DEFAULT_OUTLINE_OPML, readFileSync(join(repoRoot, 'default-outline.opml'), 'utf8'));
+    assert.equal(
+      DEFAULT_OUTLINE_OPML,
+      readFileSync(join(repoRoot, 'Getting Started.opml'), 'utf8'),
+    );
   });
 
   it('index.html does not bake the starter outline tree', () => {

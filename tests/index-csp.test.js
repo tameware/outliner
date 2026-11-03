@@ -29,7 +29,7 @@ describe('index.html CSP-safe entry', () => {
   });
 
   it('starter tip says show or hide children (show before hide)', () => {
-    const opml = readFileSync(join(root, 'default-outline.opml'), 'utf8');
+    const opml = readFileSync(join(root, 'Getting Started.opml'), 'utf8');
     assert.match(opml, /to show or hide its children/);
     assert.doesNotMatch(opml, /to hide or show its children/);
   });
@@ -93,7 +93,7 @@ describe('index.html CSP-safe entry', () => {
   });
 
   it('how-to outline does not mention undo/redo shortcuts', () => {
-    const opml = readFileSync(join(root, 'default-outline.opml'), 'utf8');
+    const opml = readFileSync(join(root, 'Getting Started.opml'), 'utf8');
     assert.match(opml, /How to use this outliner/);
     assert.doesNotMatch(opml, /undo with/i);
     assert.doesNotMatch(opml, /to redo/i);
