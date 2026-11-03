@@ -18,7 +18,20 @@ describe('default outline OPML + generated JS', () => {
     assert.match(opml, /<title>Getting Started<\/title>/);
     assert.match(opml, /to show or hide its children/);
     assert.doesNotMatch(opml, /to hide or show its children/);
+    assert.doesNotMatch(opml, /<outline text="Expand and collapse"/);
+    assert.match(opml, /Backspace at the start of a line/);
+    assert.match(opml, /On Windows, use Ctrl wherever you see ⌘/);
+    assert.match(opml, /Edit the title above the outline/);
+    assert.match(opml, /Find…/);
+    assert.match(opml, /View → Focus/);
     assert.match(opml, /!c !d !h !s — insert ♣ ♦ ♥ ♠/);
+    assert.match(opml, /free as in beer/i);
+    assert.doesNotMatch(opml, /&apos;|&quot;/);
+    // Merge tip lives under Keyboard, not under bridge extras.
+    const bridgeIdx = opml.indexOf('Features for bridge players');
+    const backspaceIdx = opml.indexOf('Backspace at the start of a line');
+    assert.ok(bridgeIdx > 0 && backspaceIdx > 0);
+    assert.ok(backspaceIdx < bridgeIdx);
   });
 
   it('copies the OPML into default-outline.js at build time', () => {

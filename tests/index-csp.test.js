@@ -58,7 +58,7 @@ describe('index.html CSP-safe entry', () => {
     assert.ok(kids.length >= 2, `expected ≥2 children under How to use, got ${kids.length}`);
     assert.match(
       kids[0].querySelector(':scope > .row .text')?.textContent ?? '',
-      /Click any line to edit it/,
+      /Click any line to edit/,
     );
     assert.match(
       kids[1].querySelector(':scope > .row .text')?.textContent ?? '',
@@ -67,7 +67,7 @@ describe('index.html CSP-safe entry', () => {
     const subheads = [
       ...(kids[1].querySelector(':scope > ol')?.children ?? []),
     ].filter((el) => el.matches?.('[data-item]'));
-    assert.equal(subheads.length, 3);
+    assert.equal(subheads.length, 4);
     assert.match(
       subheads[0].querySelector(':scope > .row .text')?.textContent ?? '',
       /^⌘→ \/ ⌘← will do the same$/,
@@ -80,7 +80,11 @@ describe('index.html CSP-safe entry', () => {
       subheads[2].querySelector(':scope > .row .text')?.textContent ?? '',
       /^⌘⌥← collapses this heading’s subheads completely$/,
     );
-    for (const tip of subheads) {
+    assert.match(
+      subheads[3].querySelector(':scope > .row .text')?.textContent ?? '',
+      /View → Expand All \/ Collapse All/,
+    );
+    for (const tip of subheads.slice(0, 3)) {
       assert.doesNotMatch(
         tip.querySelector(':scope > .row .text')?.textContent ?? '',
         /Command|Right-Arrow|Left-Arrow|Ctrl|Option/i,
