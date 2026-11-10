@@ -1,6 +1,6 @@
 /**
  * Copy Getting Started.opml into src/outliner/default-outline.js for the app.
- * Run via `npm run build` (also pretest).
+ * Generated output is gitignored; run via `npm run build` (also pretest / prestart).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

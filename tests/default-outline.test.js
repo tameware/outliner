@@ -63,6 +63,18 @@ describe('default outline OPML + generated JS', () => {
     const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
     assert.match(pkg.scripts.build, /build-default-outline/);
     assert.match(pkg.scripts.pretest || '', /build|npm run build/);
+    assert.match(pkg.scripts.prestart || '', /build|npm run build/);
+  });
+
+  it('keeps generated default-outline.js out of git', () => {
+    const gitignore = readFileSync(join(repoRoot, '.gitignore'), 'utf8');
+    assert.match(gitignore, /src\/outliner\/default-outline\.js/);
+    const tracked = execFileSync(
+      'git',
+      ['ls-files', '--', 'src/outliner/default-outline.js'],
+      { cwd: repoRoot, encoding: 'utf8' },
+    ).trim();
+    assert.equal(tracked, '', 'default-outline.js must not be tracked');
   });
 
   it('loads the generated OPML into the outline root with red suits wrapped', () => {
