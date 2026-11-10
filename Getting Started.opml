@@ -2,7 +2,8 @@
 <opml version="2.0">
   <head>
     <title>Getting Started</title>
-    <expansionState>1,3,7</expansionState>
+    <dateModified>Tue, 10 Nov 2026 11:22:01 GMT</dateModified>
+    <expansionState>1,29</expansionState>
   </head>
   <body>
     <outline text="How to use this outliner">
@@ -37,6 +38,10 @@
       </outline>
       <outline text="Replace these tips with your own outline whenever you’re ready."/>
       <outline text="There’s no charge for using the app — it’s free as in beer."/>
+      <outline text="If you have questions or suggestions, please post to the discussion forum:">
+        <outline text="https://groups.google.com/g/tameware-outliner"/>
+        <outline text="To join or to see messages, you must be signed in with a Google account."/>
+      </outline>
     </outline>
   </body>
 </opml>
