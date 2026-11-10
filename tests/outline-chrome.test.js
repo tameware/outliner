@@ -124,5 +124,34 @@ describe('outline chrome bindings', () => {
       document.getElementById('menu-expand-all').click();
       assert.equal(parent.dataset.state, 'expanded');
     });
+
+    it('Render PBN stores a snapshot and opens ?render=pbn', () => {
+      const SAMPLE =
+        '73.QJT.AQ54.T752 QT6.876.KJ9.AQ84 5.A95432.7632.K6 AKJ9842.K.T8.J93';
+      loadOutline(root, {
+        items: [{ text: `N:${SAMPLE}`, children: [] }],
+      });
+      const opened = [];
+      const realOpen = window.open;
+      window.open = (href, target) => {
+        opened.push({ href, target });
+        return { closed: false };
+      };
+      try {
+        document.getElementById('menu-render-pbn').click();
+      } finally {
+        window.open = realOpen;
+      }
+      assert.equal(opened.length, 1);
+      assert.match(opened[0].href, /render=pbn/);
+      assert.match(opened[0].href, /[?&]k=/);
+      assert.equal(opened[0].target, '_blank');
+      const key = new URL(opened[0].href, 'http://localhost/').searchParams.get(
+        'k',
+      );
+      const raw = window.localStorage.getItem(`outliner-pbn-render:${key}`);
+      assert.ok(raw);
+      assert.match(JSON.parse(raw).opml, /N:73\.QJT/);
+    });
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Detect PBN-style bridge deals in a line and render a compass diagram child.
+ * Detect PBN-style bridge deals and build compass diagrams for render views.
  */
 
 import { SUIT_GLYPHS, createSuitNode } from './suit-shortcuts.js';
@@ -80,6 +80,7 @@ export function parseDealFromLine(line) {
 }
 
 /**
+ * Legacy child-diagram marker (no longer created; kept for OPML/search filters).
  * @param {HTMLElement | null | undefined} item
  */
 export function isDealDiagramItem(item) {
@@ -128,120 +129,46 @@ export function buildDealDiagramElement(deal) {
 }
 
 /**
- * @param {{ hands: Record<'N'|'E'|'S'|'W', { spades: string, hearts: string, diamonds: string, clubs: string }> }} deal
- * @returns {HTMLElement}
- */
-export function createDealDiagramItem(deal) {
-  const li = document.createElement('li');
-  li.dataset.item = '';
-  li.dataset.dealDiagram = 'true';
-  li.dataset.state = 'expanded';
-  li.dataset.hasChildren = 'false';
-
-  const row = document.createElement('div');
-  row.className = 'row deal-diagram-row';
-  row.appendChild(buildDealDiagramElement(deal));
-  li.appendChild(row);
-  return li;
-}
-
-function childList(item) {
-  return item.querySelector(':scope > ol');
-}
-
-function ensureChildList(item) {
-  let list = childList(item);
-  if (!list) {
-    list = document.createElement('ol');
-    item.appendChild(list);
-  }
-  return list;
-}
-
-function directChildItems(item) {
-  const list = childList(item);
-  if (!list) return [];
-  return [...list.children].filter((el) => el.matches('[data-item]'));
-}
-
-function findDiagramChild(item) {
-  return directChildItems(item).find((el) => isDealDiagramItem(el)) ?? null;
-}
-
-function getItemText(item) {
-  const el = item.querySelector(':scope > .row > .text');
-  return el ? el.textContent : '';
-}
-
-function syncItemMeta(item) {
-  const kids = directChildItems(item).length > 0;
-  item.dataset.hasChildren = kids ? 'true' : 'false';
-  const btn = item.querySelector(':scope > .row > .toggle');
-  if (btn) {
-    btn.disabled = !kids;
-    btn.setAttribute(
-      'aria-expanded',
-      kids && item.dataset.state !== 'collapsed' ? 'true' : 'false',
-    );
-  }
-}
-
-/**
- * Ensure `item` has a deal-diagram child iff its text is a deal.
  * @param {HTMLElement} item
- * @returns {boolean} true when a diagram is present afterward
+ * @returns {HTMLElement | null}
  */
-export function syncDealDiagram(item) {
-  if (!item || isDealDiagramItem(item)) return false;
-  const deal = parseDealFromLine(getItemText(item));
-  const existing = findDiagramChild(item);
-
-  if (!deal) {
-    if (existing) {
-      existing.remove();
-      const list = childList(item);
-      if (list && list.children.length === 0) list.remove();
-      syncItemMeta(item);
-    }
-    return false;
-  }
-
-  const next = createDealDiagramItem(deal);
-  const list = ensureChildList(item);
-  if (existing) existing.replaceWith(next);
-  else list.insertBefore(next, list.firstChild);
-  item.dataset.state = 'expanded';
-  list.hidden = false;
-  syncItemMeta(item);
-  return true;
+function itemTextEl(item) {
+  return item.querySelector(':scope > .row > .text');
 }
 
 /**
- * Sync deal diagrams for every non-diagram item under root.
+ * Count outline lines whose text parses as a PBN deal.
  * @param {HTMLElement} root
+ * @returns {number}
  */
-export function syncAllDealDiagrams(root) {
-  if (!root) return;
+export function countDealLinesInRoot(root) {
+  if (!root) return 0;
+  let n = 0;
   root.querySelectorAll('[data-item]').forEach((item) => {
-    if (!isDealDiagramItem(item)) syncDealDiagram(item);
+    if (isDealDiagramItem(item)) return;
+    const el = itemTextEl(item);
+    if (!el) return;
+    if (parseDealFromLine(el.textContent ?? '')) n += 1;
   });
+  return n;
 }
 
 /**
+ * Replace each deal line’s `.text` with a compass diagram (in place).
  * @param {HTMLElement} root
+ * @returns {number} number of lines replaced
  */
-export function bindDealDiagrams(root) {
-  if (!root) return () => {};
-  function onFocusOut(event) {
-    const text = event.target?.closest?.('.text');
-    if (!text || !root.contains(text)) return;
-    const item = text.closest('[data-item]');
-    if (!item || isDealDiagramItem(item)) return;
-    queueMicrotask(() => {
-      if (item.isConnected) syncDealDiagram(item);
-    });
-  }
-  root.addEventListener('focusout', onFocusOut);
-  syncAllDealDiagrams(root);
-  return () => root.removeEventListener('focusout', onFocusOut);
+export function replaceDealLinesWithDiagrams(root) {
+  if (!root) return 0;
+  let n = 0;
+  root.querySelectorAll('[data-item]').forEach((item) => {
+    if (isDealDiagramItem(item)) return;
+    const el = itemTextEl(item);
+    if (!el) return;
+    const deal = parseDealFromLine(el.textContent ?? '');
+    if (!deal) return;
+    el.replaceWith(buildDealDiagramElement(deal));
+    n += 1;
+  });
+  return n;
 }

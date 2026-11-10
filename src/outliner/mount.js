@@ -5,7 +5,6 @@
 import { fillTextWithSuits } from './suit-shortcuts.js';
 import { bindOutlineLinks } from './outline-links.js';
 import { bindOutlinePlainPaste } from './outline-paste.js';
-import { bindDealDiagrams } from './deal-diagram.js';
 import {
   childList,
   syncTree,
@@ -65,7 +64,6 @@ export function mountOutliner(root, options = {}) {
     root.addEventListener('focusin', rememberItem);
     root.addEventListener('mouseup', rememberItem);
     bindOutlinePlainPaste(root);
-    bindDealDiagrams(root);
     bindOutlineLinks(root, { fillLine: fillTextWithSuits });
   }
 

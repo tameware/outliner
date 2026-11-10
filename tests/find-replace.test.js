@@ -19,8 +19,6 @@ import {
   selectTextRange,
   expandCollapsedAncestors,
 } from '../src/outliner/find-replace.js';
-import { syncDealDiagram } from '../src/outliner/deal-diagram.js';
-
 function setupDom() {
   const dom = new JSDOM(`<!DOCTYPE html><body>
     <ol class="outline" data-outline-root></ol>
@@ -256,23 +254,6 @@ describe('find-replace core', () => {
     assert.equal(getItemText(matches[0].item), 'Alpha lead ♥');
     const heart = matches[0].item.querySelector('.suit-red');
     assert.equal(heart?.textContent, '♥');
-  });
-
-  it('replaceMatch refreshes a deal diagram after changing the deal source line', () => {
-    const deal =
-      'N:73.QJT.AQ54.T752 QT6.876.KJ9.AQ84 5.A95432.7632.K6 AKJ9842.K.T8.J93';
-    loadOutline(root, { items: [{ text: deal, children: [] }] });
-    const item = root.querySelector('[data-item]');
-    assert.equal(syncDealDiagram(item), true);
-    assert.ok(item.querySelector('[data-deal-diagram]'));
-    const matches = findMatches(root, { find: 'QT6' });
-    assert.equal(replaceMatch(matches[0], 'AJT'), true);
-    assert.match(getItemText(item), /AJT/);
-    assert.ok(item.querySelector('[data-deal-diagram]'), 'diagram stays attached');
-    assert.doesNotMatch(
-      item.querySelector('[data-deal-diagram]')?.textContent ?? '',
-      /QT6/,
-    );
   });
 
   it('replaceAllMatches replaces every match', () => {

@@ -123,7 +123,7 @@ describe('Outliner menu', () => {
     );
     assert.equal(
       OUTLINER_COOKIES_TEXT,
-      'The Outliner app itself does not write cookies. There’s neither document.cookie nor cookie helpers in the product code. Further, it uses neither localStorage nor sessionStorage. Outline data stays in page memory unless you export a file or save to Google Drive.\n\nIf you use Sign in with Google, Google’s Identity Services on Google’s domains may set their own cookies; that’s Google, not Outliner.',
+      'The Outliner app itself does not write cookies. There’s neither document.cookie nor cookie helpers in the product code. Outline data stays in page memory unless you export a file or save to Google Drive. View → Render PBN briefly stores a one-shot snapshot in localStorage so the new tab can load the outline, then deletes it.\n\nIf you use Sign in with Google, Google’s Identity Services on Google’s domains may set their own cookies; that’s Google, not Outliner.',
     );
   });
 

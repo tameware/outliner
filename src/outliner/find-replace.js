@@ -2,7 +2,7 @@
  * Find / Replace across outline line text (literal or Grep/regex).
  */
 
-import { isDealDiagramItem, syncDealDiagram } from './deal-diagram.js';
+import { isDealDiagramItem } from './deal-diagram.js';
 import { expandSuitBangShortcuts, fillTextWithSuits } from './suit-shortcuts.js';
 import { isExpanded, toggleItem } from './outliner.js';
 
@@ -240,7 +240,6 @@ function setItemText(item, nextText) {
   const el = textEl(item);
   if (!el) return;
   fillTextWithSuits(el, nextText);
-  syncDealDiagram(item);
 }
 
 /**

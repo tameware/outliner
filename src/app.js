@@ -61,8 +61,16 @@ import {
   bindBeforeUnloadGuard,
 } from './chrome/unsaved-changes.js';
 import { outlineTitleFromFileName } from './file/local-file.js';
+import {
+  isPbnRenderLocation,
+  pbnRenderKeyFromLocation,
+  takePbnRenderSnapshot,
+  applyPbnRenderSnapshot,
+  applyMissingPbnRenderSnapshot,
+} from './outliner/render-pbn.js';
 
 const rootEl = document.querySelector('[data-outline-root]');
+const pbnRenderMode = isPbnRenderLocation(window.location);
 const menubar = document.querySelector('.menubar');
 const documentTitleEl = document.getElementById('document-title');
 const documentUpdatedEl = document.getElementById('document-updated');
@@ -189,7 +197,10 @@ async function beforeReplace() {
 }
 
 // Avoid flashing the starter outline while ?id= / ?view= / ?edit= content loads.
-if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
+// PBN render tabs load a localStorage snapshot instead of the starter outline.
+if (pbnRenderMode) {
+  outlineHistory.discard();
+} else if (blankOutlineForDeepLink(root, window.location, { loadOutline })) {
   outlineHistory.discard();
 } else {
   const starter = parseOpml(DEFAULT_OUTLINE_OPML);
@@ -215,7 +226,40 @@ syncDocumentTitles();
   clearLocalFileHandle: () => clearLocalFileHandle(),
   restoreOutlineFocus: () => restoreOutlineFocus(),
   syncCloudSaveState: () => cloudUi?.syncSaveState?.(),
+  toOpml,
+  getTitle: () => outlineTitleBase(),
 }));
+
+if (pbnRenderMode) {
+  const snapshot = takePbnRenderSnapshot(
+    pbnRenderKeyFromLocation(window.location),
+  );
+  if (snapshot) {
+    applyPbnRenderSnapshot({
+      root,
+      snapshot,
+      parseOpml,
+      loadOutline,
+      setReadOnly,
+      applyReadOnlyToolbar,
+      applyDocumentTitle,
+      menubar: document.querySelector('.menubar'),
+    });
+  } else {
+    applyMissingPbnRenderSnapshot({
+      root,
+      loadOutline,
+      setReadOnly,
+      applyReadOnlyToolbar,
+      applyDocumentTitle,
+      menubar: document.querySelector('.menubar'),
+    });
+  }
+  dirty.markClean();
+  rememberBoundTitle();
+  syncDocumentTitles();
+  syncFocusMenus();
+}
 
 mountDocumentTitleEditor(documentTitleEl, {
   onCommit: (title) => {
@@ -308,6 +352,7 @@ outlineSession = createOutlineSession({
 });
 
 void (async () => {
+  if (pbnRenderMode) return;
   const deepLinkKey =
     editShareToken || viewShareToken || outlineSession.getOutlineId();
   const booted = await bootCloud({

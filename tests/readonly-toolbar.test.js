@@ -1,11 +1,19 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { applyReadOnlyToolbar } from '../src/chrome/readonly-toolbar.js';
+import {
+  applyReadOnlyToolbar,
+  READONLY_STATUS_LABEL,
+} from '../src/chrome/readonly-toolbar.js';
 
 describe('read-only toolbar', () => {
   it('keeps Outliner, File, Edit, and View visible and enables info plus Export/Expand/Collapse', () => {
     const dom = new JSDOM(`<!DOCTYPE html><body>
+      <div class="chrome-meta">
+        <div class="cloud-bar" data-cloud-bar hidden>
+          <p id="cloud-status" class="cloud-status" role="status"></p>
+        </div>
+      </div>
       <nav class="menubar">
         <div class="menu" data-menu="outliner" hidden>
           <button type="button" class="menu-label">Outliner</button>
@@ -45,6 +53,7 @@ describe('read-only toolbar', () => {
             <button type="button" role="menuitem" id="menu-unfocus">Unfocus</button>
             <button type="button" role="menuitem" id="menu-expand-all">Expand All</button>
             <button type="button" role="menuitem" id="menu-collapse-all">Collapse All</button>
+            <button type="button" role="menuitem" id="menu-render-pbn">Render PBN</button>
           </div>
         </div>
         <div class="menu" data-menu="cloud">
@@ -86,7 +95,15 @@ describe('read-only toolbar', () => {
       'menu-unfocus',
       'menu-expand-all',
       'menu-collapse-all',
+      'menu-render-pbn',
     ]);
     assert.equal(toolbar.querySelector('#menu-replace').disabled, true);
+    const bar = dom.window.document.querySelector('[data-cloud-bar]');
+    assert.equal(bar.hidden, false);
+    assert.equal(
+      dom.window.document.getElementById('cloud-status').textContent,
+      READONLY_STATUS_LABEL,
+    );
+    assert.match(READONLY_STATUS_LABEL, /read-only/i);
   });
 });

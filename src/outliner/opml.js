@@ -3,7 +3,7 @@
  */
 
 import { clearOutlineFocus } from './outline-focus.js';
-import { isDealDiagramItem, syncAllDealDiagrams } from './deal-diagram.js';
+import { isDealDiagramItem } from './deal-diagram.js';
 import {
   childList,
   createItem,
@@ -203,7 +203,6 @@ export function loadOutline(root, tree) {
     items.forEach((node) => root.appendChild(renderItem(node)));
   }
   syncTree(root);
-  syncAllDealDiagrams(root);
   if (isReadOnly(root)) setReadOnly(root, true);
   return root;
 }
@@ -238,7 +237,6 @@ export function insertOutline(root, tree, afterItem = null) {
   }
 
   syncTree(root);
-  syncAllDealDiagrams(root);
   if (isReadOnly(root)) setReadOnly(root, true);
   focusItem(nodes[0]);
   return nodes[0];

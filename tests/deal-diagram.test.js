@@ -3,16 +3,14 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import {
   parseDealFromLine,
-  syncDealDiagram,
-  isDealDiagramItem,
+  replaceDealLinesWithDiagrams,
+  countDealLinesInRoot,
 } from '../src/outliner/deal-diagram.js';
 import {
   mountOutliner,
   getItemText,
-  serializeOutline,
   loadOutline,
   toOpml,
-  parseOpml,
 } from '../src/outliner/outliner.js';
 
 const SAMPLE =
@@ -60,7 +58,6 @@ describe('parseDealFromLine', () => {
   });
 
   it('rotates hands when the first seat is not North', () => {
-    // W-first listing: West, North, East, South
     const deal = parseDealFromLine(
       'W:AKJ9842.K.T8.J93 73.QJT.AQ54.T752 QT6.876.KJ9.AQ84 5.A95432.7632.K6',
     );
@@ -72,7 +69,7 @@ describe('parseDealFromLine', () => {
   });
 });
 
-describe('syncDealDiagram', () => {
+describe('main outline has no live deal diagrams', () => {
   /** @type {import('jsdom').JSDOM} */
   let dom;
   /** @type {HTMLElement} */
@@ -103,64 +100,93 @@ describe('syncDealDiagram', () => {
     dom.window.close();
   });
 
-  it('inserts a non-editable diagram child under a deal line', () => {
+  it('does not insert diagram children when a line is a deal', async () => {
     const item = root.querySelector('[data-item]');
-    item.querySelector('.text').textContent = `[Deal "N:${SAMPLE}"]`;
-    assert.equal(syncDealDiagram(item), true);
-    const kids = [...item.querySelectorAll(':scope > ol > [data-item]')];
-    assert.equal(kids.length, 1);
-    assert.equal(isDealDiagramItem(kids[0]), true);
-    assert.ok(kids[0].querySelector('.deal-diagram'));
-    assert.ok(kids[0].querySelector('.deal-north'));
-    assert.ok(kids[0].querySelector('.suit-red'));
-    assert.match(kids[0].textContent, /♠/);
-    assert.match(kids[0].textContent, /♥/);
-    assert.equal(kids[0].querySelector('.text'), null);
-  });
-
-  it('removes the diagram when the line is no longer a deal', () => {
-    const item = root.querySelector('[data-item]');
-    item.querySelector('.text').textContent = SAMPLE;
-    syncDealDiagram(item);
-    item.querySelector('.text').textContent = 'Not a deal anymore';
-    assert.equal(syncDealDiagram(item), false);
+    const text = item.querySelector('.text');
+    text.textContent = `[Deal "N:${SAMPLE}"]`;
+    text.dispatchEvent(new dom.window.FocusEvent('focusout', { bubbles: true }));
+    await Promise.resolve();
     assert.equal(item.querySelector('[data-deal-diagram]'), null);
+    assert.equal(item.querySelector('.deal-diagram'), null);
+    assert.equal(getItemText(item), `[Deal "N:${SAMPLE}"]`);
   });
 
-  it('omits diagram children from serializeOutline and OPML', () => {
-    const item = root.querySelector('[data-item]');
-    item.querySelector('.text').textContent = `N:${SAMPLE}`;
-    syncDealDiagram(item);
-    assert.deepEqual(serializeOutline(root), [
-      { text: `N:${SAMPLE}`, children: [] },
-    ]);
-    const opml = toOpml(root, { title: 'T' });
-    assert.doesNotMatch(opml, /deal-diagram/);
-    assert.match(opml, /N:73\.QJT/);
-  });
-
-  it('rebuilds diagrams after loadOutline', () => {
+  it('does not rebuild diagrams after loadOutline', () => {
     loadOutline(root, {
       items: [{ text: SAMPLE, children: [{ text: 'note', children: [] }] }],
     });
     const item = root.querySelector('[data-item]');
-    const diagrams = [...item.querySelectorAll('[data-deal-diagram]')];
-    assert.equal(diagrams.length, 1);
-    assert.equal(getItemText(item.querySelectorAll('[data-item]')[1] || item), 'note');
-    // note should still be present as a real child
-    const real = [...item.querySelectorAll(':scope > ol > [data-item]')].filter(
-      (el) => !isDealDiagramItem(el),
-    );
-    assert.equal(real.length, 1);
-    assert.equal(getItemText(real[0]), 'note');
+    assert.equal(item.querySelector('.deal-diagram'), null);
+    assert.equal(getItemText(item), SAMPLE);
+    const note = item.querySelector(':scope > ol > [data-item]');
+    assert.equal(getItemText(note), 'note');
+  });
+});
+
+describe('replaceDealLinesWithDiagrams', () => {
+  /** @type {import('jsdom').JSDOM} */
+  let dom;
+  /** @type {HTMLElement} */
+  let root;
+
+  beforeEach(() => {
+    dom = new JSDOM(`<!DOCTYPE html><body>
+      <ol class="outline" data-outline-root>
+        <li data-item>
+          <div class="row">
+            <button type="button" class="toggle"></button>
+            <div class="text" contenteditable="true">Alpha</div>
+          </div>
+        </li>
+      </ol>
+    </body>`);
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.HTMLElement = dom.window.HTMLElement;
+    globalThis.Node = dom.window.Node;
+    root = document.querySelector('[data-outline-root]');
+    mountOutliner(root, { bindEvents: false });
   });
 
-  it('creates a diagram after blur when the line becomes a deal', async () => {
-    const item = root.querySelector('[data-item]');
-    const text = item.querySelector('.text');
-    text.textContent = SAMPLE;
-    text.dispatchEvent(new dom.window.FocusEvent('focusout', { bubbles: true }));
-    await Promise.resolve();
-    assert.ok(item.querySelector('[data-deal-diagram]'));
+  afterEach(() => {
+    dom.window.close();
+  });
+
+  it('replaces deal line text in place with a compass diagram', () => {
+    loadOutline(root, {
+      items: [
+        { text: 'Intro', children: [] },
+        { text: `[Deal "N:${SAMPLE}"]`, children: [] },
+      ],
+    });
+    assert.equal(countDealLinesInRoot(root), 1);
+    assert.equal(replaceDealLinesWithDiagrams(root), 1);
+    const items = [...root.querySelectorAll(':scope > [data-item]')];
+    assert.equal(items[0].querySelector('.text')?.textContent, 'Intro');
+    assert.equal(items[1].querySelector('.text'), null);
+    const diagram = items[1].querySelector('.deal-diagram');
+    assert.ok(diagram);
+    assert.ok(diagram.querySelector('.deal-north'));
+    assert.match(diagram.textContent, /♠/);
+    assert.match(diagram.textContent, /♥/);
+    assert.equal(items[1].querySelector(':scope > ol'), null);
+  });
+
+  it('leaves non-deal lines alone', () => {
+    loadOutline(root, {
+      items: [{ text: 'Just a headline', children: [] }],
+    });
+    assert.equal(countDealLinesInRoot(root), 0);
+    assert.equal(replaceDealLinesWithDiagrams(root), 0);
+    assert.equal(getItemText(root.querySelector('[data-item]')), 'Just a headline');
+  });
+
+  it('OPML from the main outline still stores PBN text, not diagrams', () => {
+    loadOutline(root, {
+      items: [{ text: `N:${SAMPLE}`, children: [] }],
+    });
+    const opml = toOpml(root, { title: 'T' });
+    assert.doesNotMatch(opml, /deal-diagram/);
+    assert.match(opml, /N:73\.QJT/);
   });
 });

@@ -28,6 +28,8 @@ import {
   syncRevertMenuItem,
 } from '../outliner/revert-outline.js';
 import { systemBeep as defaultBeep } from './system-beep.js';
+import { openPbnRenderTab } from '../outliner/render-pbn.js';
+import { toOpml as defaultToOpml } from '../outliner/outliner.js';
 
 /**
  * @param {{
@@ -49,6 +51,8 @@ import { systemBeep as defaultBeep } from './system-beep.js';
  *   restoreOutlineFocus: () => void,
  *   syncCloudSaveState?: () => void,
  *   beep?: () => void,
+ *   toOpml?: typeof defaultToOpml,
+ *   getTitle?: () => string,
  *   document?: Document,
  *   window?: Window,
  * }} deps
@@ -68,6 +72,8 @@ export function bindOutlineChrome(deps) {
     restoreOutlineFocus,
     syncCloudSaveState,
     beep = defaultBeep,
+    toOpml = defaultToOpml,
+    getTitle,
   } = deps;
   const doc = deps.document ?? document;
   const win = deps.window ?? window;
@@ -210,6 +216,23 @@ export function bindOutlineChrome(deps) {
       .forEach((item) => {
         if (item.dataset.state !== 'collapsed') toggleItem(item);
       });
+  });
+
+  doc.getElementById('menu-render-pbn')?.addEventListener('click', () => {
+    openPbnRenderTab({
+      root,
+      toOpml,
+      getTitle:
+        getTitle ||
+        (() =>
+          String(doc.title || 'Outline')
+            .replace(/\s*[•·].*$/, '')
+            .replace(/\s*\(PBN\)\s*$/, '')
+            .trim() || 'Outline'),
+      openWindow: (...args) => win.open(...args),
+      locationLike: win.location,
+      beep,
+    });
   });
 
   doc.getElementById('menu-clear')?.addEventListener('click', () => {

@@ -17,7 +17,27 @@ export const READONLY_TOOLBAR_IDS = [
   'menu-unfocus',
   'menu-expand-all',
   'menu-collapse-all',
+  'menu-render-pbn',
 ];
+
+/** Status label shown in the chrome meta bar while viewing read-only. */
+export const READONLY_STATUS_LABEL = 'Read-only view';
+
+/**
+ * Unhide the chrome status bar and show the read-only label.
+ * @param {Document | ParentNode | null | undefined} root
+ */
+export function showReadOnlyStatus(root) {
+  const doc =
+    root && typeof root.getElementById === 'function'
+      ? root
+      : root?.ownerDocument || (typeof document !== 'undefined' ? document : null);
+  if (!doc) return;
+  const bar = doc.querySelector?.('[data-cloud-bar]');
+  const status = doc.getElementById?.('cloud-status');
+  if (bar) bar.hidden = false;
+  if (status) status.textContent = READONLY_STATUS_LABEL;
+}
 
 /**
  * Keep Outliner / File / Edit / View labels visible; disable editing actions.
@@ -45,4 +65,6 @@ export function applyReadOnlyToolbar(toolbar) {
     btn.hidden = false;
     btn.disabled = !allowed;
   });
+
+  showReadOnlyStatus(toolbar);
 }
