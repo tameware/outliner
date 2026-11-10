@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import {
   parseDealFromLine,
+  buildDealDiagramElement,
   replaceDealLinesWithDiagrams,
   countDealLinesInRoot,
 } from '../src/outliner/deal-diagram.js';
@@ -83,6 +84,60 @@ describe('parseDealFromLine', () => {
     assert.equal(deal.hands.N.spades, '73');
     assert.equal(deal.hands.E.spades, 'QT6');
     assert.equal(deal.hands.S.spades, '5');
+  });
+});
+
+describe('buildDealDiagramElement axis visibility', () => {
+  /** @type {import('jsdom').JSDOM} */
+  let dom;
+
+  beforeEach(() => {
+    dom = new JSDOM('<!DOCTYPE html><body></body>');
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+  });
+
+  afterEach(() => {
+    dom.window.close();
+  });
+
+  it('omits NS hands when only EW have cards', () => {
+    const deal = parseDealFromLine(
+      'N:-.-.-.- QT6.876.KJ9.AQ84 -.-.-.- AKJ9842.K.T8.J93',
+    );
+    assert.ok(deal);
+    const el = buildDealDiagramElement(deal);
+    assert.equal(el.querySelector('.deal-north'), null);
+    assert.equal(el.querySelector('.deal-south'), null);
+    assert.ok(el.querySelector('.deal-east'));
+    assert.ok(el.querySelector('.deal-west'));
+    assert.match(el.querySelector('.deal-east')?.textContent ?? '', /QT6/);
+    assert.match(el.querySelector('.deal-west')?.textContent ?? '', /AKJ9842/);
+  });
+
+  it('omits EW hands when only NS have cards', () => {
+    const deal = parseDealFromLine(
+      'N:73.QJT.AQ54.T752 -.-.-.- 5.A95432.7632.K6 -.-.-.-',
+    );
+    assert.ok(deal);
+    const el = buildDealDiagramElement(deal);
+    assert.equal(el.querySelector('.deal-east'), null);
+    assert.equal(el.querySelector('.deal-west'), null);
+    assert.equal(el.querySelector('.deal-mid'), null);
+    assert.ok(el.querySelector('.deal-north'));
+    assert.ok(el.querySelector('.deal-south'));
+    assert.match(el.querySelector('.deal-north')?.textContent ?? '', /73/);
+    assert.match(el.querySelector('.deal-south')?.textContent ?? '', /A95432/);
+  });
+
+  it('shows all four hands when every seat has cards', () => {
+    const deal = parseDealFromLine(SAMPLE);
+    assert.ok(deal);
+    const el = buildDealDiagramElement(deal);
+    assert.ok(el.querySelector('.deal-north'));
+    assert.ok(el.querySelector('.deal-east'));
+    assert.ok(el.querySelector('.deal-south'));
+    assert.ok(el.querySelector('.deal-west'));
   });
 });
 

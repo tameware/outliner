@@ -168,6 +168,15 @@ export function isDealDiagramItem(item) {
 }
 
 /**
+ * @param {{ spades?: string, hearts?: string, diamonds?: string, clubs?: string } | null | undefined} hand
+ * @returns {boolean}
+ */
+function handHasCards(hand) {
+  if (!hand) return false;
+  return Boolean(hand.spades || hand.hearts || hand.diamonds || hand.clubs);
+}
+
+/**
  * @param {{ spades: string, hearts: string, diamonds: string, clubs: string }} hand
  * @param {string} seatClass
  */
@@ -198,13 +207,25 @@ export function buildDealDiagramElement(deal) {
   const wrap = document.createElement('div');
   wrap.className = 'deal-diagram';
   wrap.setAttribute('contenteditable', 'false');
-  wrap.appendChild(buildHandEl(deal.hands.N, 'deal-north'));
-  const mid = document.createElement('div');
-  mid.className = 'deal-mid';
-  mid.appendChild(buildHandEl(deal.hands.W, 'deal-west'));
-  mid.appendChild(buildHandEl(deal.hands.E, 'deal-east'));
-  wrap.appendChild(mid);
-  wrap.appendChild(buildHandEl(deal.hands.S, 'deal-south'));
+
+  const showNS =
+    handHasCards(deal.hands.N) || handHasCards(deal.hands.S);
+  const showEW =
+    handHasCards(deal.hands.E) || handHasCards(deal.hands.W);
+
+  if (showNS) {
+    wrap.appendChild(buildHandEl(deal.hands.N, 'deal-north'));
+  }
+  if (showEW) {
+    const mid = document.createElement('div');
+    mid.className = 'deal-mid';
+    mid.appendChild(buildHandEl(deal.hands.W, 'deal-west'));
+    mid.appendChild(buildHandEl(deal.hands.E, 'deal-east'));
+    wrap.appendChild(mid);
+  }
+  if (showNS) {
+    wrap.appendChild(buildHandEl(deal.hands.S, 'deal-south'));
+  }
   return wrap;
 }
 
