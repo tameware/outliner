@@ -48,6 +48,23 @@ describe('parseDealFromLine', () => {
     assert.equal(parseDealFromLine(''), null);
   });
 
+  it('parses a deal embedded in the middle of a line', () => {
+    const deal = parseDealFromLine(
+      `Board 3 lead ♥A — N:${SAMPLE} — make 3NT`,
+    );
+    assert.ok(deal);
+    assert.equal(deal.hands.N.spades, '73');
+    assert.equal(deal.hands.W.clubs, 'J93');
+  });
+
+  it('parses a [Deal "…"] tag with surrounding prose', () => {
+    const deal = parseDealFromLine(
+      `See [Deal "N:${SAMPLE}"] in the bulletin`,
+    );
+    assert.ok(deal);
+    assert.equal(deal.hands.E.hearts, '876');
+  });
+
   it('treats - as a void suit', () => {
     const deal = parseDealFromLine(
       'N:-.AKQ.JT9.8765 AKQ.JT9.8765.- JT9.8765.-.AKQ 8765.-.AKQ.JT9',
@@ -170,6 +187,25 @@ describe('replaceDealLinesWithDiagrams', () => {
     assert.match(diagram.textContent, /♠/);
     assert.match(diagram.textContent, /♥/);
     assert.equal(items[1].querySelector(':scope > ol'), null);
+  });
+
+  it('replaces an embedded mid-line deal with a diagram and keeps surrounding text', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: `Lead ♥A — N:${SAMPLE} — make 3NT`,
+          children: [],
+        },
+      ],
+    });
+    assert.equal(countDealLinesInRoot(root), 1);
+    assert.equal(replaceDealLinesWithDiagrams(root), 1);
+    const textEl = root.querySelector('[data-item] .text');
+    assert.ok(textEl);
+    assert.match(textEl.textContent, /^Lead ♥A — /);
+    assert.match(textEl.textContent, / — make 3NT$/);
+    assert.ok(textEl.querySelector('.deal-diagram'));
+    assert.doesNotMatch(textEl.textContent, /73\.QJT/);
   });
 
   it('leaves non-deal lines alone', () => {
