@@ -213,19 +213,26 @@ export function buildDealDiagramElement(deal) {
   const showEW =
     handHasCards(deal.hands.E) || handHasCards(deal.hands.W);
 
+  if (showEW && !showNS) wrap.classList.add('deal-diagram--ew-only');
+
+  // One stack so N and S share a left edge; the stack itself stays centered.
+  const stack = document.createElement('div');
+  stack.className = 'deal-stack';
+
   if (showNS) {
-    wrap.appendChild(buildHandEl(deal.hands.N, 'deal-north'));
+    stack.appendChild(buildHandEl(deal.hands.N, 'deal-north'));
   }
   if (showEW) {
     const mid = document.createElement('div');
     mid.className = 'deal-mid';
     mid.appendChild(buildHandEl(deal.hands.W, 'deal-west'));
     mid.appendChild(buildHandEl(deal.hands.E, 'deal-east'));
-    wrap.appendChild(mid);
+    stack.appendChild(mid);
   }
   if (showNS) {
-    wrap.appendChild(buildHandEl(deal.hands.S, 'deal-south'));
+    stack.appendChild(buildHandEl(deal.hands.S, 'deal-south'));
   }
+  wrap.appendChild(stack);
   return wrap;
 }
 

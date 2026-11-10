@@ -718,6 +718,15 @@ ol.outline ol {
   user-select: text;
 }
 
+.deal-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  width: max-content;
+  max-width: 100%;
+}
+
 .deal-hand {
   white-space: pre;
 }
@@ -731,8 +740,9 @@ ol.outline ol {
   flex-direction: row;
   justify-content: center;
   align-items: center;
+  align-self: center;
   gap: 2.5rem;
-  width: 100%;
+  width: max-content;
   max-width: 22rem;
 }
 

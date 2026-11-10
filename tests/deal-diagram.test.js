@@ -1,5 +1,8 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import {
   parseDealFromLine,
@@ -13,6 +16,8 @@ import {
   loadOutline,
   toOpml,
 } from '../src/outliner/outliner.js';
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const SAMPLE =
   '73.QJT.AQ54.T752 QT6.876.KJ9.AQ84 5.A95432.7632.K6 AKJ9842.K.T8.J93';
@@ -128,6 +133,49 @@ describe('buildDealDiagramElement axis visibility', () => {
     assert.ok(el.querySelector('.deal-south'));
     assert.match(el.querySelector('.deal-north')?.textContent ?? '', /73/);
     assert.match(el.querySelector('.deal-south')?.textContent ?? '', /A95432/);
+  });
+
+  it('parses ... as an empty hand for NS-only partial deals', () => {
+    const deal = parseDealFromLine(
+      'N:Q87.T8.AKJT64.J6 ... AKJT2.Q943..AK95 ...',
+    );
+    assert.ok(deal);
+    assert.equal(deal.hands.N.spades, 'Q87');
+    assert.equal(deal.hands.S.spades, 'AKJT2');
+    assert.equal(deal.hands.S.diamonds, '');
+    assert.equal(deal.hands.E.spades, '');
+    assert.equal(deal.hands.W.spades, '');
+  });
+
+  it('stacks N and S in one column so they share a left edge', () => {
+    const deal = parseDealFromLine(
+      'N:Q87.T8.AKJT64.J6 ... AKJT2.Q943..AK95 ...',
+    );
+    assert.ok(deal);
+    const el = buildDealDiagramElement(deal);
+    const stack = el.querySelector('.deal-stack');
+    assert.ok(stack);
+    assert.equal(stack.contains(el.querySelector('.deal-north')), true);
+    assert.equal(stack.contains(el.querySelector('.deal-south')), true);
+
+    const full = parseDealFromLine(SAMPLE);
+    assert.ok(full);
+    const fullEl = buildDealDiagramElement(full);
+    const fullStack = fullEl.querySelector('.deal-stack');
+    assert.ok(fullStack);
+    assert.equal(fullStack.contains(fullEl.querySelector('.deal-north')), true);
+    assert.equal(fullStack.contains(fullEl.querySelector('.deal-south')), true);
+    assert.equal(fullStack.contains(fullEl.querySelector('.deal-mid')), true);
+
+    const css = readFileSync(join(repoRoot, 'styles.css'), 'utf8');
+    assert.match(
+      css,
+      /\.deal-stack\s*\{[^}]*align-items\s*:\s*flex-start/s,
+    );
+    assert.match(
+      css,
+      /\.deal-diagram\s*\{[^}]*align-items\s*:\s*center/s,
+    );
   });
 
   it('shows all four hands when every seat has cards', () => {
