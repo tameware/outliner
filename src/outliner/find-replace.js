@@ -15,7 +15,7 @@ function textEl(item) {
 }
 
 /**
- * Searchable outline lines in document order (skips deal diagrams).
+ * Searchable outline lines in document order (skips legacy deal-diagram items).
  * @param {HTMLElement} root
  * @returns {HTMLElement[]}
  */

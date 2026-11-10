@@ -34,7 +34,7 @@
       <outline text="View → Focus narrows the display to one branch; Unfocus shows everything again"/>
       <outline text="Features for bridge players">
         <outline text="!c !d !h !s — insert ♣ ♦ ♥ ♠"/>
-        <outline text="View → Render PBN opens a read-only tab with compass diagrams for each PBN deal line (e.g. N:73.QJT.AQ54.T752 …)"/>
+        <outline text="PBN deals stay as text while you edit; View → Render PBN opens a read-only tab with compass diagrams (e.g. N:73.QJT.AQ54.T752 …, including mid-line)"/>
       </outline>
       <outline text="Replace these tips with your own outline whenever you’re ready."/>
       <outline text="There’s no charge for using the app — it’s free as in beer."/>

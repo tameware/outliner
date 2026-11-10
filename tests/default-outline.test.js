@@ -25,6 +25,9 @@ describe('default outline OPML + generated JS', () => {
     assert.match(opml, /Find…/);
     assert.match(opml, /View → Focus/);
     assert.match(opml, /!c !d !h !s — insert ♣ ♦ ♥ ♠/);
+    assert.match(opml, /PBN deals stay as text while you edit/);
+    assert.match(opml, /View → Render PBN/);
+    assert.doesNotMatch(opml, /suit-diagram child/);
     assert.match(opml, /free as in beer/i);
     assert.doesNotMatch(opml, /&apos;|&quot;/);
     // Merge tip lives under Keyboard, not under bridge extras.
