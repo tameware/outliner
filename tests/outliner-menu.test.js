@@ -10,6 +10,7 @@ import {
   OUTLINER_COOKIES_TEXT,
   OUTLINER_HELP_TITLE,
   OUTLINER_HELP_URL,
+  OUTLINER_FORUM_URL,
   OUTLINER_ISSUES_MAILTO,
   OUTLINER_ISSUES_URL,
   OUTLINER_PRIVACY_URL,
@@ -46,6 +47,7 @@ function setupDom(options = {}) {
           <button type="button" role="menuitem" id="menu-changelog">Change log</button>
           <button type="button" role="menuitem" id="menu-open-source">Source code</button>
           <button type="button" role="menuitem" id="menu-issue-tracker">Issue tracker</button>
+          <button type="button" role="menuitem" id="menu-forum">Support and Discussion Forum</button>
           <button type="button" role="menuitem" id="menu-report-issues">Email the Outliner team</button>
           <button type="button" role="menuitem" id="menu-privacy">Privacy</button>
           <button type="button" role="menuitem" id="menu-cookies">Cookies?</button>
@@ -110,6 +112,10 @@ describe('Outliner menu', () => {
     assert.equal(OUTLINER_HELP_URL, 'index.html');
     assert.equal(OUTLINER_REPO_URL, 'https://github.com/tameware/outliner');
     assert.equal(OUTLINER_ISSUES_URL, 'https://github.com/tameware/outliner/issues');
+    assert.equal(
+      OUTLINER_FORUM_URL,
+      'https://groups.google.com/g/tameware-outliner',
+    );
     assert.equal(OUTLINER_ISSUES_MAILTO, 'mailto:outliner@tameware.com');
     assert.equal(
       OUTLINER_ABOUT_TEXT,
@@ -282,6 +288,12 @@ describe('Outliner menu', () => {
     assert.deepEqual(opened, [OUTLINER_ISSUES_URL]);
   });
 
+  it('opens the Support and Discussion Forum', () => {
+    mountOutlinerMenu(document);
+    document.getElementById('menu-forum').click();
+    assert.deepEqual(opened, [OUTLINER_FORUM_URL]);
+  });
+
   it('opens the Email the Outliner team mailto', () => {
     mountOutlinerMenu(document);
     document.getElementById('menu-report-issues').click();
@@ -308,13 +320,18 @@ describe('Outliner menu', () => {
     assert.match(panel, /id="menu-changelog"[^>]*>\s*Change log\s*</);
     assert.match(panel, /id="menu-open-source"[^>]*>\s*Source code\s*</);
     assert.match(panel, /id="menu-issue-tracker"[^>]*>\s*Issue tracker\s*</);
+    assert.match(
+      panel,
+      /id="menu-forum"[^>]*>\s*Support and Discussion Forum\s*</,
+    );
     assert.match(panel, /id="menu-report-issues"[^>]*>\s*Email the Outliner team\s*</);
     assert.match(panel, /id="menu-privacy"[^>]*>\s*Privacy\s*</);
     assert.match(panel, /id="menu-cookies"[^>]*>\s*Cookies\?\s*</);
     assert.ok(panel.indexOf('menu-help') < panel.indexOf('menu-about'));
     assert.ok(panel.indexOf('menu-version') < panel.indexOf('menu-changelog'));
     assert.ok(panel.indexOf('menu-open-source') < panel.indexOf('menu-issue-tracker'));
-    assert.ok(panel.indexOf('menu-issue-tracker') < panel.indexOf('menu-report-issues'));
+    assert.ok(panel.indexOf('menu-issue-tracker') < panel.indexOf('menu-forum'));
+    assert.ok(panel.indexOf('menu-forum') < panel.indexOf('menu-report-issues'));
     assert.ok(panel.indexOf('menu-report-issues') < panel.indexOf('menu-privacy'));
     assert.ok(panel.indexOf('menu-privacy') < panel.indexOf('menu-cookies'));
     assert.doesNotMatch(html, /chrome-privacy/);

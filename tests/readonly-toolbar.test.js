@@ -16,6 +16,7 @@ describe('read-only toolbar', () => {
             <button type="button" role="menuitem" id="menu-changelog">Change log</button>
             <button type="button" role="menuitem" id="menu-open-source">Source code</button>
             <button type="button" role="menuitem" id="menu-issue-tracker">Issue tracker</button>
+            <button type="button" role="menuitem" id="menu-forum">Support and Discussion Forum</button>
             <button type="button" role="menuitem" id="menu-report-issues">Email the Outliner team</button>
             <button type="button" role="menuitem" id="menu-privacy">Privacy</button>
             <button type="button" role="menuitem" id="menu-cookies">Cookies?</button>
@@ -74,6 +75,7 @@ describe('read-only toolbar', () => {
       'menu-changelog',
       'menu-open-source',
       'menu-issue-tracker',
+      'menu-forum',
       'menu-report-issues',
       'menu-privacy',
       'menu-cookies',
