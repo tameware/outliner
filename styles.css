@@ -763,6 +763,18 @@ ol.outline ol {
   user-select: text;
 }
 
+/* Sit beside sibling auctions / prose on the same outline line. */
+.auction-diagram--inline {
+  display: inline-block;
+  vertical-align: top;
+  margin-inline-end: 0.85rem;
+}
+
+/* Space before 2nd+ diagrams so interstitial text (e.g. “or”) sits between them. */
+.auction-diagram--inline ~ .auction-diagram--inline {
+  margin-inline-start: 0.85rem;
+}
+
 .auction-table {
   display: flex;
   flex-direction: column;

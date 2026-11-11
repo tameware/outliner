@@ -1,5 +1,8 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import {
   parseAuctionFromLine,
@@ -17,6 +20,11 @@ import {
   replaceDealLinesWithDiagrams,
   countDealLinesInRoot,
 } from '../src/outliner/deal-diagram.js';
+
+const stylesCss = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '..', 'styles.css'),
+  'utf8',
+);
 
 describe('parseAuctionFromLine', () => {
   it('parses [Auction "N"] with calls on the same line', () => {
@@ -466,7 +474,7 @@ describe('parseAuctionFromItem with child bid lines', () => {
     loadOutline(root, {
       items: [
         {
-          text: '1H Pass 1S Pass 3NT AP\nor\n1H Pass 1S Pass 4NT AP',
+          text: '1NT - 2♣ - 2♠ - 3♥ zzz 1NT 2♣ 2♠ 3♥',
           children: [],
         },
       ],
@@ -479,14 +487,27 @@ describe('parseAuctionFromItem with child bid lines', () => {
       (n) => n.nodeType === 1 && n.classList?.contains('auction-diagram'),
     );
     assert.equal(diagrams.length, 2);
-    assert.match(diagrams[0].textContent ?? '', /3NT/);
-    assert.match(diagrams[1].textContent ?? '', /4NT/);
+    assert.match(diagrams[0].textContent ?? '', /3♥|3H/);
+    assert.match(diagrams[1].textContent ?? '', /3♥|3H/);
     const firstDi = kids.indexOf(diagrams[0]);
     const secondDi = kids.indexOf(diagrams[1]);
     const between = kids
       .slice(firstDi + 1, secondDi)
       .map((n) => n.textContent ?? '')
       .join('');
-    assert.match(between, /or/);
+    assert.match(between, /zzz/);
+    // Side-by-side layout (not stacked block); class marks inline flow.
+    assert.ok(
+      diagrams.every((d) => d.classList.contains('auction-diagram--inline')),
+    );
+  });
+});
+
+describe('auction diagram horizontal spacing', () => {
+  it('adds leading space before the second and later diagrams on a line', () => {
+    assert.match(
+      stylesCss,
+      /\.auction-diagram--inline\s*~\s*\.auction-diagram--inline\s*\{[^}]*margin-inline-start/s,
+    );
   });
 });

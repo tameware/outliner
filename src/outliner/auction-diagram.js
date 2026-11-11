@@ -600,7 +600,7 @@ export function auctionCallsToRows(auction) {
 export function buildAuctionDiagramElement(auction) {
   const columns = auction.columns?.length ? auction.columns : AUCTION_COLUMNS;
   const wrap = document.createElement('div');
-  wrap.className = 'auction-diagram';
+  wrap.className = 'auction-diagram auction-diagram--inline';
   if (columns.length === 2 && columns[0] === 'W' && columns[1] === 'E') {
     wrap.classList.add('auction-diagram--ew');
   }
