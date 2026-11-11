@@ -6,6 +6,7 @@ import {
   findAuctionInLine,
   buildAuctionDiagramElement,
   parseAuctionFromItem,
+  auctionCallsToRows,
 } from '../src/outliner/auction-diagram.js';
 import {
   mountOutliner,
@@ -64,6 +65,13 @@ describe('parseAuctionFromLine', () => {
       /^\[Auction/i,
     );
   });
+
+  it('keeps PBN "-" column spacers in the call list without showing a dash glyph', () => {
+    const auction = parseAuctionFromLine('[Auction "W"] - Pass 1H Pass');
+    assert.ok(auction);
+    assert.deepEqual(auction.calls, ['-', 'Pass', '1H', 'Pass']);
+    assert.deepEqual(auctionCallsToRows(auction), [['', 'Pass', '1H', 'Pass']]);
+  });
 });
 
 describe('buildAuctionDiagramElement', () => {
@@ -100,6 +108,17 @@ describe('buildAuctionDiagramElement', () => {
     assert.equal(cells[0], '');
     assert.match(cells[1], /1♥|1H/);
     assert.ok(firstDataRow.querySelector('.suit-red'), 'hearts are red');
+  });
+
+  it('does not paint "-" into bidding cells when using column spacers', () => {
+    const auction = parseAuctionFromLine('[Auction "W"] - Pass 1H Pass');
+    assert.ok(auction);
+    const el = buildAuctionDiagramElement(auction);
+    const cells = [...el.querySelectorAll('.auction-row:not(.auction-row-head) .auction-cell')].map(
+      (c) => c.textContent,
+    );
+    assert.deepEqual(cells, ['', 'Pass', '1♥', 'Pass']);
+    assert.ok(cells.every((t) => !t.includes('-')));
   });
 });
 
@@ -184,5 +203,24 @@ describe('parseAuctionFromItem with child bid lines', () => {
     assert.equal(replaceDealLinesWithDiagrams(root), 1);
     assert.ok(root.querySelector('.auction-diagram'));
     assert.equal(root.querySelectorAll('[data-item]').length, 1);
+  });
+
+  it('removes child bid rows even when prose surrounds the auction tag', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'Auction: [Auction "N"] then notes',
+          children: [
+            { text: '1H Pass 1S Pass', children: [] },
+            { text: '3NT Pass Pass Pass', children: [] },
+          ],
+        },
+      ],
+    });
+    assert.equal(replaceDealLinesWithDiagrams(root), 1);
+    assert.ok(root.querySelector('.auction-diagram'));
+    assert.equal(root.querySelector(':scope > [data-item] > ol'), null);
+    assert.equal(root.querySelectorAll('[data-item]').length, 1);
+    assert.match(root.querySelector('[data-item]')?.textContent ?? '', /notes/);
   });
 });

@@ -337,16 +337,16 @@ export function replaceDealLinesWithDiagrams(root) {
     if (auctionFromItem && auctionFromItem.calls.length > 0) {
       const diagram = buildAuctionDiagramElement(auctionFromItem);
       const auctionFound = findAuctionInLine(text);
-      if (auctionFound && !text.slice(auctionFound.end).trim()) {
-        // Tag (+ same-line calls) is the whole line: drop child bid rows.
-        const childList = item.querySelector(':scope > ol');
-        childList?.remove();
-        item.dataset.hasChildren = 'false';
-        const toggle = item.querySelector(':scope > .row > .toggle');
-        if (toggle) {
-          toggle.disabled = true;
-          toggle.setAttribute('aria-expanded', 'false');
-        }
+      // Child bid rows were folded into the diagram — always drop them.
+      const childList = item.querySelector(':scope > ol');
+      childList?.remove();
+      item.dataset.hasChildren = 'false';
+      const toggle = item.querySelector(':scope > .row > .toggle');
+      if (toggle) {
+        toggle.disabled = true;
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+      if (auctionFound && !text.slice(auctionFound.end).trim() && !text.slice(0, auctionFound.start).trim()) {
         el.replaceWith(diagram);
       } else if (auctionFound) {
         replaceTextRangeWithDiagram(

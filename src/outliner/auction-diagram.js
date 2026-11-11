@@ -59,16 +59,11 @@ export function tokenizeAuctionCalls(text) {
 /**
  * @param {string} body
  * @param {'N'|'E'|'S'|'W'} firstSeat
- * @returns {{ firstSeat: 'N'|'E'|'S'|'W', calls: string[] } | null}
+ * @returns {{ firstSeat: 'N'|'E'|'S'|'W', calls: string[] }}
  */
 function auctionFromBody(body, firstSeat) {
-  const calls = tokenizeAuctionCalls(body).filter((c) => c !== '-');
-  // Keep leading '-' only as column spacers — filter removed them; re-tokenize with dashes.
-  const withDashes = tokenizeAuctionCalls(body);
-  if (withDashes.length === 0) {
-    return { firstSeat, calls: [] };
-  }
-  return { firstSeat, calls: withDashes };
+  // Keep PBN "-" tokens: they pad columns (W-first tables) and never paint as text.
+  return { firstSeat, calls: tokenizeAuctionCalls(body) };
 }
 
 /**
