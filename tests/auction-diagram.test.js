@@ -57,6 +57,26 @@ describe('parseAuctionFromLine', () => {
     assert.deepEqual(bare.columns, quoted.columns);
   });
 
+  it('accepts suit glyphs in auction bids, same as suit letters', () => {
+    const letters = parseAuctionFromLine('[Auction] 1H Pass 1S Pass 3NT AP');
+    const glyphs = parseAuctionFromLine('[Auction] 1♥ Pass 1♠ Pass 3NT AP');
+    assert.ok(letters);
+    assert.ok(glyphs);
+    assert.deepEqual(glyphs.calls, letters.calls);
+    assert.deepEqual(glyphs.calls.slice(0, 3), ['1H', 'Pass', '1S']);
+    const mixed = parseAuctionFromLine('[Auction W] 1♣ Pass 2♦! Pass 3♥=1= Pass 4♠ AP');
+    assert.ok(mixed);
+    assert.deepEqual(mixed.calls.slice(0, 7), [
+      '1C',
+      'Pass',
+      '2D',
+      'Pass',
+      '3H',
+      'Pass',
+      '4S',
+    ]);
+  });
+
   it('strips note refs and alert marks from calls', () => {
     const auction = parseAuctionFromLine(
       '[Auction "E"] 1H Pass 1S =1= Pass 2C ! Pass 3NT AP',

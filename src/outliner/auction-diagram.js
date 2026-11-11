@@ -10,8 +10,35 @@ import { SUIT_GLYPHS, createSuitNode } from './suit-shortcuts.js';
  */
 const AUCTION_TAG_RE = /\[Auction(?:\s+"?([NESW])"?)?\s*\]/i;
 const NOTE_REF_RE = /^=\d+=$/;
-const BID_RE = /^([1-7])(NT|[CDHS])(!)?$/i;
-const CALL_TOKEN_RE = /^(?:AP|Pass|X|XX|-|[1-7](?:NT|[CDHS])!?)$/i;
+/** Suit as letter or glyph (♣♦♥♠); NT unchanged. */
+const SUIT_TOKEN = `NT|[CDHS]|[${SUIT_GLYPHS.clubs}${SUIT_GLYPHS.diamonds}${SUIT_GLYPHS.hearts}${SUIT_GLYPHS.spades}]`;
+const BID_RE = new RegExp(`^([1-7])(${SUIT_TOKEN})(!)?$`, 'i');
+const CALL_TOKEN_RE = new RegExp(
+  `^(?:AP|Pass|X|XX|-|[1-7](?:${SUIT_TOKEN})!?)$`,
+  'i',
+);
+const GLUED_BID_NOTE_RE = new RegExp(
+  `^([1-7](?:${SUIT_TOKEN})!?)(=\\d+=)$`,
+  'i',
+);
+
+/**
+ * @param {string} suit
+ * @returns {'NT'|'C'|'D'|'H'|'S'|null}
+ */
+function suitToLetter(suit) {
+  const s = String(suit ?? '');
+  if (/^NT$/i.test(s)) return 'NT';
+  const upper = s.toUpperCase();
+  if (upper === 'C' || upper === 'D' || upper === 'H' || upper === 'S') {
+    return /** @type {'C'|'D'|'H'|'S'} */ (upper);
+  }
+  if (s === SUIT_GLYPHS.clubs) return 'C';
+  if (s === SUIT_GLYPHS.diamonds) return 'D';
+  if (s === SUIT_GLYPHS.hearts) return 'H';
+  if (s === SUIT_GLYPHS.spades) return 'S';
+  return null;
+}
 
 /** Column order for a full four-seat bidding diagram. */
 export const AUCTION_COLUMNS = ['W', 'N', 'E', 'S'];
@@ -36,7 +63,10 @@ function normalizeCallToken(token) {
   if (/^X$/i.test(bare)) return ['X'];
   if (bare === '-') return ['-'];
   const bid = bare.match(BID_RE);
-  if (bid) return [`${bid[1]}${bid[2].toUpperCase()}`];
+  if (bid) {
+    const suit = suitToLetter(bid[2]);
+    if (suit) return [`${bid[1]}${suit}`];
+  }
   return [];
 }
 
@@ -49,7 +79,7 @@ function isCallPart(part) {
   if (NOTE_REF_RE.test(part)) return true;
   const bare = part.replace(/!+$/g, '');
   if (CALL_TOKEN_RE.test(bare)) return true;
-  return /^[1-7](?:NT|[CDHS])!?=\d+=$/i.test(part);
+  return GLUED_BID_NOTE_RE.test(part);
 }
 
 /**
@@ -65,7 +95,7 @@ export function tokenizeAuctionCalls(text) {
   for (const part of parts) {
     if (NOTE_REF_RE.test(part)) continue;
     if (!CALL_TOKEN_RE.test(part) && !NOTE_REF_RE.test(part)) {
-      const glued = part.match(/^([1-7](?:NT|[CDHS])!?)(=\d+=)$/i);
+      const glued = part.match(GLUED_BID_NOTE_RE);
       if (glued) {
         calls.push(...normalizeCallToken(glued[1]));
         continue;
