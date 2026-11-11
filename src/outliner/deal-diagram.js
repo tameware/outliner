@@ -259,9 +259,15 @@ function itemHasPbnDiagram(item) {
   if (!el) return false;
   const text = el.textContent ?? '';
   if (parseDealFromLine(text)) return true;
-  if (parseAuctionFromItem(item)?.calls?.length) return true;
-  if (findAuctionInLine(text)?.auction) return true;
-  return false;
+  const auctionFound = findAuctionInLine(text);
+  if (!auctionFound) return false;
+  const completeLine =
+    !text.slice(0, auctionFound.start).trim() &&
+    !text.slice(auctionFound.end).trim();
+  if (completeLine) {
+    return Boolean(parseAuctionFromItem(item)?.calls?.length);
+  }
+  return auctionFound.auction.calls.length > 0;
 }
 
 /**
@@ -301,9 +307,23 @@ function replaceTextRangeWithDiagram(el, diagram, text, start, end) {
 }
 
 /**
+ * Drop child list after folding bid rows into a full-line auction diagram.
+ * @param {HTMLElement} item
+ */
+function clearAuctionChildRows(item) {
+  item.querySelector(':scope > ol')?.remove();
+  item.dataset.hasChildren = 'false';
+  const toggle = item.querySelector(':scope > .row > .toggle');
+  if (toggle) {
+    toggle.disabled = true;
+    toggle.setAttribute('aria-expanded', 'false');
+  }
+}
+
+/**
  * Replace each PBN deal/auction with its diagram (in place).
  * Surrounding prose on the same line is kept; a dedicated line becomes just the diagram.
- * Auction parents with child bid rows lose those children after rendering.
+ * Child bid rows are folded/removed only when `[Auction]` is the entire line.
  * @param {HTMLElement} root
  * @returns {number} number of lines replaced
  */
@@ -333,34 +353,32 @@ export function replaceDealLinesWithDiagrams(root) {
       continue;
     }
 
-    const auctionFromItem = parseAuctionFromItem(item);
-    if (auctionFromItem && auctionFromItem.calls.length > 0) {
-      const diagram = buildAuctionDiagramElement(auctionFromItem);
-      const auctionFound = findAuctionInLine(text);
-      // Child bid rows were folded into the diagram — always drop them.
-      const childList = item.querySelector(':scope > ol');
-      childList?.remove();
-      item.dataset.hasChildren = 'false';
-      const toggle = item.querySelector(':scope > .row > .toggle');
-      if (toggle) {
-        toggle.disabled = true;
-        toggle.setAttribute('aria-expanded', 'false');
-      }
-      if (auctionFound && !text.slice(auctionFound.end).trim() && !text.slice(0, auctionFound.start).trim()) {
-        el.replaceWith(diagram);
-      } else if (auctionFound) {
-        replaceTextRangeWithDiagram(
-          el,
-          diagram,
-          text,
-          auctionFound.start,
-          auctionFound.end,
-        );
-      } else {
-        el.replaceWith(diagram);
-      }
+    const auctionFound = findAuctionInLine(text);
+    if (!auctionFound) continue;
+    const before = text.slice(0, auctionFound.start);
+    const after = text.slice(auctionFound.end);
+    const completeLine = !before.trim() && !after.trim();
+
+    if (completeLine) {
+      // Whole line is the auction: include child bid rows, then drop them.
+      const auction = parseAuctionFromItem(item);
+      if (!auction?.calls?.length) continue;
+      clearAuctionChildRows(item);
+      el.replaceWith(buildAuctionDiagramElement(auction));
       n += 1;
+      continue;
     }
+
+    // Inline auction: same-line calls only; leave child outline rows alone.
+    if (!auctionFound.auction.calls.length) continue;
+    replaceTextRangeWithDiagram(
+      el,
+      buildAuctionDiagramElement(auctionFound.auction),
+      text,
+      auctionFound.start,
+      auctionFound.end,
+    );
+    n += 1;
   }
   return n;
 }

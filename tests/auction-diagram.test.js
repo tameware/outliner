@@ -205,7 +205,7 @@ describe('parseAuctionFromItem with child bid lines', () => {
     assert.equal(root.querySelectorAll('[data-item]').length, 1);
   });
 
-  it('removes child bid rows even when prose surrounds the auction tag', () => {
+  it('keeps child rows when the auction tag is surrounded by prose', () => {
     loadOutline(root, {
       items: [
         {
@@ -217,10 +217,25 @@ describe('parseAuctionFromItem with child bid lines', () => {
         },
       ],
     });
+    // Inline tag with no same-line calls: do not fold/remove children.
+    assert.equal(replaceDealLinesWithDiagrams(root), 0);
+    assert.equal(root.querySelector('.auction-diagram'), null);
+    assert.equal(root.querySelectorAll('[data-item]').length, 3);
+  });
+
+  it('inline same-line auctions keep unrelated children', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'See [Auction "N"] 1H Pass 1S Pass 3NT AP here',
+          children: [{ text: 'discussion note', children: [] }],
+        },
+      ],
+    });
     assert.equal(replaceDealLinesWithDiagrams(root), 1);
     assert.ok(root.querySelector('.auction-diagram'));
-    assert.equal(root.querySelector(':scope > [data-item] > ol'), null);
-    assert.equal(root.querySelectorAll('[data-item]').length, 1);
-    assert.match(root.querySelector('[data-item]')?.textContent ?? '', /notes/);
+    const kids = root.querySelectorAll(':scope > [data-item] > ol > [data-item]');
+    assert.equal(kids.length, 1);
+    assert.match(kids[0].textContent ?? '', /discussion note/);
   });
 });
