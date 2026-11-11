@@ -36,6 +36,27 @@ describe('parseAuctionFromLine', () => {
     assert.deepEqual(auction.calls.slice(-3), ['Pass', 'Pass', 'Pass']);
   });
 
+  it('presumes West when [Auction] has no direction', () => {
+    const auction = parseAuctionFromLine('[Auction] 1H Pass 1S Pass 3NT AP');
+    assert.ok(auction);
+    assert.equal(auction.firstSeat, 'W');
+    assert.deepEqual(auction.columns, ['W', 'N', 'E', 'S']);
+    assert.deepEqual(auctionCallsToRows(auction), [
+      ['1H', 'Pass', '1S', 'Pass'],
+      ['3NT', 'Pass', 'Pass', 'Pass'],
+    ]);
+  });
+
+  it('allows an unquoted direction in the Auction tag', () => {
+    const quoted = parseAuctionFromLine('[Auction "E"] 1H Pass 1S Pass 3NT AP');
+    const bare = parseAuctionFromLine('[Auction E] 1H Pass 1S Pass 3NT AP');
+    assert.ok(quoted);
+    assert.ok(bare);
+    assert.equal(bare.firstSeat, 'E');
+    assert.deepEqual(bare.calls, quoted.calls);
+    assert.deepEqual(bare.columns, quoted.columns);
+  });
+
   it('strips note refs and alert marks from calls', () => {
     const auction = parseAuctionFromLine(
       '[Auction "E"] 1H Pass 1S =1= Pass 2C ! Pass 3NT AP',
@@ -71,6 +92,27 @@ describe('parseAuctionFromLine', () => {
     assert.ok(auction);
     assert.deepEqual(auction.calls, ['-', 'Pass', '1H', 'Pass']);
     assert.deepEqual(auctionCallsToRows(auction), [['', 'Pass', '1H', 'Pass']]);
+  });
+
+  it('treats dealer-less call sequences as EW display with W–N–E–S seating', () => {
+    const auction = parseAuctionFromLine('1C Pass 1H Pass 3NT Pass Pass Pass');
+    assert.ok(auction);
+    assert.equal(auction.firstSeat, 'W');
+    assert.deepEqual(auction.columns, ['W', 'E']);
+    assert.deepEqual(auction.calls.slice(0, 4), ['1C', 'Pass', '1H', 'Pass']);
+    // Calls still walk W N E S; only W/E cells are shown (1H is East).
+    assert.deepEqual(auctionCallsToRows(auction), [
+      ['1C', '1H'],
+      ['3NT', 'Pass'],
+    ]);
+  });
+
+  it('finds a dealer-less auction mid-line', () => {
+    const found = findAuctionInLine('Then 1H Pass 2H Pass 4H AP for board 3');
+    assert.ok(found);
+    assert.equal(found.auction.firstSeat, 'W');
+    assert.deepEqual(found.auction.columns, ['W', 'E']);
+    assert.equal(found.auction.calls[0], '1H');
   });
 });
 
@@ -119,6 +161,37 @@ describe('buildAuctionDiagramElement', () => {
     );
     assert.deepEqual(cells, ['', 'Pass', '1♥', 'Pass']);
     assert.ok(cells.every((t) => !t.includes('-')));
+  });
+
+  it('renders only West and East columns for dealer-less two-hand auctions', () => {
+    const auction = parseAuctionFromLine('1C Pass 1H Pass 3NT AP');
+    assert.ok(auction);
+    const el = buildAuctionDiagramElement(auction);
+    assert.equal(el.classList.contains('auction-diagram--ew'), true);
+    const headers = [...el.querySelectorAll('.auction-head')].map(
+      (cell) => cell.textContent,
+    );
+    assert.deepEqual(headers, ['W', 'E']);
+    assert.equal(el.querySelectorAll('.auction-head').length, 2);
+  });
+
+  it('places East’s 1S under E when seatless [Auction] defaults to West', () => {
+    const auction = parseAuctionFromLine('[Auction] 1H Pass 1S Pass 3NT AP');
+    assert.ok(auction);
+    const el = buildAuctionDiagramElement(auction);
+    assert.equal(el.classList.contains('auction-diagram--ew'), false);
+    const headers = [...el.querySelectorAll('.auction-head')].map(
+      (cell) => cell.textContent,
+    );
+    assert.deepEqual(headers, ['W', 'N', 'E', 'S']);
+    const firstDataRow = el.querySelectorAll('.auction-row')[1];
+    const cells = [...firstDataRow.querySelectorAll('.auction-cell')].map(
+      (c) => c.textContent.trim(),
+    );
+    assert.match(cells[0], /1♥|1H/);
+    assert.equal(cells[1], 'Pass');
+    assert.match(cells[2], /1♠|1S/);
+    assert.equal(cells[3], 'Pass');
   });
 });
 
@@ -205,14 +278,59 @@ describe('parseAuctionFromItem with child bid lines', () => {
     assert.equal(root.querySelectorAll('[data-item]').length, 1);
   });
 
+  it('keeps subheadings under a full-line auction and only folds bid rows', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: '[Auction] 1H Pass 1S Pass 3NT AP',
+          children: [
+            { text: 'Why not 4H?', children: [] },
+            { text: 'Follow-up notes', children: [] },
+          ],
+        },
+      ],
+    });
+    assert.equal(replaceDealLinesWithDiagrams(root), 1);
+    assert.ok(root.querySelector('.auction-diagram'));
+    const kids = [
+      ...root.querySelectorAll(':scope > [data-item] > ol > [data-item]'),
+    ];
+    assert.equal(kids.length, 2);
+    assert.match(kids[0].textContent ?? '', /Why not 4H/);
+    assert.match(kids[1].textContent ?? '', /Follow-up notes/);
+  });
+
+  it('folds bid children into the diagram but keeps sibling subheadings', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: '[Auction "N"]',
+          children: [
+            { text: '1H Pass 1S Pass', children: [] },
+            { text: '3NT AP', children: [] },
+            { text: 'System notes', children: [] },
+          ],
+        },
+      ],
+    });
+    assert.equal(replaceDealLinesWithDiagrams(root), 1);
+    assert.ok(root.querySelector('.auction-diagram'));
+    const kids = [
+      ...root.querySelectorAll(':scope > [data-item] > ol > [data-item]'),
+    ];
+    assert.equal(kids.length, 1);
+    assert.match(kids[0].textContent ?? '', /System notes/);
+    assert.match(root.querySelector('.auction-diagram')?.textContent ?? '', /3NT/);
+  });
+
   it('keeps child rows when the auction tag is surrounded by prose', () => {
     loadOutline(root, {
       items: [
         {
           text: 'Auction: [Auction "N"] then notes',
           children: [
-            { text: '1H Pass 1S Pass', children: [] },
-            { text: '3NT Pass Pass Pass', children: [] },
+            { text: 'partner style notes', children: [] },
+            { text: 'more discussion', children: [] },
           ],
         },
       ],
@@ -221,6 +339,23 @@ describe('parseAuctionFromItem with child bid lines', () => {
     assert.equal(replaceDealLinesWithDiagrams(root), 0);
     assert.equal(root.querySelector('.auction-diagram'), null);
     assert.equal(root.querySelectorAll('[data-item]').length, 3);
+  });
+
+  it('renders dealer-less child call lines as EW diagrams without touching the parent', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: 'Two-hand auctions',
+          children: [{ text: '1C Pass 1H Pass 3NT AP', children: [] }],
+        },
+      ],
+    });
+    assert.equal(replaceDealLinesWithDiagrams(root), 1);
+    assert.ok(root.querySelector('.auction-diagram--ew'));
+    assert.equal(
+      root.querySelector(':scope > [data-item] .text')?.textContent,
+      'Two-hand auctions',
+    );
   });
 
   it('inline same-line auctions keep unrelated children', () => {

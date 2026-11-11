@@ -777,6 +777,10 @@ ol.outline ol {
   column-gap: 0.85rem;
 }
 
+.auction-diagram--ew .auction-row {
+  grid-template-columns: repeat(2, minmax(2.4rem, auto));
+}
+
 .auction-row-head .auction-head {
   font-weight: 600;
   color: var(--muted);

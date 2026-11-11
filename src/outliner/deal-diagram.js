@@ -7,6 +7,7 @@ import {
   findAuctionInLine,
   parseAuctionFromItem,
   buildAuctionDiagramElement,
+  isAuctionCallRow,
 } from './auction-diagram.js';
 
 const RANK = 'AKQJT98765432';
@@ -307,23 +308,44 @@ function replaceTextRangeWithDiagram(el, diagram, text, start, end) {
 }
 
 /**
- * Drop child list after folding bid rows into a full-line auction diagram.
+ * Remove only foldable bid-row children after building a full-line auction diagram.
+ * Prose subheadings under the auction line are kept.
  * @param {HTMLElement} item
  */
 function clearAuctionChildRows(item) {
-  item.querySelector(':scope > ol')?.remove();
-  item.dataset.hasChildren = 'false';
+  const list = item.querySelector(':scope > ol');
+  if (!list) return;
+  for (const child of [...list.children]) {
+    if (!child.matches?.('[data-item]')) continue;
+    const childText =
+      child.querySelector(':scope > .row > .text')?.textContent ?? '';
+    if (isAuctionCallRow(childText)) child.remove();
+  }
+  const remaining = [...list.children].filter((el) =>
+    el.matches?.('[data-item]'),
+  );
   const toggle = item.querySelector(':scope > .row > .toggle');
+  if (remaining.length === 0) {
+    list.remove();
+    item.dataset.hasChildren = 'false';
+    if (toggle) {
+      toggle.disabled = true;
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+    return;
+  }
+  item.dataset.hasChildren = 'true';
   if (toggle) {
-    toggle.disabled = true;
-    toggle.setAttribute('aria-expanded', 'false');
+    toggle.disabled = false;
+    toggle.setAttribute('aria-expanded', 'true');
   }
 }
 
 /**
  * Replace each PBN deal/auction with its diagram (in place).
  * Surrounding prose on the same line is kept; a dedicated line becomes just the diagram.
- * Child bid rows are folded/removed only when `[Auction]` is the entire line.
+ * Only bid-row children are folded/removed when `[Auction]` is the entire line;
+ * subheadings stay in the rendered outline.
  * @param {HTMLElement} root
  * @returns {number} number of lines replaced
  */
@@ -360,7 +382,7 @@ export function replaceDealLinesWithDiagrams(root) {
     const completeLine = !before.trim() && !after.trim();
 
     if (completeLine) {
-      // Whole line is the auction: include child bid rows, then drop them.
+      // Whole line is the auction: fold bid-row children into the diagram.
       const auction = parseAuctionFromItem(item);
       if (!auction?.calls?.length) continue;
       clearAuctionChildRows(item);
