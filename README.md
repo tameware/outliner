@@ -11,7 +11,7 @@ A browser-based WYSIWYG outliner built on nested HTML lists. Edit text in place,
 - Indent / outdent (`Tab` / `Shift+Tab`); toolbar Promote lifts children up, Demote gathers following siblings
 - OPML 2.0 save and open (including expansion state)
 - Optional **Sign in with Google** + **Save / Open on Google Drive** (files in a **Tameware Outliner** folder)
-- Bridge deals (PBN / `[Deal "…"]`) stay as plain text while you edit; **View → Render PBN** opens a read-only tab that replaces each deal with a compass diagram (including deals mid-line)
+- Bridge deals and auctions (PBN / `[Deal "…"]` / `[Auction "…"]`) stay as plain text while you edit; **View → Render PBN** opens a read-only tab with compass diagrams for deals and bidding tables for auctions
 
 **This repository** ([tameware/outliner](https://github.com/tameware/outliner)) is the canonical open-source project. It has **no** tie to any particular cloud account: the committed `config.js` is `null`, and GitHub Pages is a local-only demo.
 

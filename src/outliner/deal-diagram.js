@@ -1,8 +1,13 @@
 /**
- * Detect PBN-style bridge deals and build compass diagrams for render views.
+ * Detect PBN-style bridge deals/auctions and build diagrams for render views.
  */
 
 import { SUIT_GLYPHS, createSuitNode } from './suit-shortcuts.js';
+import {
+  findAuctionInLine,
+  parseAuctionFromItem,
+  buildAuctionDiagramElement,
+} from './auction-diagram.js';
 
 const RANK = 'AKQJT98765432';
 const SUIT_PART = `(?:[${RANK}]*|-)`;
@@ -245,7 +250,22 @@ function itemTextEl(item) {
 }
 
 /**
- * Count outline lines whose text parses as a PBN deal.
+ * Whether an outline item has a PBN deal and/or auction to render.
+ * @param {HTMLElement} item
+ * @returns {boolean}
+ */
+function itemHasPbnDiagram(item) {
+  const el = itemTextEl(item);
+  if (!el) return false;
+  const text = el.textContent ?? '';
+  if (parseDealFromLine(text)) return true;
+  if (parseAuctionFromItem(item)?.calls?.length) return true;
+  if (findAuctionInLine(text)?.auction) return true;
+  return false;
+}
+
+/**
+ * Count outline lines with a PBN deal or auction to render.
  * @param {HTMLElement} root
  * @returns {number}
  */
@@ -254,42 +274,93 @@ export function countDealLinesInRoot(root) {
   let n = 0;
   root.querySelectorAll('[data-item]').forEach((item) => {
     if (isDealDiagramItem(item)) return;
-    const el = itemTextEl(item);
-    if (!el) return;
-    if (parseDealFromLine(el.textContent ?? '')) n += 1;
+    if (itemHasPbnDiagram(item)) n += 1;
   });
   return n;
 }
 
 /**
- * Replace each deal in outline text with a compass diagram (in place).
- * Surrounding prose on the same line is kept; a deal-only line becomes just the diagram.
+ * @param {HTMLElement} el
+ * @param {HTMLElement} diagram
+ * @param {string} text
+ * @param {number} start
+ * @param {number} end
+ */
+function replaceTextRangeWithDiagram(el, diagram, text, start, end) {
+  const before = text.slice(0, start);
+  const after = text.slice(end);
+  if (!before.trim() && !after.trim()) {
+    el.replaceWith(diagram);
+    return;
+  }
+  el.textContent = '';
+  el.contentEditable = 'false';
+  if (before) el.appendChild(document.createTextNode(before));
+  el.appendChild(diagram);
+  if (after) el.appendChild(document.createTextNode(after));
+}
+
+/**
+ * Replace each PBN deal/auction with its diagram (in place).
+ * Surrounding prose on the same line is kept; a dedicated line becomes just the diagram.
+ * Auction parents with child bid rows lose those children after rendering.
  * @param {HTMLElement} root
  * @returns {number} number of lines replaced
  */
 export function replaceDealLinesWithDiagrams(root) {
   if (!root) return 0;
   let n = 0;
-  root.querySelectorAll('[data-item]').forEach((item) => {
-    if (isDealDiagramItem(item)) return;
+  // Snapshot items first — DOM mutates as we replace.
+  const items = [...root.querySelectorAll('[data-item]')].filter(
+    (item) => !isDealDiagramItem(item),
+  );
+  for (const item of items) {
+    if (!item.isConnected) continue;
     const el = itemTextEl(item);
-    if (!el) return;
+    if (!el) continue;
     const text = el.textContent ?? '';
-    const found = findDealInLine(text);
-    if (!found) return;
-    const diagram = buildDealDiagramElement(found.deal);
-    const before = text.slice(0, found.start);
-    const after = text.slice(found.end);
-    if (!before.trim() && !after.trim()) {
-      el.replaceWith(diagram);
-    } else {
-      el.textContent = '';
-      el.contentEditable = 'false';
-      if (before) el.appendChild(document.createTextNode(before));
-      el.appendChild(diagram);
-      if (after) el.appendChild(document.createTextNode(after));
+
+    const dealFound = findDealInLine(text);
+    if (dealFound) {
+      replaceTextRangeWithDiagram(
+        el,
+        buildDealDiagramElement(dealFound.deal),
+        text,
+        dealFound.start,
+        dealFound.end,
+      );
+      n += 1;
+      continue;
     }
-    n += 1;
-  });
+
+    const auctionFromItem = parseAuctionFromItem(item);
+    if (auctionFromItem && auctionFromItem.calls.length > 0) {
+      const diagram = buildAuctionDiagramElement(auctionFromItem);
+      const auctionFound = findAuctionInLine(text);
+      if (auctionFound && !text.slice(auctionFound.end).trim()) {
+        // Tag (+ same-line calls) is the whole line: drop child bid rows.
+        const childList = item.querySelector(':scope > ol');
+        childList?.remove();
+        item.dataset.hasChildren = 'false';
+        const toggle = item.querySelector(':scope > .row > .toggle');
+        if (toggle) {
+          toggle.disabled = true;
+          toggle.setAttribute('aria-expanded', 'false');
+        }
+        el.replaceWith(diagram);
+      } else if (auctionFound) {
+        replaceTextRangeWithDiagram(
+          el,
+          diagram,
+          text,
+          auctionFound.start,
+          auctionFound.end,
+        );
+      } else {
+        el.replaceWith(diagram);
+      }
+      n += 1;
+    }
+  }
   return n;
 }
