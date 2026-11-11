@@ -283,8 +283,9 @@ describe('replaceDealLinesWithDiagrams', () => {
     assert.equal(replaceDealLinesWithDiagrams(root), 1);
     const items = [...root.querySelectorAll(':scope > [data-item]')];
     assert.equal(items[0].querySelector('.text')?.textContent, 'Intro');
-    assert.equal(items[1].querySelector('.text'), null);
-    const diagram = items[1].querySelector('.deal-diagram');
+    const textEl = items[1].querySelector(':scope > .row > .text');
+    assert.ok(textEl, 'keep .text so outline heading numbers still apply');
+    const diagram = textEl.querySelector('.deal-diagram');
     assert.ok(diagram);
     assert.ok(diagram.querySelector('.deal-north'));
     assert.match(diagram.textContent, /♠/);

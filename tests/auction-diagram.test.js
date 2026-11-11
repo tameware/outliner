@@ -90,6 +90,38 @@ describe('parseAuctionFromLine', () => {
     ]);
   });
 
+  it('treats short, medium, and long dashes between bids as separators', () => {
+    const spaced = parseAuctionFromLine('[Auction] 1H Pass 1S Pass 3NT AP');
+    const hyphen = parseAuctionFromLine('[Auction] 1H - Pass - 1S - Pass - 3NT - AP');
+    const en = parseAuctionFromLine('[Auction] 1H – Pass – 1S – Pass – 3NT – AP');
+    const em = parseAuctionFromLine('[Auction] 1H — Pass — 1S — Pass — 3NT — AP');
+    const glued = parseAuctionFromLine('[Auction] 1♥–Pass–1♠–Pass–3NT–AP');
+    assert.ok(spaced);
+    assert.ok(hyphen);
+    assert.ok(en);
+    assert.ok(em);
+    assert.ok(glued);
+    assert.deepEqual(hyphen.calls, spaced.calls);
+    assert.deepEqual(en.calls, spaced.calls);
+    assert.deepEqual(em.calls, spaced.calls);
+    assert.deepEqual(glued.calls, spaced.calls);
+  });
+
+  it('joins a level spaced from its denomination, including suit glyphs', () => {
+    const auction = parseAuctionFromLine('1 NT - 2 ♣ – 2 ♠ - 3 ♥');
+    assert.ok(auction);
+    assert.deepEqual(auction.calls, ['1NT', '2C', '2S', '3H']);
+    const tagged = parseAuctionFromLine('[Auction] 1 NT - 2 ♣ – 2 ♠ - 3 ♥');
+    assert.ok(tagged);
+    assert.deepEqual(tagged.calls, ['1NT', '2C', '2S', '3H']);
+  });
+
+  it('still keeps a leading PBN dash as a column spacer', () => {
+    const auction = parseAuctionFromLine('[Auction "W"] - Pass 1H Pass');
+    assert.ok(auction);
+    assert.deepEqual(auction.calls, ['-', 'Pass', '1H', 'Pass']);
+  });
+
   it('strips note refs and alert marks from calls', () => {
     const auction = parseAuctionFromLine(
       '[Auction "E"] 1H Pass 1S =1= Pass 2C ! Pass 3NT AP',
@@ -127,16 +159,27 @@ describe('parseAuctionFromLine', () => {
     assert.deepEqual(auctionCallsToRows(auction), [['', 'Pass', '1H', 'Pass']]);
   });
 
-  it('treats dealer-less call sequences as EW display with W–N–E–S seating', () => {
+  it('treats dealer-less call sequences as alternating West–East bids', () => {
     const auction = parseAuctionFromLine('1C Pass 1H Pass 3NT Pass Pass Pass');
     assert.ok(auction);
     assert.equal(auction.firstSeat, 'W');
     assert.deepEqual(auction.columns, ['W', 'E']);
     assert.deepEqual(auction.calls.slice(0, 4), ['1C', 'Pass', '1H', 'Pass']);
-    // Calls still walk W N E S; only W/E cells are shown (1H is East).
     assert.deepEqual(auctionCallsToRows(auction), [
-      ['1C', '1H'],
+      ['1C', 'Pass'],
+      ['1H', 'Pass'],
       ['3NT', 'Pass'],
+      ['Pass', 'Pass'],
+    ]);
+  });
+
+  it('lays out bare suit-glyph auctions as W/E pairs without skipping seats', () => {
+    const auction = parseAuctionFromLine('1NT 2♣ 2♠ 3♥');
+    assert.ok(auction);
+    assert.deepEqual(auction.columns, ['W', 'E']);
+    assert.deepEqual(auctionCallsToRows(auction), [
+      ['1NT', '2C'],
+      ['2S', '3H'],
     ]);
   });
 
@@ -299,8 +342,10 @@ describe('parseAuctionFromItem with child bid lines', () => {
     });
     assert.ok(countDealLinesInRoot(root) >= 1);
     assert.equal(replaceDealLinesWithDiagrams(root), 1);
-    assert.ok(root.querySelector('.auction-diagram'));
-    assert.equal(root.querySelector('.text'), null);
+    const textEl = root.querySelector(':scope > [data-item] > .row > .text');
+    assert.ok(textEl, 'keep .text so outline heading numbers still apply');
+    assert.ok(textEl.querySelector('.auction-diagram'));
+    assert.equal(textEl.getAttribute('contenteditable'), 'false');
   });
 
   it('replaceDealLinesWithDiagrams uses child rows under an Auction parent', () => {

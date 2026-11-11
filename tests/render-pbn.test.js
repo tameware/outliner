@@ -278,8 +278,9 @@ describe('applyPbnRenderSnapshot', () => {
     assert.match(titled, /\(PBN\)/);
     const items = [...root.querySelectorAll(':scope > [data-item]')];
     assert.equal(items[0].querySelector('.text')?.textContent, 'Intro');
-    assert.ok(items[1].querySelector('.deal-diagram'));
-    assert.equal(items[1].querySelector('.text'), null);
+    const dealText = items[1].querySelector(':scope > .row > .text');
+    assert.ok(dealText, 'keep .text so outline heading numbers still apply');
+    assert.ok(dealText.querySelector('.deal-diagram'));
     assert.equal(document.getElementById('menu-render-pbn')?.disabled, false);
     assert.equal(document.getElementById('menu-clear')?.disabled, true);
     assert.equal(document.querySelector('[data-cloud-bar]')?.hidden, false);

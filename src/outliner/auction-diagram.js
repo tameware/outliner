@@ -44,10 +44,48 @@ function suitToLetter(suit) {
 export const AUCTION_COLUMNS = ['W', 'N', 'E', 'S'];
 
 /**
- * EW-only display: calls still walk W–N–E–S; North/South cells are omitted.
- * Used for bare dealer-less sequences (no `[Auction]` tag).
+ * Two-hand West–East columns for bare dealer-less sequences (no `[Auction]` tag).
+ * Calls alternate W, E, W, E… from `firstSeat` (usually West).
  */
 export const EW_AUCTION_COLUMNS = ['W', 'E'];
+
+/** Short/medium/long dashes writers put between bids (not a PBN seat spacer). */
+const DASH_CHAR_CLASS = '\\u002D\\u2010-\\u2015\\u2212';
+const DASH_ONLY_RE = new RegExp(`^[${DASH_CHAR_CLASS}]+$`);
+/** Turn inter-bid dashes into spaces; a leading spacer `-` is left alone. */
+const INTER_BID_DASH_RE = new RegExp(
+  `(?<=\\S)\\s*[${DASH_CHAR_CLASS}]+\\s*(?=\\S)`,
+  'g',
+);
+
+/**
+ * @param {string} part
+ * @returns {boolean}
+ */
+function isDashOnlyPart(part) {
+  return DASH_ONLY_RE.test(part);
+}
+
+/**
+ * Join `1 NT` / `2 ♣` into compact bid tokens before other parsing.
+ * @param {string} text
+ * @returns {string}
+ */
+function normalizeSpacedBids(text) {
+  const suit = SUIT_TOKEN;
+  return String(text ?? '').replace(
+    new RegExp(`\\b([1-7])\\s+(${suit})(!?)(?![\\w${SUIT_GLYPHS.clubs}${SUIT_GLYPHS.diamonds}${SUIT_GLYPHS.hearts}${SUIT_GLYPHS.spades}])`, 'gi'),
+    (_, level, den, alert) => `${level}${den}${alert ?? ''}`,
+  );
+}
+
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function normalizeAuctionSeparators(text) {
+  return normalizeSpacedBids(String(text ?? '')).replace(INTER_BID_DASH_RE, ' ');
+}
 
 /**
  * @param {string} token
@@ -62,6 +100,7 @@ function normalizeCallToken(token) {
   if (/^XX$/i.test(bare)) return ['XX'];
   if (/^X$/i.test(bare)) return ['X'];
   if (bare === '-') return ['-'];
+  if (isDashOnlyPart(bare)) return [];
   const bid = bare.match(BID_RE);
   if (bid) {
     const suit = suitToLetter(bid[2]);
@@ -74,12 +113,57 @@ function normalizeCallToken(token) {
  * @param {string} part
  * @returns {boolean}
  */
+function isLevelPart(part) {
+  return /^[1-7]$/.test(part);
+}
+
+/**
+ * Denomination alone: NT/N, C/D/H/S, or a suit glyph (optional alert bangs).
+ * @param {string} part
+ * @returns {boolean}
+ */
+function isDenomPart(part) {
+  if (!part) return false;
+  const bare = part.replace(/!+$/g, '');
+  return suitToLetter(bare) != null;
+}
+
+/**
+ * @param {string} part
+ * @returns {boolean}
+ */
 function isCallPart(part) {
   if (!part) return false;
   if (NOTE_REF_RE.test(part)) return true;
+  if (isDashOnlyPart(part)) return true;
+  if (isGluedDashCallRun(part)) return true;
+  if (isLevelPart(part) || isDenomPart(part)) return true;
   const bare = part.replace(/!+$/g, '');
   if (CALL_TOKEN_RE.test(bare)) return true;
   return GLUED_BID_NOTE_RE.test(part);
+}
+
+/**
+ * `1♥–Pass–1♠` style tokens with no spaces around the dashes.
+ * @param {string} part
+ * @returns {boolean}
+ */
+function isGluedDashCallRun(part) {
+  if (!part || isDashOnlyPart(part)) return false;
+  if (!new RegExp(`[${DASH_CHAR_CLASS}]`).test(part)) return false;
+  const bits = normalizeAuctionSeparators(part)
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!bits.length) return false;
+  return bits.every((b) => {
+    if (isDashOnlyPart(b)) return false;
+    const bare = b.replace(/!+$/g, '');
+    return (
+      CALL_TOKEN_RE.test(bare) ||
+      NOTE_REF_RE.test(b) ||
+      GLUED_BID_NOTE_RE.test(b)
+    );
+  });
 }
 
 /**
@@ -87,19 +171,31 @@ function isCallPart(part) {
  * @returns {string[]}
  */
 export function tokenizeAuctionCalls(text) {
-  const raw = String(text ?? '');
+  const raw = normalizeAuctionSeparators(text);
   if (!raw.trim()) return [];
   const parts = raw.split(/\s+/).filter(Boolean);
   /** @type {string[]} */
   const calls = [];
-  for (const part of parts) {
+  for (let i = 0; i < parts.length; i += 1) {
+    const part = parts[i];
     if (NOTE_REF_RE.test(part)) continue;
-    if (!CALL_TOKEN_RE.test(part) && !NOTE_REF_RE.test(part)) {
+    if (
+      isLevelPart(part) &&
+      i + 1 < parts.length &&
+      isDenomPart(parts[i + 1])
+    ) {
+      calls.push(...normalizeCallToken(`${part}${parts[i + 1]}`));
+      i += 1;
+      continue;
+    }
+    if (!CALL_TOKEN_RE.test(part) && !NOTE_REF_RE.test(part) && !isDashOnlyPart(part)) {
       const glued = part.match(GLUED_BID_NOTE_RE);
       if (glued) {
         calls.push(...normalizeCallToken(glued[1]));
         continue;
       }
+      // Level/denom leftovers after failed join are not calls.
+      if (isLevelPart(part) || isDenomPart(part)) continue;
       continue;
     }
     calls.push(...normalizeCallToken(part));
@@ -142,6 +238,16 @@ function consumeCallChunk(rest) {
     if (/^\s+$/.test(part)) {
       if (!callChunk) continue;
       callChunk += part;
+      continue;
+    }
+    if (isDashOnlyPart(part)) {
+      if (!/\S/.test(callChunk)) {
+        // Leading PBN seat spacer.
+        callChunk += '-';
+        continue;
+      }
+      // Dash between bids — same as a space.
+      callChunk += ' ';
       continue;
     }
     if (isCallPart(part)) {
@@ -234,6 +340,25 @@ function rangesOverlap(a, b) {
  * @param {string} text
  * @returns {AuctionMatch[]}
  */
+/**
+ * Peek past whitespace/dashes for the next real call token index, or -1.
+ * @param {string[]} parts
+ * @param {number} from
+ * @returns {number}
+ */
+function nextCallPartIndex(parts, from) {
+  let k = from;
+  while (k < parts.length) {
+    const p = parts[k];
+    if (!p || /^\s+$/.test(p) || isDashOnlyPart(p)) {
+      k += 1;
+      continue;
+    }
+    return isCallPart(p) && !isDashOnlyPart(p) ? k : -1;
+  }
+  return -1;
+}
+
 function findAllBareEwAuctionsInLine(text) {
   const parts = text.split(/(\s+)/);
   let index = 0;
@@ -246,7 +371,7 @@ function findAllBareEwAuctionsInLine(text) {
       i += 1;
       continue;
     }
-    if (/^\s+$/.test(part)) {
+    if (/^\s+$/.test(part) || isDashOnlyPart(part)) {
       index += part.length;
       i += 1;
       continue;
@@ -268,12 +393,11 @@ function findAllBareEwAuctionsInLine(text) {
         j += 1;
         continue;
       }
-      if (/^\s+$/.test(next)) {
-        let k = j + 1;
-        while (k < parts.length && !parts[k]) k += 1;
-        if (k >= parts.length || !isCallPart(parts[k])) break;
-        chunk += next;
+      if (/^\s+$/.test(next) || isDashOnlyPart(next)) {
+        if (nextCallPartIndex(parts, j + 1) < 0) break;
+        chunk += isDashOnlyPart(next) ? ' ' : next;
         cursor += next.length;
+        end = cursor;
         j += 1;
         continue;
       }
@@ -336,11 +460,16 @@ function directChildItems(item) {
  * @returns {boolean}
  */
 export function isAuctionCallRow(text) {
-  const raw = String(text ?? '').trim();
+  const raw = normalizeAuctionSeparators(String(text ?? '')).trim();
   if (!raw) return false;
   if (AUCTION_TAG_RE.test(raw)) return false;
   const parts = raw.split(/\s+/).filter(Boolean);
-  if (!parts.length || !parts.every(isCallPart)) return false;
+  if (
+    !parts.length ||
+    !parts.every((p) => isCallPart(p) && !isDashOnlyPart(p))
+  ) {
+    return false;
+  }
   return tokenizeAuctionCalls(raw).length > 0;
 }
 
@@ -426,46 +555,39 @@ function formatCallNodes(call) {
 }
 
 /**
- * Lay out calls in W–N–E–S order from `firstSeat`, keeping only `columns` cells.
- * EW display still consumes North/South calls so East’s bids land under E.
+ * Lay out calls left-to-right in `columns`, starting at `firstSeat`.
+ * Four-hand tables use W–N–E–S; bare EW tables alternate W–E only.
  * @param {{ firstSeat: 'N'|'E'|'S'|'W', calls: string[], columns?: string[] }} auction
  * @returns {string[][]}
  */
 export function auctionCallsToRows(auction) {
-  const display = auction.columns?.length ? auction.columns : AUCTION_COLUMNS;
-  const circle = AUCTION_COLUMNS;
-  let seatIdx = circle.indexOf(auction.firstSeat);
-  if (seatIdx < 0) seatIdx = 0;
-
+  const columns = auction.columns?.length ? auction.columns : AUCTION_COLUMNS;
+  const startCol = columns.indexOf(auction.firstSeat);
+  const width = columns.length;
   /** @type {string[][]} */
   const rows = [];
-  let row = Array.from({ length: display.length }, () => '');
-  let wroteInRound = false;
-
-  const pushRound = () => {
-    rows.push(row);
-    row = Array.from({ length: display.length }, () => '');
-    wroteInRound = false;
-  };
+  let row = Array.from({ length: width }, () => '');
+  let col = startCol >= 0 ? startCol : 0;
 
   for (const call of auction.calls ?? []) {
-    const seat = circle[seatIdx % circle.length];
-    const di = display.indexOf(seat);
-    if (call !== '-') {
-      if (di >= 0) {
-        row[di] = call;
-        wroteInRound = true;
+    if (call === '-') {
+      col += 1;
+      if (col >= width) {
+        rows.push(row);
+        row = Array.from({ length: width }, () => '');
+        col = 0;
       }
-    } else if (di >= 0) {
-      // Explicit spacer under a displayed seat: leave cell empty.
-      wroteInRound = true;
+      continue;
     }
-    seatIdx += 1;
-    if (seatIdx % circle.length === 0) {
-      if (wroteInRound || row.some(Boolean)) pushRound();
+    row[col] = call;
+    col += 1;
+    if (col >= width) {
+      rows.push(row);
+      row = Array.from({ length: width }, () => '');
+      col = 0;
     }
   }
-  if (wroteInRound || row.some(Boolean)) {
+  if (auction.calls?.length && (row.some(Boolean) || col > 0)) {
     rows.push(row);
   }
   return rows;

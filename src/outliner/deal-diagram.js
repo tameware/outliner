@@ -307,16 +307,9 @@ function replaceTextRangeWithDiagram(el, diagram, text, start, end) {
 function replaceTextRangesWithDiagrams(el, text, ranges) {
   if (!ranges.length) return;
   const sorted = [...ranges].sort((a, b) => a.start - b.start);
-  const coversWholeLine =
-    sorted.length === 1 &&
-    !text.slice(0, sorted[0].start).trim() &&
-    !text.slice(sorted[0].end).trim();
-  if (coversWholeLine) {
-    el.replaceWith(sorted[0].diagram);
-    return;
-  }
+  // Keep the .text host so CSS outline numbers (.text::before) still render.
   el.textContent = '';
-  el.contentEditable = 'false';
+  el.setAttribute('contenteditable', 'false');
   let cursor = 0;
   for (const range of sorted) {
     if (range.start > cursor) {
@@ -366,7 +359,7 @@ function clearAuctionChildRows(item) {
 
 /**
  * Replace each PBN deal/auction with its diagram (in place).
- * Surrounding prose on the same line is kept; a dedicated line becomes just the diagram.
+ * Surrounding prose on the same line is kept; diagrams stay inside `.text` so heading numbers remain.
  * Only bid-row children are folded/removed when `[Auction]` is the entire line;
  * subheadings stay in the rendered outline.
  * @param {HTMLElement} root
@@ -412,7 +405,13 @@ export function replaceDealLinesWithDiagrams(root) {
         const auction = parseAuctionFromItem(item);
         if (!auction?.calls?.length) continue;
         clearAuctionChildRows(item);
-        el.replaceWith(buildAuctionDiagramElement(auction));
+        replaceTextRangeWithDiagram(
+          el,
+          buildAuctionDiagramElement(auction),
+          text,
+          auctionFound.start,
+          auctionFound.end,
+        );
         n += 1;
         continue;
       }
