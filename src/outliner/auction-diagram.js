@@ -10,8 +10,8 @@ import { SUIT_GLYPHS, createSuitNode } from './suit-shortcuts.js';
  */
 const AUCTION_TAG_RE = /\[Auction(?:\s+"?([NESW])"?)?\s*\]/i;
 const NOTE_REF_RE = /^=\d+=$/;
-/** Suit as letter or glyph (♣♦♥♠); NT unchanged. */
-const SUIT_TOKEN = `NT|[CDHS]|[${SUIT_GLYPHS.clubs}${SUIT_GLYPHS.diamonds}${SUIT_GLYPHS.hearts}${SUIT_GLYPHS.spades}]`;
+/** Suit as letter or glyph (♣♦♥♠); bare N and NT both mean notrump. */
+const SUIT_TOKEN = `NT|N|[CDHS]|[${SUIT_GLYPHS.clubs}${SUIT_GLYPHS.diamonds}${SUIT_GLYPHS.hearts}${SUIT_GLYPHS.spades}]`;
 const BID_RE = new RegExp(`^([1-7])(${SUIT_TOKEN})(!)?$`, 'i');
 const CALL_TOKEN_RE = new RegExp(
   `^(?:AP|Pass|X|XX|-|[1-7](?:${SUIT_TOKEN})!?)$`,
@@ -28,7 +28,7 @@ const GLUED_BID_NOTE_RE = new RegExp(
  */
 function suitToLetter(suit) {
   const s = String(suit ?? '');
-  if (/^NT$/i.test(s)) return 'NT';
+  if (/^N(?:T)?$/i.test(s)) return 'NT';
   const upper = s.toUpperCase();
   if (upper === 'C' || upper === 'D' || upper === 'H' || upper === 'S') {
     return /** @type {'C'|'D'|'H'|'S'} */ (upper);
@@ -369,14 +369,14 @@ function formatCallNodes(call) {
     frag.appendChild(document.createTextNode(call));
     return frag;
   }
-  const bid = call.match(/^([1-7])(NT|C|D|H|S)$/i);
+  const bid = call.match(/^([1-7])(N(?:T)?|C|D|H|S)$/i);
   if (!bid) {
     frag.appendChild(document.createTextNode(call));
     return frag;
   }
   frag.appendChild(document.createTextNode(bid[1]));
   const den = bid[2].toUpperCase();
-  if (den === 'NT') {
+  if (den === 'N' || den === 'NT') {
     frag.appendChild(document.createTextNode('NT'));
     return frag;
   }

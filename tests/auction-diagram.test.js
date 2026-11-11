@@ -77,6 +77,18 @@ describe('parseAuctionFromLine', () => {
     ]);
   });
 
+  it('normalizes bare N notrump bids to NT', () => {
+    const auction = parseAuctionFromLine('[Auction] 1N Pass 2N Pass 3N AP');
+    assert.ok(auction);
+    assert.deepEqual(auction.calls.slice(0, 5), [
+      '1NT',
+      'Pass',
+      '2NT',
+      'Pass',
+      '3NT',
+    ]);
+  });
+
   it('strips note refs and alert marks from calls', () => {
     const auction = parseAuctionFromLine(
       '[Auction "E"] 1H Pass 1S =1= Pass 2C ! Pass 3NT AP',
