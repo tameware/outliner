@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   OPML_FILE_TYPES,
+  OPML_FILE_INPUT_ACCEPT,
   supportsFileSystemAccess,
   localSaveMenuLabel,
   suggestedOpmlFilename,
@@ -98,9 +99,19 @@ describe('local file (File System Access)', () => {
     assert.equal(outlineTitleFromFileName('.opml', 'Fallback'), 'Fallback');
   });
 
-  it('declares OPML accept types for the pickers', () => {
+  it('declares OPML accept types that keep .opml selectable in the system picker', () => {
     assert.ok(Array.isArray(OPML_FILE_TYPES));
-    assert.ok(OPML_FILE_TYPES[0].accept['text/x-opml'].includes('.opml'));
+    const accept = OPML_FILE_TYPES[0].accept;
+    // text/x-opml is unregistered on many OSes and can gray out .opml on first open.
+    assert.equal(Object.hasOwn(accept, 'text/x-opml'), false);
+    const extensions = Object.values(accept).flat();
+    assert.ok(extensions.includes('.opml'));
+    assert.ok(
+      accept['text/xml']?.includes('.opml') || accept['text/*']?.includes('.opml'),
+      'map .opml under a registered text MIME so the picker enables those files',
+    );
+    assert.match(OPML_FILE_INPUT_ACCEPT, /\.opml/);
+    assert.doesNotMatch(OPML_FILE_INPUT_ACCEPT, /text\/x-opml/);
   });
 
   it('openOpmlWithFilePicker returns handle, name, text, and lastModified', async () => {

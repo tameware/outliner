@@ -4,17 +4,25 @@
 
 import { APP_DOCUMENT_TITLE } from '../chrome/document-title.js';
 
-/** @type {FilePickerAcceptType[]} */
+/**
+ * File-picker accept map for OPML. Avoid `text/x-opml` — it is not a registered
+ * type on many systems, and Chromium’s showOpenFilePicker can leave `.opml`
+ * files grayed out (especially on the first open after a refresh).
+ * @type {FilePickerAcceptType[]}
+ */
 export const OPML_FILE_TYPES = [
   {
     description: 'OPML outline',
     accept: {
-      'text/x-opml': ['.opml'],
-      'application/xml': ['.opml', '.xml'],
       'text/xml': ['.opml', '.xml'],
+      'application/xml': ['.opml', '.xml'],
+      'text/plain': ['.opml'],
     },
   },
 ];
+
+/** Legacy &lt;input type="file" accept&gt; — extensions first, no text/x-opml. */
+export const OPML_FILE_INPUT_ACCEPT = '.opml,.xml,text/xml,application/xml,text/plain';
 
 /**
  * @param {Pick<Window, 'showOpenFilePicker' | 'showSaveFilePicker' | 'self' | 'top' | 'navigator'> | null | undefined} [win]
@@ -121,6 +129,7 @@ export async function openOpmlWithFilePicker(deps = {}) {
   if (!showOpen) throw new Error('showOpenFilePicker is not available');
   try {
     const [handle] = await showOpen({
+      id: 'outliner-opml-open',
       multiple: false,
       types: OPML_FILE_TYPES,
     });

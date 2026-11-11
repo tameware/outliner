@@ -7,6 +7,7 @@ import {
   saveOutlineLocally as saveOutlineLocallyDefault,
   isAbortError,
   isFilePickerUnavailableError,
+  OPML_FILE_INPUT_ACCEPT,
 } from './local-file.js';
 import { shouldSaveUnderNewName, flushDocumentTitleEditor } from '../chrome/document-title.js';
 import {
@@ -73,6 +74,9 @@ export function createLocalSession(deps) {
   let localFileHandle = null;
   /** @type {'replace' | 'insert'} */
   let fileOpenMode = 'replace';
+
+  // Keep the legacy picker filter aligned with OPML_FILE_TYPES (no text/x-opml).
+  if (fileInput) fileInput.accept = OPML_FILE_INPUT_ACCEPT;
 
   function syncLocalSaveLabel() {
     if (fileSaveButton) {
