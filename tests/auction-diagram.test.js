@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom';
 import {
   parseAuctionFromLine,
   findAuctionInLine,
+  findAllAuctionsInLine,
   buildAuctionDiagramElement,
   parseAuctionFromItem,
   auctionCallsToRows,
@@ -145,6 +146,16 @@ describe('parseAuctionFromLine', () => {
     assert.equal(found.auction.firstSeat, 'W');
     assert.deepEqual(found.auction.columns, ['W', 'E']);
     assert.equal(found.auction.calls[0], '1H');
+  });
+
+  it('finds multiple dealer-less auctions separated by prose', () => {
+    const text =
+      '1H Pass 1S Pass 3NT AP\nor\n1H Pass 1S Pass 4NT AP';
+    const all = findAllAuctionsInLine(text);
+    assert.equal(all.length, 2);
+    assert.equal(all[0].auction.calls[4], '3NT');
+    assert.equal(all[1].auction.calls[4], '4NT');
+    assert.match(text.slice(all[0].end, all[1].start), /or/);
   });
 });
 
@@ -404,5 +415,33 @@ describe('parseAuctionFromItem with child bid lines', () => {
     const kids = root.querySelectorAll(':scope > [data-item] > ol > [data-item]');
     assert.equal(kids.length, 1);
     assert.match(kids[0].textContent ?? '', /discussion note/);
+  });
+
+  it('renders two auctions in one item as separate diagrams with prose between', () => {
+    loadOutline(root, {
+      items: [
+        {
+          text: '1H Pass 1S Pass 3NT AP\nor\n1H Pass 1S Pass 4NT AP',
+          children: [],
+        },
+      ],
+    });
+    assert.equal(replaceDealLinesWithDiagrams(root), 1);
+    const host = root.querySelector(':scope > [data-item] > .row > .text');
+    assert.ok(host);
+    const kids = [...host.childNodes];
+    const diagrams = kids.filter(
+      (n) => n.nodeType === 1 && n.classList?.contains('auction-diagram'),
+    );
+    assert.equal(diagrams.length, 2);
+    assert.match(diagrams[0].textContent ?? '', /3NT/);
+    assert.match(diagrams[1].textContent ?? '', /4NT/);
+    const firstDi = kids.indexOf(diagrams[0]);
+    const secondDi = kids.indexOf(diagrams[1]);
+    const between = kids
+      .slice(firstDi + 1, secondDi)
+      .map((n) => n.textContent ?? '')
+      .join('');
+    assert.match(between, /or/);
   });
 });

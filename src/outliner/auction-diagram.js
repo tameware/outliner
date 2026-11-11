@@ -175,61 +175,85 @@ function seatingFromTag(tagged) {
 }
 
 /**
- * Locate a tagged PBN auction, or a dealer-less call sequence (EW display).
- * @param {string} line
- * @returns {{
+ * @typedef {{
  *   auction: { firstSeat: 'N'|'E'|'S'|'W', calls: string[], columns: string[] },
  *   start: number,
  *   end: number,
- * } | null}
+ * }} AuctionMatch
+ */
+
+/**
+ * Locate the first tagged PBN auction or dealer-less call sequence.
+ * @param {string} line
+ * @returns {AuctionMatch | null}
  */
 export function findAuctionInLine(line) {
-  const text = String(line ?? '');
-  const tagged = text.match(AUCTION_TAG_RE);
-  if (tagged && tagged.index != null) {
-    const { firstSeat, columns } = seatingFromTag(tagged);
-    const afterTag = text.slice(tagged.index + tagged[0].length);
-    const leadingWs = afterTag.match(/^\s*/)?.[0] ?? '';
-    const callChunk = consumeCallChunk(afterTag.slice(leadingWs.length));
-    const auction = auctionFromBody(callChunk, firstSeat, columns);
-    return {
-      auction,
-      start: tagged.index,
-      end:
-        tagged.index +
-        tagged[0].length +
-        leadingWs.length +
-        callChunk.length,
-    };
-  }
-
-  return findBareEwAuctionInLine(text);
+  return findAllAuctionsInLine(line)[0] ?? null;
 }
 
 /**
- * Dealer-less call sequence → West deals, East responds (two columns).
- * @param {string} text
- * @returns {{
- *   auction: { firstSeat: 'N'|'E'|'S'|'W', calls: string[], columns: string[] },
- *   start: number,
- *   end: number,
- * } | null}
+ * Locate every tagged or dealer-less auction in left-to-right order.
+ * Intervening prose (e.g. "or") is left outside the matches.
+ * @param {string} line
+ * @returns {AuctionMatch[]}
  */
-function findBareEwAuctionInLine(text) {
+export function findAllAuctionsInLine(line) {
+  const text = String(line ?? '');
+  /** @type {AuctionMatch[]} */
+  const tagged = [];
+  for (const match of text.matchAll(new RegExp(AUCTION_TAG_RE.source, 'gi'))) {
+    if (match.index == null) continue;
+    const { firstSeat, columns } = seatingFromTag(match);
+    const afterTag = text.slice(match.index + match[0].length);
+    const leadingWs = afterTag.match(/^\s*/)?.[0] ?? '';
+    const callChunk = consumeCallChunk(afterTag.slice(leadingWs.length));
+    tagged.push({
+      auction: auctionFromBody(callChunk, firstSeat, columns),
+      start: match.index,
+      end:
+        match.index + match[0].length + leadingWs.length + callChunk.length,
+    });
+  }
+
+  const bare = findAllBareEwAuctionsInLine(text).filter(
+    (b) => !tagged.some((t) => rangesOverlap(b, t)),
+  );
+  return [...tagged, ...bare].sort((a, b) => a.start - b.start);
+}
+
+/**
+ * @param {{ start: number, end: number }} a
+ * @param {{ start: number, end: number }} b
+ */
+function rangesOverlap(a, b) {
+  return a.start < b.end && b.start < a.end;
+}
+
+/**
+ * Dealer-less call runs → West-first EW display, non-overlapping left to right.
+ * @param {string} text
+ * @returns {AuctionMatch[]}
+ */
+function findAllBareEwAuctionsInLine(text) {
   const parts = text.split(/(\s+)/);
   let index = 0;
-  /** @type {{ start: number, end: number, chunk: string } | null} */
-  let best = null;
+  /** @type {AuctionMatch[]} */
+  const found = [];
 
-  for (let i = 0; i < parts.length; i += 1) {
+  for (let i = 0; i < parts.length; ) {
     const part = parts[i];
-    if (!part) continue;
+    if (!part) {
+      i += 1;
+      continue;
+    }
     if (/^\s+$/.test(part)) {
       index += part.length;
+      i += 1;
       continue;
     }
     if (!isCallPart(part)) {
       index += part.length;
+      i += 1;
       continue;
     }
 
@@ -245,7 +269,6 @@ function findBareEwAuctionInLine(text) {
         continue;
       }
       if (/^\s+$/.test(next)) {
-        // Peek: only keep whitespace if another call follows
         let k = j + 1;
         while (k < parts.length && !parts[k]) k += 1;
         if (k >= parts.length || !isCallPart(parts[k])) break;
@@ -263,19 +286,29 @@ function findBareEwAuctionInLine(text) {
 
     const calls = tokenizeAuctionCalls(chunk);
     if (looksLikeAuctionCalls(calls)) {
-      const candidate = { start, end, chunk };
-      if (!best || chunk.length > best.chunk.length) best = candidate;
+      found.push({
+        auction: auctionFromBody(chunk, 'W', EW_AUCTION_COLUMNS),
+        start,
+        end,
+      });
+      index = end;
+      i = j;
+      continue;
     }
 
     index += part.length;
+    i += 1;
   }
 
-  if (!best) return null;
-  return {
-    auction: auctionFromBody(best.chunk, 'W', EW_AUCTION_COLUMNS),
-    start: best.start,
-    end: best.end,
-  };
+  return found;
+}
+
+/**
+ * @param {string} text
+ * @returns {AuctionMatch | null}
+ */
+function findBareEwAuctionInLine(text) {
+  return findAllBareEwAuctionsInLine(text)[0] ?? null;
 }
 
 /**

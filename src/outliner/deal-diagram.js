@@ -5,6 +5,7 @@
 import { SUIT_GLYPHS, createSuitNode } from './suit-shortcuts.js';
 import {
   findAuctionInLine,
+  findAllAuctionsInLine,
   parseAuctionFromItem,
   buildAuctionDiagramElement,
   isAuctionCallRow,
@@ -294,17 +295,39 @@ export function countDealLinesInRoot(root) {
  * @param {number} end
  */
 function replaceTextRangeWithDiagram(el, diagram, text, start, end) {
-  const before = text.slice(0, start);
-  const after = text.slice(end);
-  if (!before.trim() && !after.trim()) {
-    el.replaceWith(diagram);
+  replaceTextRangesWithDiagrams(el, text, [{ start, end, diagram }]);
+}
+
+/**
+ * Replace one or more ranges with diagrams, keeping interstitial prose.
+ * @param {HTMLElement} el
+ * @param {string} text
+ * @param {{ start: number, end: number, diagram: HTMLElement }[]} ranges
+ */
+function replaceTextRangesWithDiagrams(el, text, ranges) {
+  if (!ranges.length) return;
+  const sorted = [...ranges].sort((a, b) => a.start - b.start);
+  const coversWholeLine =
+    sorted.length === 1 &&
+    !text.slice(0, sorted[0].start).trim() &&
+    !text.slice(sorted[0].end).trim();
+  if (coversWholeLine) {
+    el.replaceWith(sorted[0].diagram);
     return;
   }
   el.textContent = '';
   el.contentEditable = 'false';
-  if (before) el.appendChild(document.createTextNode(before));
-  el.appendChild(diagram);
-  if (after) el.appendChild(document.createTextNode(after));
+  let cursor = 0;
+  for (const range of sorted) {
+    if (range.start > cursor) {
+      el.appendChild(document.createTextNode(text.slice(cursor, range.start)));
+    }
+    el.appendChild(range.diagram);
+    cursor = range.end;
+  }
+  if (cursor < text.length) {
+    el.appendChild(document.createTextNode(text.slice(cursor)));
+  }
 }
 
 /**
@@ -375,31 +398,47 @@ export function replaceDealLinesWithDiagrams(root) {
       continue;
     }
 
-    const auctionFound = findAuctionInLine(text);
-    if (!auctionFound) continue;
-    const before = text.slice(0, auctionFound.start);
-    const after = text.slice(auctionFound.end);
-    const completeLine = !before.trim() && !after.trim();
+    const auctions = findAllAuctionsInLine(text);
+    if (!auctions.length) continue;
 
-    if (completeLine) {
-      // Whole line is the auction: fold bid-row children into the diagram.
-      const auction = parseAuctionFromItem(item);
-      if (!auction?.calls?.length) continue;
-      clearAuctionChildRows(item);
-      el.replaceWith(buildAuctionDiagramElement(auction));
+    if (auctions.length === 1) {
+      const auctionFound = auctions[0];
+      const before = text.slice(0, auctionFound.start);
+      const after = text.slice(auctionFound.end);
+      const completeLine = !before.trim() && !after.trim();
+
+      if (completeLine) {
+        // Whole line is the auction: fold bid-row children into the diagram.
+        const auction = parseAuctionFromItem(item);
+        if (!auction?.calls?.length) continue;
+        clearAuctionChildRows(item);
+        el.replaceWith(buildAuctionDiagramElement(auction));
+        n += 1;
+        continue;
+      }
+
+      if (!auctionFound.auction.calls.length) continue;
+      replaceTextRangeWithDiagram(
+        el,
+        buildAuctionDiagramElement(auctionFound.auction),
+        text,
+        auctionFound.start,
+        auctionFound.end,
+      );
       n += 1;
       continue;
     }
 
-    // Inline auction: same-line calls only; leave child outline rows alone.
-    if (!auctionFound.auction.calls.length) continue;
-    replaceTextRangeWithDiagram(
-      el,
-      buildAuctionDiagramElement(auctionFound.auction),
-      text,
-      auctionFound.start,
-      auctionFound.end,
-    );
+    // Several auctions on one line: one diagram each, prose between them kept.
+    const ranges = auctions
+      .filter((a) => a.auction.calls.length > 0)
+      .map((a) => ({
+        start: a.start,
+        end: a.end,
+        diagram: buildAuctionDiagramElement(a.auction),
+      }));
+    if (!ranges.length) continue;
+    replaceTextRangesWithDiagrams(el, text, ranges);
     n += 1;
   }
   return n;
